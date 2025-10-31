@@ -3,9 +3,22 @@
 $q = trim($_GET['q'] ?? '');
 if ($q !== '') {
   // Always consult OMDb for any non-empty search so users can find any movie.
-  include_once __DIR__ . '/includes/omdb,php';
+  include_once __DIR__ . '/includes/omdb.php';
+  // Provide a fallback stub if the OMDb helper isn't available to avoid undefined function errors
+  if (!function_exists('get_movie_or_fetch')) {
+    function get_movie_or_fetch($q) {
+      // OMDb integration not configured; no-op fallback.
+      return null;
+    }
+  }
   // Ask OMDb to fetch and insert matching movies into local DB (if key present)
-  try { get_movie_or_fetch($q); } catch (Throwable $e) { /* ignore fetch errors */ }
+  if (function_exists('get_movie_or_fetch')) {
+    try {
+      get_movie_or_fetch($q);
+    } catch (Throwable $e) {
+      /* ignore fetch errors */
+    }
+  }
 
   // Broad local search: match the whole phrase and individual words to return more results
   $words = array_values(array_filter(array_map('trim', preg_split('/\s+/', $q)), function($w){ return strlen($w) >= 2; }));

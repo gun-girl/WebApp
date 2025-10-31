@@ -1,8 +1,11 @@
 <?php
 // helper.php
-function e(string $s): string
+/**
+ * Escape any value for HTML output. Accepts null or other types and casts to string.
+ */
+function e($s): string
 {
-    return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+    return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 }
 if (!function_exists('redirect')) {
     function redirect(string $path): void
