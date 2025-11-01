@@ -3,7 +3,6 @@
 <html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>IL DIVANO D’ORO</title>
 <link rel="stylesheet" href="/movie-club-app/assets/css/styles.css">
 </head><body class="container">
 <header>

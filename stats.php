@@ -302,20 +302,11 @@ $rows = $mysqli->query($sql)->fetch_all(MYSQLI_ASSOC);
   </style>
 </head>
 
-<body>
-  <header>
-    <h1>🏆 IL DIVANO D’ORO</h1>
-    <nav>
-      <a href="index.php">🏠 Home</a>
-      <a href="logout.php">Logout</a>
-      <a href="?mine=1">My Votes</a>
-    </nav>
-  </header>
-
   <main>
     <div class="nav-buttons">
-      <a href="index.php" class="btn">🏠 Home</a>
       <a href="export_results.php" class="btn">⬇ Download Excel</a>
+      <a href="?mine=1" class="btn">My Votes</a>
+
     </div>
 
     <section class="results-container">
