@@ -17,7 +17,7 @@
       <a href="/movie-club-app/register.php">Register</a> |
       <a href="/movie-club-app/login.php">Login</a>
     <?php endif; ?>
-    <a href="/movie-club-app/index.php" class="btn">🏠 Home</a>
+    <a href="/movie-club-app/index.php" class="btn"> Home</a>
   </nav>
 </header>
 <main>

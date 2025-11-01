@@ -16,10 +16,6 @@ button{cursor:pointer;background:#2b7;color:#fff;border:0}
 .nav-buttons{margin:1rem 0}
 .btn{display:inline-block;padding:.5rem 1rem;background:#2b7;color:#fff;text-decoration:none;border-radius:.25rem;margin-right:.5rem}
 .btn:hover{background:#3c8}
-
-.nav-buttons{margin:1rem 0}
-.btn{display:inline-block;padding:.5rem 1rem;background:#2b7;color:#fff;text-decoration:none;border-radius:.25rem;margin-right:.5rem}
-.btn:hover{background:#3c8}
 .btn-small{padding:.25rem .5rem;font-size:.9em}
 .vote-form {
     max-width: 500px;

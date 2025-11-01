@@ -1,24 +1,33 @@
 <?php
+// scripts/create_votes_table.php
 require_once __DIR__ . '/../config.php';
 
 $sql = <<<SQL
 CREATE TABLE IF NOT EXISTS votes (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  user_id INT NOT NULL,
-  movie_id INT NOT NULL,
-  rating TINYINT NOT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY ux_user_movie (user_id, movie_id),
-  KEY idx_movie (movie_id),
-  KEY idx_user (user_id)
-);
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    movie_id INT NOT NULL,
+    category VARCHAR(50),
+    platform VARCHAR(50),
+    competition ENUM('In Concorso', 'Fuori Concorso'),
+    writing TINYINT,
+    direction TINYINT,
+    acting_theme TINYINT,
+    emotional_involvement TINYINT,
+    novelty TINYINT,
+    casting_research_artwork TINYINT,
+    sound TINYINT,
+    adjective VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (movie_id) REFERENCES movies(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 SQL;
 
-try {
-    $mysqli->query($sql);
-    echo "votes table created or already exists\n";
-} catch (Exception $e) {
-    echo "Error creating votes table: ", $e->getMessage(), "\n";
+if ($mysqli->query($sql)) {
+    echo "✅ Table 'votes' created successfully.";
+} else {
+    echo "❌ Error creating table: " . $mysqli->error;
 }
+?>
 

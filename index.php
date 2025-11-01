@@ -1,67 +1,194 @@
-<?php require_once __DIR__.'/includes/auth.php'; include __DIR__.'/includes/header.php';
+<?php
+require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/config.php';
+require_login();
 
-$q = trim($_GET['q'] ?? '');
-if ($q !== '') {
-  // Always consult OMDb for any non-empty search so users can find any movie.
-  include_once __DIR__ . '/includes/omdb.php';
-  // Provide a fallback stub if the OMDb helper isn't available to avoid undefined function errors
-  if (!function_exists('get_movie_or_fetch')) {
-    function get_movie_or_fetch($q) {
-      // OMDb integration not configured; no-op fallback.
-      return null;
-    }
-  }
-  // Ask OMDb to fetch and insert matching movies into local DB (if key present)
-  if (function_exists('get_movie_or_fetch')) {
-    try {
-      get_movie_or_fetch($q);
-    } catch (Throwable $e) {
-      /* ignore fetch errors */
-    }
-  }
+$user = current_user();
+$search = $_GET['search'] ?? '';
 
-  // Broad local search: match the whole phrase and individual words to return more results
-  $words = array_values(array_filter(array_map('trim', preg_split('/\s+/', $q)), function($w){ return strlen($w) >= 2; }));
-  $likes = [];
-  // include full phrase first
-  $likes[] = '%' . $q . '%';
-  foreach ($words as $w) { $likes[] = '%' . $w . '%'; }
-
-  $clauses = array_fill(0, count($likes), 'title LIKE ?');
-  $sql = "SELECT id,title,year,poster_url FROM movies WHERE " . implode(' OR ', $clauses) . " ORDER BY year DESC LIMIT 50";
+$sql = "SELECT * FROM movies";
+if ($search) {
+  $sql .= " WHERE title LIKE ?";
   $stmt = $mysqli->prepare($sql);
-  $types = str_repeat('s', count($likes));
-  // bind params dynamically
-  $stmt->bind_param($types, ...$likes);
+  $like = "%$search%";
+  $stmt->bind_param('s', $like);
   $stmt->execute();
   $movies = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 } else {
-  $movies = $mysqli->query("SELECT id,title,year,poster_url FROM movies ORDER BY id DESC LIMIT 20")->fetch_all(MYSQLI_ASSOC);
+  $movies = $mysqli->query($sql)->fetch_all(MYSQLI_ASSOC);
 }
 ?>
-<h2>Movies</h2>
-<form method="get" class="search">
-  <input name="q" placeholder="Search title…" value="<?= e($q) ?>">
-  <button>Search</button>
-</form>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>IL DIVANO D’ORO – Movies</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <style>
+    /* === GLOBAL === */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Poppins', system-ui, sans-serif;
+      background: radial-gradient(circle at top, #0c0c0c, #000);
+      color: #eee;
+      min-height: 100vh;
+    }
+    header {
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(8px);
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 2rem;
+      border-bottom: 1px solid #222;
+    }
+    header h1 {
+      font-size: 1.6rem;
+      letter-spacing: 1px;
+      font-weight: 600;
+      color: #f6c90e;
+    }
+    nav a {
+      color: #fff;
+      text-decoration: none;
+      margin-left: 1rem;
+      transition: color .2s;
+      font-weight: 500;
+    }
+    nav a:hover { color: #f6c90e; }
 
-<div class="grid">
-<?php foreach($movies as $m): ?>
-  <article class="card">
-    <img src="<?= e($m['poster_url'] ?: '/movie-club-app/assets/img/placeholder.jpg') ?>" alt="" loading="lazy">
-    <h3><?= e($m['title']) ?></h3>
-    <p><?= e($m['year']) ?></p>
-    <?php if (current_user()): ?>
-      <form method="post" action="/movie-club-app/vote.php">
-        <?= csrf_field() ?>
-        <input type="hidden" name="movie_id" value="<?= (int)$m['id'] ?>">
-        <label>Rate (1–5) <input type="number" name="rating" min="1" max="5" required></label>
-        <button>Vote</button>
-      </form>
-    <?php else: ?>
-      <p><a href="/movie-club-app/login.php">Login to vote</a></p>
-    <?php endif; ?>
-  </article>
-<?php endforeach; ?>
-</div>
-<?php include __DIR__.'/includes/footer.php';
+    /* === SEARCH === */
+    .search-bar {
+      max-width: 400px;
+      margin: 1.5rem auto;
+      display: flex;
+      justify-content: center;
+      gap: .5rem;
+    }
+    .search-bar input {
+      flex: 1;
+      padding: .7rem;
+      border-radius: .3rem;
+      border: none;
+      background: #222;
+      color: #fff;
+      font-size: 1rem;
+    }
+    .search-bar button {
+      background: #f6c90e;
+      color: #000;
+      border: none;
+      padding: .7rem 1rem;
+      border-radius: .3rem;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .search-bar button:hover { background: #ffde50; }
+
+    /* === MOVIE GRID === */
+    .movies-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.5rem;
+      padding: 2rem;
+      max-width: 1200px;
+      margin: auto;
+    }
+    .movie-card {
+      background: #111;
+      border-radius: 0.75rem;
+      overflow: hidden;
+      box-shadow: 0 4px 15px rgba(0,0,0,.4);
+      transition: transform .3s ease, box-shadow .3s ease;
+      position: relative;
+    }
+    .movie-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 6px 25px rgba(246,201,14,.4);
+    }
+    .movie-card img {
+      width: 100%;
+      height: 320px;
+      object-fit: cover;
+      display: block;
+    }
+    .movie-info {
+      padding: 1rem;
+    }
+    .movie-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: .3rem;
+      color: #fff;
+    }
+    .movie-year {
+      color: #999;
+      font-size: .9rem;
+      margin-bottom: .6rem;
+    }
+    .rate-btn {
+      display: inline-block;
+      padding: .4rem .9rem;
+      background: #f6c90e;
+      color: #000;
+      border-radius: .3rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background .2s;
+    }
+    .rate-btn:hover {
+      background: #ffde50;
+    }
+
+    footer {
+      text-align: center;
+      color: #555;
+      padding: 1.5rem 0;
+      font-size: .9rem;
+      margin-top: 2rem;
+      border-top: 1px solid #222;
+    }
+
+    /* === RESPONSIVE === */
+    @media (max-width: 640px) {
+      header h1 { font-size: 1.3rem; }
+      .movies-container { padding: 1rem; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>🎬 IL DIVANO D’ORO</h1>
+    <nav>
+      <span>Hello, <?= htmlspecialchars($user['username']) ?></span>
+      | <a href="logout.php">Logout</a>
+      | <a href="stats.php">Results</a>
+      | <a href="index.php">🏠 Home</a>
+    </nav>
+  </header>
+
+  <form method="get" class="search-bar">
+    <input type="text" name="search" placeholder="Search movies..." value="<?= htmlspecialchars($search) ?>">
+    <button type="submit">Search</button>
+  </form>
+
+  <section class="movies-container">
+    <?php foreach ($movies as $movie): ?>
+      <div class="movie-card">
+        <img src="<?= htmlspecialchars($movie['poster_url'] ?: 'assets/img/no-poster.png') ?>" alt="<?= htmlspecialchars($movie['title']) ?>">
+        <div class="movie-info">
+          <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
+          <div class="movie-year"><?= htmlspecialchars($movie['year']) ?></div>
+          <a class="rate-btn" href="vote.php?movie_id=<?= $movie['id'] ?>">Rate ⭐</a>
+        </div>
+      </div>
+    <?php endforeach; ?>
+  </section>
+
+  <footer>© IL DIVANO D’ORO 2025 — All rights reserved.</footer>
+</body>
+</html>
