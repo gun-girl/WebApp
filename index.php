@@ -60,6 +60,69 @@ if ($search) {
     }
     nav a:hover { color: #f6c90e; }
 
+    /* === USER DROPDOWN MENU === */
+    .user-menu {
+      position: relative;
+      display: inline-block;
+    }
+    .user-button {
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-weight: 500;
+      cursor: pointer;
+      padding: .5rem 1rem;
+      border-radius: .3rem;
+      transition: all .2s;
+      font-family: inherit;
+      font-size: inherit;
+    }
+    .user-button:hover {
+      background: rgba(246,201,14,.1);
+      color: #f6c90e;
+    }
+    .dropdown-menu {
+      display: none;
+      position: absolute;
+      top: 100%;
+      right: 0;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: .5rem;
+      min-width: 250px;
+      box-shadow: 0 8px 25px rgba(0,0,0,.6);
+      margin-top: .5rem;
+      z-index: 1000;
+      overflow: hidden;
+    }
+    .dropdown-menu.show {
+      display: block;
+      animation: fadeIn .2s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .dropdown-item {
+      display: block;
+      padding: .8rem 1.2rem;
+      color: #ccc;
+      text-decoration: none;
+      transition: all .2s;
+      border-bottom: 1px solid #282828;
+      font-size: .95rem;
+    }
+    .dropdown-item:hover {
+      background: rgba(246,201,14,.1);
+      color: #f6c90e;
+      padding-left: 1.5rem;
+    }
+    .dropdown-divider {
+      height: 2px;
+      background: #333;
+      margin: .3rem 0;
+    }
+
     /* === SEARCH === */
     .search-bar {
       max-width: 400px;
@@ -162,10 +225,20 @@ if ($search) {
 
 <body>
   <header>
-    <h1>🎬 IL DIVANO D’ORO</h1>
+    <h1>🎬 IL DIVANO D'ORO</h1>
     <nav>
-      <span>Hello, <?= htmlspecialchars($user['username']) ?></span>
-      | <a href="logout.php">Logout</a>
+      <div class="user-menu">
+        <button class="user-button" id="userMenuBtn">
+          Hello, <?= htmlspecialchars($user['username']) ?> 👤
+        </button>
+        <div class="dropdown-menu" id="userDropdown">
+          <a href="profile.php" class="dropdown-item">👤 Profile</a>
+          <a href="stats.php?mine=1" class="dropdown-item">📊 View My Votes</a>
+          <a href="profile.php" class="dropdown-item">✉️ Email: <?= htmlspecialchars($user['email']) ?></a>
+          <div class="dropdown-divider"></div>
+          <a href="logout.php" class="dropdown-item">🚪 Log out</a>
+        </div>
+      </div>
       | <a href="stats.php">Results</a>
       | <a href="index.php">🏠 Home</a>
     </nav>
@@ -189,6 +262,24 @@ if ($search) {
     <?php endforeach; ?>
   </section>
 
-  <footer>© IL DIVANO D’ORO 2025 — All rights reserved.</footer>
+  <footer>© IL DIVANO D'ORO 2025 — All rights reserved.</footer>
+
+  <script>
+    // User dropdown menu toggle
+    const userBtn = document.getElementById('userMenuBtn');
+    const dropdown = document.getElementById('userDropdown');
+    
+    userBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      dropdown.classList.toggle('show');
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+      if (!dropdown.contains(e.target) && e.target !== userBtn) {
+        dropdown.classList.remove('show');
+      }
+    });
+  </script>
 </body>
 </html>
