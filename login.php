@@ -1,4 +1,6 @@
-<?php require_once __DIR__.'/includes/auth.php';
+<?php 
+require_once __DIR__.'/includes/auth.php';
+require_once __DIR__.'/includes/lang.php';
 
 $errors=[];
 if ($_SERVER['REQUEST_METHOD']==='POST') {
@@ -9,14 +11,14 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
   $res=$stmt->get_result()->fetch_assoc();
   if ($res && password_verify($pass,$res['password_hash'])) {
     login_user($res); redirect('/movie-club-app/index.php');
-  } else $errors[]='Invalid email or password';
+  } else $errors[]=t('invalid_credentials');
 }
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="<?= current_lang() ?>">
 <head>
   <meta charset="UTF-8">
-  <title>Login – IL DIVANO D'ORO</title>
+  <title><?= t('login') ?> – <?= t('site_title') ?></title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -35,6 +37,15 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
       justify-content: space-between;
       padding: 1rem 2rem;
       border-bottom: 1px solid #222;
+    }
+    .header-logo {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .header-logo img {
+      height: 50px;
+      width: auto;
     }
     header h1 {
       font-size: 1.6rem;
@@ -132,34 +143,39 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
 </head>
 <body>
   <header>
-    <h1>🎬 IL DIVANO D'ORO</h1>
+    <div class="header-logo">
+      <img src="/movie-club-app/assests/img/logo.png" alt="<?= t('site_title') ?>">
+      <h1><?= t('site_title') ?></h1>
+    </div>
     <nav>
-      <a href="/movie-club-app/register.php">Register</a>
-      | <a href="/movie-club-app/login.php">Login</a>
-      | <a href="/movie-club-app/index.php">🏠 Home</a>
+      <a href="/movie-club-app/register.php"><?= t('register') ?></a>
+      | <a href="/movie-club-app/login.php"><?= t('login') ?></a>
+      | <a href="/movie-club-app/index.php">🏠 <?= t('home') ?></a>
+      | <a href="?lang=en"><?= t('lang_en') ?></a>
+      | <a href="?lang=it"><?= t('lang_it') ?></a>
     </nav>
   </header>
 
   <div class="login-container">
     <div class="login-box">
-      <h2>Login</h2>
+      <h2><?= t('login') ?></h2>
       <?php foreach($errors as $er): ?>
         <p class="error"><?= htmlspecialchars($er) ?></p>
       <?php endforeach; ?>
       <form method="post">
         <?= csrf_field() ?>
-        <label>Email
-          <input type="email" name="email" placeholder="you@example.com" required>
+        <label><?= t('email') ?>
+          <input type="email" name="email" placeholder="<?= t('email_placeholder') ?>" required>
         </label>
-        <label>Password
-          <input type="password" name="password" placeholder="••••••••" required>
+        <label><?= t('password') ?>
+          <input type="password" name="password" placeholder="<?= t('password_placeholder') ?>" required>
         </label>
-        <button type="submit">Login</button>
-        <a href="/movie-club-app/register.php" class="btn secondary">Create account</a>
+        <button type="submit"><?= t('login') ?></button>
+        <a href="/movie-club-app/register.php" class="btn secondary"><?= t('create_account') ?></a>
       </form>
     </div>
   </div>
 
-  <footer>© IL DIVANO D'ORO 2025 — All rights reserved.</footer>
+  <footer><?= t('footer_text') ?></footer>
 </body>
 </html>

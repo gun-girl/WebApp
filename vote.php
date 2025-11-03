@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__.'/includes/auth.php';
+require_once __DIR__.'/includes/lang.php';
 require_login();
 
 $user = current_user();
@@ -108,10 +109,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="<?= current_lang() ?>">
 <head>
   <meta charset="UTF-8">
-  <title>Rate: <?= htmlspecialchars($movie['title']) ?> – IL DIVANO D'ORO</title>
+  <title><?= t('rate') ?>: <?= htmlspecialchars($movie['title']) ?> – <?= t('site_title') ?></title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -132,6 +133,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       position: sticky;
       top: 0;
       z-index: 100;
+    }
+    .header-logo {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .header-logo img {
+      height: 50px;
+      width: auto;
     }
     header h1 {
       font-size: 1.6rem;
@@ -328,10 +338,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body>
   <header>
-    <h1>🎬 IL DIVANO D'ORO</h1>
+    <div class="header-logo">
+      <img src="/movie-club-app/assests/img/logo.png" alt="<?= t('site_title') ?>">
+      <h1><?= t('site_title') ?></h1>
+    </div>
     <nav>
-      <span>Hello, <?= htmlspecialchars($user['username']) ?></span>
-      | <a href="index.php">🏠 Home</a>
+      <span><?= t('hello') ?>, <?= htmlspecialchars($user['username']) ?></span>
+      | <a href="index.php">🏠 <?= t('home') ?></a>
+      | <a href="?lang=en"><?= t('lang_en') ?></a>
+      | <a href="?lang=it"><?= t('lang_it') ?></a>
     </nav>
   </header>
 
@@ -471,13 +486,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
 
         <div class="submit-section">
-          <button type="submit">Submit Vote</button>
-          <a href="index.php" class="btn secondary">Cancel</a>
+          <button type="submit"><?= t('submit_vote') ?></button>
+          <a href="index.php" class="btn secondary"><?= t('cancel') ?></a>
         </div>
       </form>
     </div>
   </div>
 
-  <footer>© IL DIVANO D'ORO 2025 — All rights reserved. Never submit passwords through this form.</footer>
+  <footer><?= t('footer_text') ?></footer>
 </body>
 </html>

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__.'/includes/auth.php';
+require_once __DIR__.'/includes/lang.php';
 require_login();
 
 $user = current_user();
@@ -14,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $new_username = trim($_POST['username'] ?? '');
     
     if (empty($new_email) || empty($new_username)) {
-        $errors[] = 'Email and username are required';
+        $errors[] = t('all_fields_required');
     } else {
         try {
             $stmt = $mysqli->prepare("UPDATE users SET username = ?, email = ? WHERE id = ?");
@@ -26,12 +27,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user']['email'] = $new_email;
             $user = current_user();
             
-            $success = 'Profile updated successfully!';
+            $success = t('profile_updated');
         } catch (mysqli_sql_exception $e) {
             if (str_contains($e->getMessage(), 'Duplicate')) {
-                $errors[] = 'Username or email already exists';
+                $errors[] = t('username_email_exists');
             } else {
-                $errors[] = 'Error updating profile';
+                $errors[] = t('error_updating_profile');
             }
         }
     }
@@ -45,10 +46,10 @@ $vote_data = $stmt->get_result()->fetch_assoc();
 $vote_count = $vote_data['vote_count'];
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="<?= current_lang() ?>">
 <head>
   <meta charset="UTF-8">
-  <title>Profile – IL DIVANO D'ORO</title>
+  <title><?= t('profile') ?> – <?= t('site_title') ?></title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -67,6 +68,15 @@ $vote_count = $vote_data['vote_count'];
       justify-content: space-between;
       padding: 1rem 2rem;
       border-bottom: 1px solid #222;
+    }
+    .header-logo {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .header-logo img {
+      height: 50px;
+      width: auto;
     }
     header h1 {
       font-size: 1.6rem;
@@ -188,18 +198,23 @@ $vote_count = $vote_data['vote_count'];
 </head>
 <body>
   <header>
-    <h1>🎬 IL DIVANO D'ORO</h1>
+    <div class="header-logo">
+      <img src="/movie-club-app/assests/img/logo.png" alt="<?= t('site_title') ?>">
+      <h1><?= t('site_title') ?></h1>
+    </div>
     <nav>
-      <span>Hello, <?= htmlspecialchars($user['username']) ?></span>
-      | <a href="logout.php">Logout</a>
-      | <a href="stats.php">Results</a>
-      | <a href="index.php">🏠 Home</a>
+      <span><?= t('hello') ?>, <?= htmlspecialchars($user['username']) ?></span>
+      | <a href="logout.php"><?= t('logout') ?></a>
+      | <a href="stats.php"><?= t('results') ?></a>
+      | <a href="index.php">🏠 <?= t('home') ?></a>
+      | <a href="?lang=en"><?= t('lang_en') ?></a>
+      | <a href="?lang=it"><?= t('lang_it') ?></a>
     </nav>
   </header>
 
   <div class="profile-container">
     <div class="profile-box">
-      <h2>👤 My Profile</h2>
+      <h2>👤 <?= t('my_profile') ?></h2>
       
       <?php if ($success): ?>
         <p class="success"><?= htmlspecialchars($success) ?></p>
@@ -211,42 +226,42 @@ $vote_count = $vote_data['vote_count'];
 
       <div class="profile-info">
         <div class="info-card">
-          <h3>Username</h3>
+          <h3><?= t('username') ?></h3>
           <p><?= htmlspecialchars($user['username']) ?></p>
         </div>
         
         <div class="info-card">
-          <h3>Email</h3>
+          <h3><?= t('email') ?></h3>
           <p><?= htmlspecialchars($user['email']) ?></p>
         </div>
         
         <div class="info-card">
-          <h3>Total Votes</h3>
-          <p><?= $vote_count ?> movie<?= $vote_count != 1 ? 's' : '' ?> rated</p>
+          <h3><?= t('total_votes') ?></h3>
+          <p><?= $vote_count ?> <?= t('movies_rated') ?></p>
         </div>
       </div>
 
       <div style="margin-top: 1.5rem;">
-        <a href="stats.php?mine=1" class="btn">View My Votes</a>
+        <a href="stats.php?mine=1" class="btn"><?= t('view_my_votes') ?></a>
       </div>
     </div>
 
     <div class="profile-box">
-      <h2>✏️ Edit Profile</h2>
+      <h2>✏️ <?= t('edit_profile') ?></h2>
       <form method="post">
         <?= csrf_field() ?>
-        <label>Username
+        <label><?= t('username') ?>
           <input name="username" value="<?= htmlspecialchars($user['username']) ?>" required>
         </label>
-        <label>Email
+        <label><?= t('email') ?>
           <input type="email" name="email" value="<?= htmlspecialchars($user['email']) ?>" required>
         </label>
-        <button type="submit">Save Changes</button>
-        <a href="index.php" class="btn secondary">Cancel</a>
+        <button type="submit"><?= t('save_changes') ?></button>
+        <a href="index.php" class="btn secondary"><?= t('cancel') ?></a>
       </form>
     </div>
   </div>
 
-  <footer>© IL DIVANO D'ORO 2025 — All rights reserved.</footer>
+  <footer><?= t('footer_text') ?></footer>
 </body>
 </html>

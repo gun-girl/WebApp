@@ -1,5 +1,6 @@
 <?php 
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/lang.php';
 
 $errors = [];
 $done = false;
@@ -21,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $username = trim($_POST['username'] ?? '');
   $email = trim($_POST['email'] ?? '');
   $pass = $_POST['password'] ?? '';
-  if ($username === '' || $email === '' || $pass === '') $errors[] = 'All fields are required';
+  if ($username === '' || $email === '' || $pass === '') $errors[] = t('all_fields_required');
   if (!$errors) {
     $hash = password_hash($pass, PASSWORD_DEFAULT);
     try {
@@ -32,16 +33,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       login_user(['id' => $id, 'username' => $username, 'email' => $email]);
       redirect('/movie-club-app/index.php');
     } catch (mysqli_sql_exception $e) {
-      $errors[] = str_contains($e->getMessage(), 'Duplicate') ? 'Username or email already exists' : 'DB error';
+      $errors[] = str_contains($e->getMessage(), 'Duplicate') ? t('username_email_exists') : 'DB error';
     }
   }
 }
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="<?= current_lang() ?>">
 <head>
   <meta charset="UTF-8">
-  <title>Register – IL DIVANO D'ORO</title>
+  <title><?= t('register') ?> – <?= t('site_title') ?></title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -60,6 +61,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       justify-content: space-between;
       padding: 1rem 2rem;
       border-bottom: 1px solid #222;
+    }
+    .header-logo {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .header-logo img {
+      height: 50px;
+      width: auto;
     }
     header h1 {
       font-size: 1.6rem;
@@ -157,37 +167,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body>
   <header>
-    <h1>🎬 IL DIVANO D'ORO</h1>
+    <div class="header-logo">
+      <img src="/movie-club-app/assests/img/logo.png" alt="<?= t('site_title') ?>">
+      <h1><?= t('site_title') ?></h1>
+    </div>
     <nav>
-      <a href="/movie-club-app/register.php">Register</a>
-      | <a href="/movie-club-app/login.php">Login</a>
-      | <a href="/movie-club-app/index.php">🏠 Home</a>
+      <a href="/movie-club-app/register.php"><?= t('register') ?></a>
+      | <a href="/movie-club-app/login.php"><?= t('login') ?></a>
+      | <a href="/movie-club-app/index.php">🏠 <?= t('home') ?></a>
+      | <a href="?lang=en"><?= t('lang_en') ?></a>
+      | <a href="?lang=it"><?= t('lang_it') ?></a>
     </nav>
   </header>
 
   <div class="register-container">
     <div class="register-box">
-      <h2>Register</h2>
+      <h2><?= t('register') ?></h2>
       <?php foreach ($errors as $er): ?>
         <p class="error"><?= htmlspecialchars($er) ?></p>
       <?php endforeach; ?>
       <form method="post">
         <?= csrf_field() ?>
-        <label>Username
-          <input name="username" placeholder="Choose a username" required>
+        <label><?= t('username') ?>
+          <input name="username" placeholder="<?= t('username_placeholder') ?>" required>
         </label>
-        <label>Email
-          <input type="email" name="email" placeholder="you@example.com" required>
+        <label><?= t('email') ?>
+          <input type="email" name="email" placeholder="<?= t('email_placeholder') ?>" required>
         </label>
-        <label>Password
-          <input type="password" name="password" placeholder="••••••••" required>
+        <label><?= t('password') ?>
+          <input type="password" name="password" placeholder="<?= t('password_placeholder') ?>" required>
         </label>
-        <button type="submit">Create account</button>
-        <a href="/movie-club-app/login.php" class="btn secondary">Already have an account?</a>
+        <button type="submit"><?= t('create_account') ?></button>
+        <a href="/movie-club-app/login.php" class="btn secondary"><?= t('already_have_account') ?></a>
       </form>
     </div>
   </div>
 
-  <footer>© IL DIVANO D'ORO 2025 — All rights reserved.</footer>
+  <footer><?= t('footer_text') ?></footer>
 </body>
 </html>

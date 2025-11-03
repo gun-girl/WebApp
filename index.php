@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/lang.php';
 require_login();
 
 $user = current_user();
@@ -19,10 +20,10 @@ if ($search) {
 }
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="<?= current_lang() ?>">
 <head>
   <meta charset="UTF-8">
-  <title>IL DIVANO D’ORO – Movies</title>
+  <title><?= t('site_title') ?> – Movies</title>
   <link rel="stylesheet" href="assets/css/style.css">
   <style>
     /* === GLOBAL === */
@@ -44,6 +45,15 @@ if ($search) {
       justify-content: space-between;
       padding: 1rem 2rem;
       border-bottom: 1px solid #222;
+    }
+    .header-logo {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .header-logo img {
+      height: 50px;
+      width: auto;
     }
     header h1 {
       font-size: 1.6rem;
@@ -225,28 +235,33 @@ if ($search) {
 
 <body>
   <header>
-    <h1>🎬 IL DIVANO D'ORO</h1>
+    <div class="header-logo">
+      <img src="/movie-club-app/assests/img/logo.png" alt="<?= t('site_title') ?>">
+      <h1><?= t('site_title') ?></h1>
+    </div>
     <nav>
       <div class="user-menu">
         <button class="user-button" id="userMenuBtn">
-          Hello, <?= htmlspecialchars($user['username']) ?> 👤
+          <?= t('hello') ?>, <?= htmlspecialchars($user['username']) ?> 👤
         </button>
         <div class="dropdown-menu" id="userDropdown">
-          <a href="profile.php" class="dropdown-item">👤 Profile</a>
-          <a href="stats.php?mine=1" class="dropdown-item">📊 View My Votes</a>
-          <a href="profile.php" class="dropdown-item">✉️ Email: <?= htmlspecialchars($user['email']) ?></a>
+          <a href="profile.php" class="dropdown-item">👤 <?= t('profile') ?></a>
+          <a href="stats.php?mine=1" class="dropdown-item">📊 <?= t('view_my_votes') ?></a>
+          <a href="profile.php" class="dropdown-item">✉️ <?= t('email') ?>: <?= htmlspecialchars($user['email']) ?></a>
           <div class="dropdown-divider"></div>
-          <a href="logout.php" class="dropdown-item">🚪 Log out</a>
+          <a href="logout.php" class="dropdown-item">🚪 <?= t('logout') ?></a>
         </div>
       </div>
-      | <a href="stats.php">Results</a>
-      | <a href="index.php">🏠 Home</a>
+      | <a href="stats.php"><?= t('results') ?></a>
+      | <a href="index.php">🏠 <?= t('home') ?></a>
+      | <a href="?lang=en"><?= t('lang_en') ?></a>
+      | <a href="?lang=it"><?= t('lang_it') ?></a>
     </nav>
   </header>
 
   <form method="get" class="search-bar">
-    <input type="text" name="search" placeholder="Search movies..." value="<?= htmlspecialchars($search) ?>">
-    <button type="submit">Search</button>
+    <input type="text" name="search" placeholder="<?= t('search_movies') ?>" value="<?= htmlspecialchars($search) ?>">
+    <button type="submit"><?= t('search') ?></button>
   </form>
 
   <section class="movies-container">
@@ -256,13 +271,13 @@ if ($search) {
         <div class="movie-info">
           <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
           <div class="movie-year"><?= htmlspecialchars($movie['year']) ?></div>
-          <a class="rate-btn" href="vote.php?movie_id=<?= $movie['id'] ?>">Rate ⭐</a>
+          <a class="rate-btn" href="vote.php?movie_id=<?= $movie['id'] ?>"><?= t('rate') ?> ⭐</a>
         </div>
       </div>
     <?php endforeach; ?>
   </section>
 
-  <footer>© IL DIVANO D'ORO 2025 — All rights reserved.</footer>
+  <footer><?= t('footer_text') ?></footer>
 
   <script>
     // User dropdown menu toggle

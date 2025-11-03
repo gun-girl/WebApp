@@ -13,8 +13,14 @@ class Movie {
         $this->poster_url = $data['poster_url'] ?? null;
     }
 
+    // Get all movies from DB
     public static function getAll(mysqli $db): array {
         $rows = $db->query("SELECT * FROM movies ORDER BY year DESC, title ASC")->fetch_all(MYSQLI_ASSOC);
+        return array_map(fn($r) => new Movie($r), $rows);
+    }
+
+    // ✅ Add this method (used by omdb.php)
+    public static function getMoviesFromArray(array $rows): array {
         return array_map(fn($r) => new Movie($r), $rows);
     }
 }
