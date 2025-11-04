@@ -32,10 +32,23 @@
       <a href="/movie-club-app/login.php"><?= e(t('login')) ?></a>
     <?php endif; ?>
     <a href="/movie-club-app/index.php" class="btn"><?= e(t('home')) ?></a>
+    <?php
+      // Build language switcher links that preserve all query params except lang
+      $query = $_GET;
+      $query_en = $query;
+      $query_it = $query;
+      $query_en['lang'] = 'en';
+      $query_it['lang'] = 'it';
+      $base_url = $_SERVER['REQUEST_URI'];
+      $parts = parse_url($base_url);
+      $path = $parts['path'];
+      $url_en = $path . '?' . http_build_query($query_en);
+      $url_it = $path . '?' . http_build_query($query_it);
+    ?>
     <span class="lang-menu">|
-      <a href="?lang=en"><?= e(t('lang_en')) ?></a>
+      <a href="<?= htmlspecialchars($url_en) ?>"><?= e(t('lang_en')) ?></a>
       &nbsp;|&nbsp;
-      <a href="?lang=it"><?= e(t('lang_it')) ?></a>
+      <a href="<?= htmlspecialchars($url_it) ?>"><?= e(t('lang_it')) ?></a>
     </span>
   </nav>
 </header>

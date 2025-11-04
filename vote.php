@@ -7,7 +7,8 @@ $user = current_user();
 $movie_id = (int)($_GET['movie_id'] ?? 0);
 
 if ($movie_id <= 0) {
-    die('Invalid movie');
+    header('Location: /movie-club-app/index.php');
+    exit;
 }
 
 // Get movie details
@@ -359,7 +360,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <div class="form-box">
-      <h3>🌟 Official Voting Form</h3>
+      <h3>🌟 <?= t('official_voting_form') ?></h3>
       
       <?php foreach ($errors as $er): ?>
         <p class="error"><?= htmlspecialchars($er) ?></p>
@@ -370,42 +371,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <!-- Competition Status -->
         <div class="form-group">
-          <label>Competition Status <span class="required">*</span></label>
+          <label><?= t('competition_status') ?> <span class="required"><?= t('required') ?></span></label>
           <div class="radio-group">
             <label class="radio-option">
               <input type="radio" name="competition_status" value="In Competition" required>
-              <span>In Competition (Dec 19, 2024 - Oct 31, 2025)</span>
+              <span><?= t('in_competition') ?></span>
             </label>
             <label class="radio-option">
               <input type="radio" name="competition_status" value="2026 In Competition" required>
-              <span>2026 In Competition (Nov 1, 2025 - end 2026)</span>
+              <span><?= t('2026_in_competition') ?></span>
             </label>
             <label class="radio-option">
               <input type="radio" name="competition_status" value="Out of Competition" required>
-              <span>Out of Competition (Dec 18, 2024 and earlier)</span>
+              <span><?= t('out_of_competition') ?></span>
             </label>
           </div>
         </div>
 
         <!-- Category -->
         <div class="form-group">
-          <label for="category">Category <span class="required">*</span></label>
+          <label for="category"><?= t('category') ?> <span class="required"><?= t('required') ?></span></label>
           <select name="category" id="category" required>
-            <option value="">Choose...</option>
-            <option value="Film">Film</option>
-            <option value="Series">Series</option>
-            <option value="Miniseries">Miniseries</option>
-            <option value="Documentary">Documentary</option>
-            <option value="Animation">Animation</option>
+            <option value=""><?= t('choose') ?></option>
+            <option value="Film"><?= t('film') ?></option>
+            <option value="Series"><?= t('series') ?></option>
+            <option value="Miniseries"><?= t('miniseries') ?></option>
+            <option value="Documentary"><?= t('documentary') ?></option>
+            <option value="Animation"><?= t('animation') ?></option>
           </select>
         </div>
 
         <!-- Where Watched -->
         <div class="form-group">
-          <label for="where_watched">Where did you watch it? <span class="required">*</span></label>
+          <label for="where_watched"><?= t('where_watched') ?> <span class="required"><?= t('required') ?></span></label>
           <select name="where_watched" id="where_watched" required>
-            <option value="">Choose...</option>
-            <option value="Cinema">Cinema</option>
+            <option value=""><?= t('choose') ?></option>
+            <option value="Cinema"><?= t('cinema') ?></option>
             <option value="Netflix">Netflix</option>
             <option value="Sky/Now TV">Sky / Now TV</option>
             <option value="Amazon Prime Video">Amazon Prime Video</option>
@@ -422,66 +423,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <!-- Ratings Section -->
         <div class="form-group">
-          <label for="writing">Writing <span class="required">*</span></label>
+          <label for="writing"><?= t('writing') ?> <span class="required"><?= t('required') ?></span></label>
           <div class="rating-input">
             <input type="number" name="writing" id="writing" min="1" max="10" step="0.5" placeholder="1-10" required>
-            <span class="rating-hint">Rate from 1 to 10 (half points allowed)</span>
+            <span class="rating-hint"><?= t('rate_1_to_10') ?></span>
           </div>
         </div>
 
         <div class="form-group">
-          <label for="direction">Direction <span class="required">*</span></label>
+          <label for="direction"><?= t('direction') ?> <span class="required"><?= t('required') ?></span></label>
           <div class="rating-input">
             <input type="number" name="direction" id="direction" min="1" max="10" step="0.5" placeholder="1-10" required>
-            <span class="rating-hint">Rate from 1 to 10 (half points allowed)</span>
+            <span class="rating-hint"><?= t('rate_1_to_10') ?></span>
           </div>
         </div>
 
         <div class="form-group">
-          <label for="acting_or_theme">Acting / Theme Choice (documentaries) <span class="required">*</span></label>
+          <label for="acting_or_theme"><?= t('acting_theme') ?> <span class="required"><?= t('required') ?></span></label>
           <div class="rating-input">
             <input type="number" name="acting_or_theme" id="acting_or_theme" min="1" max="10" step="0.5" placeholder="1-10" required>
-            <span class="rating-hint">Rate from 1 to 10 (half points allowed)</span>
+            <span class="rating-hint"><?= t('rate_1_to_10') ?></span>
           </div>
         </div>
 
         <div class="form-group">
-          <label for="emotional_involvement">Emotional Involvement <span class="required">*</span></label>
+          <label for="emotional_involvement"><?= t('emotional_involvement') ?> <span class="required"><?= t('required') ?></span></label>
           <div class="rating-input">
             <input type="number" name="emotional_involvement" id="emotional_involvement" min="1" max="10" step="0.5" placeholder="1-10" required>
-            <span class="rating-hint">Rate from 1 to 10 (half points allowed)</span>
+            <span class="rating-hint"><?= t('rate_1_to_10') ?></span>
           </div>
         </div>
 
         <div class="form-group">
-          <label for="novelty">Sense of Novelty <span class="required">*</span></label>
+          <label for="novelty"><?= t('novelty') ?> <span class="required"><?= t('required') ?></span></label>
           <div class="rating-input">
             <input type="number" name="novelty" id="novelty" min="1" max="10" step="0.5" placeholder="1-10" required>
-            <span class="rating-hint">Rate from 1 to 10 (half points allowed)</span>
+            <span class="rating-hint"><?= t('rate_1_to_10') ?></span>
           </div>
         </div>
 
         <div class="form-group">
-          <label for="casting_research">Casting / Research (documentaries) / Character Artwork (animation) <span class="required">*</span></label>
+          <label for="casting_research"><?= t('casting_research') ?> <span class="required"><?= t('required') ?></span></label>
           <div class="rating-input">
             <input type="number" name="casting_research" id="casting_research" min="1" max="10" step="0.5" placeholder="1-10" required>
-            <span class="rating-hint">Rate from 1 to 10 (half points allowed)</span>
+            <span class="rating-hint"><?= t('rate_1_to_10') ?></span>
           </div>
         </div>
 
         <div class="form-group">
-          <label for="sound">Sound <span class="required">*</span></label>
+          <label for="sound"><?= t('sound') ?> <span class="required"><?= t('required') ?></span></label>
           <div class="rating-input">
             <input type="number" name="sound" id="sound" min="1" max="10" step="0.5" placeholder="1-10" required>
-            <span class="rating-hint">Rate from 1 to 10 (half points allowed)</span>
+            <span class="rating-hint"><?= t('rate_1_to_10') ?></span>
           </div>
         </div>
 
         <!-- Adjective -->
         <div class="form-group">
-          <label for="adjective">Describe what you just watched with one adjective</label>
-          <input type="text" name="adjective" id="adjective" placeholder="e.g., Captivating, Boring, Inspiring...">
-          <p class="helper-text">Optional: One word that summarizes your experience</p>
+          <label for="adjective"><?= t('adjective') ?></label>
+          <input type="text" name="adjective" id="adjective" placeholder="<?= t('adjective_placeholder') ?>">
+          <p class="helper-text"><?= t('adjective_helper') ?></p>
         </div>
 
         <div class="submit-section">
