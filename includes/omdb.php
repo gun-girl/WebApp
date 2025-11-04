@@ -2,7 +2,9 @@
 require_once __DIR__.'/../config.php';
 
 /**
- * @return Movie[]
+ * Search movies locally; if none found and API key is set, fetch from OMDb,
+ * cache into DB, then return associative arrays from DB.
+ * @return array<int, array<string, mixed>>
  */
 function get_movie_or_fetch($query): array {
   global $mysqli, $OMDB_API_KEY;
@@ -18,16 +20,18 @@ function get_movie_or_fetch($query): array {
   if(($json['Search'] ?? null)){
     foreach($json['Search'] as $m){
       $imdb = $m['imdbID']; $title=$m['Title']; $year=intval($m['Year']);
-      $type = $m['Type'] ?? 'movie'; $poster=$m['Poster'] ?? null;
+      $type = $m['Type'] ?? 'movie';
+      $poster = $m['Poster'] ?? null;
+      if ($poster === 'N/A' || $poster === '') { $poster = null; }
       $stmt = $mysqli->prepare("INSERT INTO movies (imdb_id,title,year,type,poster_url,last_fetched_at)
         VALUES (?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE title=VALUES(title),year=VALUES(year),type=VALUES(type),poster_url=VALUES(poster_url), last_fetched_at=NOW()");
       $stmt->bind_param('ssiss',$imdb,$title,$year,$type,$poster); $stmt->execute();
     }
-    // return from DB
+    // return from DB as associative arrays
     $stmt = $mysqli->prepare("SELECT * FROM movies WHERE title LIKE CONCAT('%',?,'%') ORDER BY year DESC LIMIT 30");
     $stmt->bind_param('s',$query); $stmt->execute();
-    $movieData= $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-    return Movie::getMoviesFromArray($movieData);
+    $movieData = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    return $movieData;
   }
   return [];
 }

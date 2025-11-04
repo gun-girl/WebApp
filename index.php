@@ -2,6 +2,7 @@
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/lang.php';
+require_once __DIR__ . '/includes/omdb.php';
 require_login();
 
 $user = current_user();
@@ -9,12 +10,8 @@ $search = $_GET['search'] ?? '';
 
 $sql = "SELECT * FROM movies";
 if ($search) {
-  $sql .= " WHERE title LIKE ?";
-  $stmt = $mysqli->prepare($sql);
-  $like = "%$search%";
-  $stmt->bind_param('s', $like);
-  $stmt->execute();
-  $movies = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+  // Use OMDb-backed helper: search locally first, otherwise fetch and cache
+  $movies = get_movie_or_fetch($search);
 } else {
   $movies = $mysqli->query($sql)->fetch_all(MYSQLI_ASSOC);
 }
@@ -266,7 +263,13 @@ if ($search) {
   <section class="movies-container">
     <?php foreach ($movies as $movie): ?>
       <div class="movie-card">
-        <img src="<?= htmlspecialchars($movie['poster_url'] ?: 'assets/img/no-poster.png') ?>" alt="<?= htmlspecialchars($movie['title']) ?>">
+        <?php
+          $poster = $movie['poster_url'] ?? null;
+          if (!$poster || $poster === 'N/A') {
+            $poster = '/movie-club-app/assests/img/no-poster.png';
+          }
+        ?>
+        <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>">
         <div class="movie-info">
           <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
           <div class="movie-year"><?= htmlspecialchars($movie['year']) ?></div>
