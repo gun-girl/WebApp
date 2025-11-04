@@ -21,7 +21,6 @@
 <header>
   <div class="header-logo">
     <img src="/movie-club-app/assests/img/logo.png" alt="<?= e(t('site_title')) ?>">
-    <h1><?= e(t('site_title')) ?></h1>
   </div>
   <nav>
     <?php if (current_user()): ?>

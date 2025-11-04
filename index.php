@@ -237,7 +237,6 @@ if ($search) {
   <header>
     <div class="header-logo">
       <img src="/movie-club-app/assests/img/logo.png" alt="<?= t('site_title') ?>">
-      <h1><?= t('site_title') ?></h1>
     </div>
     <nav>
       <div class="user-menu">

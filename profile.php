@@ -200,7 +200,6 @@ $vote_count = $vote_data['vote_count'];
   <header>
     <div class="header-logo">
       <img src="/movie-club-app/assests/img/logo.png" alt="<?= t('site_title') ?>">
-      <h1><?= t('site_title') ?></h1>
     </div>
     <nav>
       <span><?= t('hello') ?>, <?= htmlspecialchars($user['username']) ?></span>
