@@ -74,5 +74,10 @@ return [
     'rate_1_to_10' => 'Rate from 1 to 10 (half points allowed)',
     'adjective' => 'Describe what you just watched with one adjective',
     'adjective_placeholder' => 'e.g., Captivating, Boring, Inspiring...',
-    'adjective_helper' => 'Optional: One word that summarizes your experience'
+    'adjective_helper' => 'Optional: One word that summarizes your experience',
+    // Column headers for vote details
+    'acting_or_doc_theme' => 'Acting / Theme',
+    'casting_research_art' => 'Casting / Research / Artwork',
+    'vote_id' => 'Vote ID',
+    'release_year' => 'Release Year'
 ];

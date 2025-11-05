@@ -74,5 +74,10 @@ return [
     'rate_1_to_10' => 'Vota da 1 a 10 (mezzi punti consentiti)',
     'adjective' => 'Descrivi ciò che hai appena visto con un aggettivo',
     'adjective_placeholder' => 'es. Avvincente, Noioso, Ispirante...',
-    'adjective_helper' => 'Facoltativo: Una parola che riassume la tua esperienza'
+    'adjective_helper' => 'Facoltativo: Una parola che riassume la tua esperienza',
+    // Column headers for vote details
+    'acting_or_doc_theme' => 'Recitazione / Tema',
+    'casting_research_art' => 'Casting / Ricerca / Artwork',
+    'vote_id' => 'ID Voto',
+    'release_year' => 'Anno di uscita'
 ];

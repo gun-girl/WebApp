@@ -96,7 +96,7 @@ if (!empty($_GET['mine']) && current_user()) {
           <th><?= t('year') ?></th>
           <th><?= t('computed_rating') ?></th>
           <?php foreach ($numericCols as $col): ?>
-            <th><?= ucfirst(str_replace('_', ' ', e($col))) ?></th>
+            <th><?= t($col) ?: ucfirst(str_replace('_', ' ', e($col))) ?></th>
           <?php endforeach; ?>
           <th><?= t('when') ?></th>
           <th><?= t('actions') ?></th>
@@ -224,10 +224,15 @@ $rows = $mysqli->query($sql)->fetch_all(MYSQLI_ASSOC);
       margin: 0;
     }
 
+    nav {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
     nav a {
       color: #fff;
       text-decoration: none;
-      margin-left: 1rem;
       transition: color .2s;
       font-weight: 500;
     }

@@ -7,8 +7,7 @@ $user = current_user();
 $movie_id = (int)($_GET['movie_id'] ?? 0);
 
 if ($movie_id <= 0) {
-    header('Location: /movie-club-app/index.php');
-    exit;
+    die('Invalid movie');
 }
 
 // Get movie details
@@ -109,12 +108,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?>
-<!DOCTYPE html>
-<html lang="<?= current_lang() ?>">
-<head>
-  <meta charset="UTF-8">
-  <title><?= t('rate') ?>: <?= htmlspecialchars($movie['title']) ?> – <?= t('site_title') ?></title>
-  <style>
+<?php include __DIR__.'/includes/header.php'; ?>
+<style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Poppins', system-ui, sans-serif;
@@ -337,19 +332,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
   </style>
 </head>
-<body>
-  <header>
-    <div class="header-logo">
-      <img src="/movie-club-app/assests/img/logo.png" alt="<?= t('site_title') ?>">
-    </div>
-    <nav>
-      <span><?= t('hello') ?>, <?= htmlspecialchars($user['username']) ?></span>
-      | <a href="index.php">🏠 <?= t('home') ?></a>
-      | <a href="?lang=en"><?= t('lang_en') ?></a>
-      | <a href="?lang=it"><?= t('lang_it') ?></a>
-    </nav>
-  </header>
-
   <div class="vote-container">
     <div class="movie-header">
       <img src="<?= htmlspecialchars($movie['poster_url'] ?: 'assets/img/no-poster.png') ?>" alt="<?= htmlspecialchars($movie['title']) ?>">
@@ -494,5 +476,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   </div>
 
   <footer><?= t('footer_text') ?></footer>
+</main>
 </body>
 </html>
