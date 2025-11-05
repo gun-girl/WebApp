@@ -106,7 +106,7 @@
       </div>
       <?php if (!$is_stats_page): ?>
         |
-        <a href="/movie-club-app/stats.php"><?= e(t('results')) ?></a>
+        <a href="/movie-club-app/stats.php"><?= e(t('all_votes')) ?></a>
       <?php endif; ?>
     <?php else: ?>
       <a href="/movie-club-app/register.php"><?= e(t('register')) ?></a> |

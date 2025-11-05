@@ -67,7 +67,11 @@ if (!empty($_GET['mine']) && current_user()) {
       $sqlUser = "SELECT v.id AS vote_id, m.title, m.year, 
         vd.writing, vd.direction, vd.acting_or_doc_theme, vd.emotional_involvement,
         vd.novelty, vd.casting_research_art, vd.sound,
-        ( ($numExpr) / NULLIF($denExpr,0) ) AS calc_rating, v.created_at
+        vd.competition_status, vd.category, vd.where_watched,
+        ($numExpr) AS total_score,
+        $denExpr AS non_empty_count,
+        ( ($numExpr) / NULLIF($denExpr,0) ) AS calc_rating, 
+        v.created_at
         FROM votes v
         JOIN movies m ON m.id=v.movie_id
         LEFT JOIN vote_details vd ON vd.vote_id = v.id
@@ -89,15 +93,24 @@ if (!empty($_GET['mine']) && current_user()) {
       <a href="index.php" class="btn"><?= t('home') ?></a>
     </div>
     <h2><?= t('your_votes_detailed') ?></h2>
+    <style>
+      .table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+      .table th, .table td { padding: 0.5rem; text-align: center; border: 1px solid #444; }
+      .table th { background: #f6c90e; color: #000; font-weight: bold; }
+      .table td.highlight { background: #ffffcc; color: #000; font-weight: bold; }
+      .table td { background: #1a1a1a; }
+      .table tr:hover td { background: #2a2a2a; }
+    </style>
     <table class="table">
       <thead>
         <tr>
           <th><?= t('movie') ?></th>
           <th><?= t('year') ?></th>
-          <th><?= t('computed_rating') ?></th>
           <?php foreach ($numericCols as $col): ?>
             <th><?= t($col) ?: ucfirst(str_replace('_', ' ', e($col))) ?></th>
           <?php endforeach; ?>
+          <th style="background: #ffd700;">Totale</th>
+          <th style="background: #ffd700;"><?= t('computed_rating') ?></th>
           <th><?= t('when') ?></th>
           <th><?= t('actions') ?></th>
         </tr>
@@ -107,10 +120,11 @@ if (!empty($_GET['mine']) && current_user()) {
         <tr>
           <td><?= e($r['title']) ?></td>
           <td><?= e($r['year']) ?></td>
-          <td><?= number_format($r['calc_rating'] ?? 0, 1) ?></td>
           <?php foreach ($numericCols as $col): ?>
-            <td><?= e($r[$col] ?? '') ?></td>
+            <td><?= number_format($r[$col] ?? 0, 1) ?></td>
           <?php endforeach; ?>
+          <td class="highlight"><?= number_format($r['total_score'] ?? 0, 2) ?></td>
+          <td class="highlight"><?= number_format($r['calc_rating'] ?? 0, 2) ?></td>
           <td><?= e($r['created_at']) ?></td>
           <td>
             <a href="vote.php?edit=<?= $r['vote_id'] ?>" class="btn btn-small"><?= t('edit') ?></a>
@@ -187,7 +201,7 @@ $rows = $mysqli->query($sql)->fetch_all(MYSQLI_ASSOC);
 <html lang="<?= current_lang() ?>">
 <head>
   <meta charset="UTF-8">
-  <title><?= t('results') ?> – <?= t('site_title') ?></title>
+  <title><?= t('all_votes') ?> – <?= t('site_title') ?></title>
   <link rel="stylesheet" href="assets/css/style.css">
   <style>
     body {

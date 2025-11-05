@@ -204,7 +204,7 @@ $vote_count = $vote_data['vote_count'];
     <nav>
       <span><?= t('hello') ?>, <?= htmlspecialchars($user['username']) ?></span>
       | <a href="logout.php"><?= t('logout') ?></a>
-      | <a href="stats.php"><?= t('results') ?></a>
+      | <a href="stats.php"><?= t('all_votes') ?></a>
       | <a href="index.php">🏠 <?= t('home') ?></a>
       | <a href="?lang=en"><?= t('lang_en') ?></a>
       | <a href="?lang=it"><?= t('lang_it') ?></a>

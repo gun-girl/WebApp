@@ -27,10 +27,38 @@ $sql = "
     INNER JOIN users u ON u.id = v.user_id
     INNER JOIN movies m ON m.id = v.movie_id
     INNER JOIN vote_details vd ON vd.vote_id = v.id
-    ORDER BY v.created_at DESC
+    ORDER BY m.title ASC, v.created_at DESC
 ";
 
 $votes = $mysqli->query($sql)->fetch_all(MYSQLI_ASSOC);
+
+// Query for aggregated results
+$resultsSql = "
+    SELECT 
+        m.title,
+        m.year,
+        vd.category,
+        vd.where_watched,
+        vd.competition_status,
+        COUNT(DISTINCT v.id) AS vote_count,
+        ROUND(AVG(vd.writing), 2) AS avg_writing,
+        ROUND(AVG(vd.direction), 2) AS avg_direction,
+        ROUND(AVG(vd.acting_or_doc_theme), 2) AS avg_acting,
+        ROUND(AVG(vd.emotional_involvement), 2) AS avg_emotional,
+        ROUND(AVG(vd.novelty), 2) AS avg_novelty,
+        ROUND(AVG(vd.casting_research_art), 2) AS avg_casting,
+        ROUND(AVG(vd.sound), 2) AS avg_sound,
+        GROUP_CONCAT(DISTINCT u.username SEPARATOR ', ') AS voters,
+        GROUP_CONCAT(DISTINCT vd.adjective SEPARATOR ', ') AS adjectives
+    FROM votes v
+    INNER JOIN movies m ON m.id = v.movie_id
+    INNER JOIN vote_details vd ON vd.vote_id = v.id
+    INNER JOIN users u ON u.id = v.user_id
+    GROUP BY m.id, m.title, m.year, vd.category, vd.where_watched, vd.competition_status
+    ORDER BY m.title ASC
+";
+
+$results = $mysqli->query($resultsSql)->fetch_all(MYSQLI_ASSOC);
 
 // Output as Excel-compatible HTML with formulas
 header('Content-Type: application/vnd.ms-excel; charset=UTF-8');
@@ -76,6 +104,8 @@ $headers = [
     'Senso Di Novità',
     'Casting (documentari) / Artwork (Animazione)',
     'Sonoro',
+    'Totale',
+    'Voto calcolato',
     'Descrivi con un aggettivo quanto vuoi uscito il ' . $currentYear,
     'Giurato',
     'anno è uscito il film'
@@ -125,6 +155,18 @@ foreach ($votes as $vote) {
     // Sonoro
     echo '<Cell ss:StyleID="Number"><Data ss:Type="Number">' . $vote['sound'] . '</Data></Cell>';
     
+    // Totale (Formula: SUM of columns E through K)
+    echo '<Cell ss:StyleID="Formula"><Data ss:Type="Number">' . 
+         ($vote['writing'] + $vote['direction'] + $vote['acting_or_doc_theme'] + 
+          $vote['emotional_involvement'] + $vote['novelty'] + 
+          $vote['casting_research_art'] + $vote['sound']) . '</Data></Cell>';
+    
+    // Voto calcolato (Formula: Average of columns E through K)
+    $avg = ($vote['writing'] + $vote['direction'] + $vote['acting_or_doc_theme'] + 
+            $vote['emotional_involvement'] + $vote['novelty'] + 
+            $vote['casting_research_art'] + $vote['sound']) / 7;
+    echo '<Cell ss:StyleID="Formula"><Data ss:Type="Number">' . number_format($avg, 2, '.', '') . '</Data></Cell>';
+    
     // Descrivi con un aggettivo
     echo '<Cell><Data ss:Type="String">' . htmlspecialchars($vote['adjective'] ?: '') . '</Data></Cell>';
     
@@ -140,4 +182,92 @@ foreach ($votes as $vote) {
 
 echo '</Table>';
 echo '</Worksheet>';
+
+// Second Sheet - Risultati (Aggregated Results)
+echo '<Worksheet ss:Name="Risultati ' . $currentYear . '">';
+echo '<Table>';
+
+// Header row for Risultati
+$resultsHeaders = [
+    'TITOLO',
+    'Categoria',
+    'PIATTAFORMA',
+    'Concorso',
+    'N Valori',
+    'Totale',
+    'Scrittura',
+    'Regia',
+    'Recit. / Tema',
+    'Coinv. Emotivo',
+    'S. di Nuovo',
+    'Casting / Ricerca / Artwork',
+    'Sonoro',
+    'Ripens.',
+    'Aggettivi'
+];
+
+echo '<Row>';
+foreach ($resultsHeaders as $header) {
+    echo '<Cell ss:StyleID="Header"><Data ss:Type="String">' . htmlspecialchars($header) . '</Data></Cell>';
+}
+echo '</Row>';
+
+// Data rows for Risultati
+foreach ($results as $result) {
+    echo '<Row>';
+    
+    // TITOLO
+    echo '<Cell><Data ss:Type="String">' . htmlspecialchars($result['title']) . '</Data></Cell>';
+    
+    // Categoria
+    echo '<Cell><Data ss:Type="String">' . htmlspecialchars($result['category'] ?: '') . '</Data></Cell>';
+    
+    // PIATTAFORMA
+    echo '<Cell><Data ss:Type="String">' . htmlspecialchars($result['where_watched'] ?: '') . '</Data></Cell>';
+    
+    // Concorso
+    echo '<Cell><Data ss:Type="String">' . htmlspecialchars($result['competition_status'] ?: '') . '</Data></Cell>';
+    
+    // N Valori (vote count)
+    echo '<Cell><Data ss:Type="Number">' . $result['vote_count'] . '</Data></Cell>';
+    
+    // Totale (sum of all averages)
+    $total = $result['avg_writing'] + $result['avg_direction'] + $result['avg_acting'] + 
+             $result['avg_emotional'] + $result['avg_novelty'] + 
+             $result['avg_casting'] + $result['avg_sound'];
+    echo '<Cell ss:StyleID="Number"><Data ss:Type="Number">' . number_format($total, 2, '.', '') . '</Data></Cell>';
+    
+    // Scrittura
+    echo '<Cell ss:StyleID="Number"><Data ss:Type="Number">' . $result['avg_writing'] . '</Data></Cell>';
+    
+    // Regia
+    echo '<Cell ss:StyleID="Number"><Data ss:Type="Number">' . $result['avg_direction'] . '</Data></Cell>';
+    
+    // Recit. / Tema
+    echo '<Cell ss:StyleID="Number"><Data ss:Type="Number">' . $result['avg_acting'] . '</Data></Cell>';
+    
+    // Coinv. Emotivo
+    echo '<Cell ss:StyleID="Number"><Data ss:Type="Number">' . $result['avg_emotional'] . '</Data></Cell>';
+    
+    // S. di Nuovo
+    echo '<Cell ss:StyleID="Number"><Data ss:Type="Number">' . $result['avg_novelty'] . '</Data></Cell>';
+    
+    // Casting / Ricerca / Artwork
+    echo '<Cell ss:StyleID="Number"><Data ss:Type="Number">' . $result['avg_casting'] . '</Data></Cell>';
+    
+    // Sonoro
+    echo '<Cell ss:StyleID="Number"><Data ss:Type="Number">' . $result['avg_sound'] . '</Data></Cell>';
+    
+    // Ripens. (empty placeholder for thinking/reflection column)
+    echo '<Cell><Data ss:Type="String"></Data></Cell>';
+    
+    // Aggettivi
+    echo '<Cell><Data ss:Type="String">' . htmlspecialchars($result['adjectives'] ?: '') . '</Data></Cell>';
+    
+    echo '</Row>';
+}
+
+echo '</Table>';
+echo '</Worksheet>';
+
 echo '</Workbook>';

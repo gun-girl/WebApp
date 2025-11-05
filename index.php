@@ -248,7 +248,7 @@ if ($search) {
           <a href="logout.php" class="dropdown-item">🚪 <?= t('logout') ?></a>
         </div>
       </div>
-      | <a href="stats.php"><?= t('results') ?></a>
+      | <a href="stats.php"><?= t('all_votes') ?></a>
       | <a href="index.php">🏠 <?= t('home') ?></a>
       | <a href="?lang=en"><?= t('lang_en') ?></a>
       | <a href="?lang=it"><?= t('lang_it') ?></a>

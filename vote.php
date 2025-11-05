@@ -4,20 +4,51 @@ require_once __DIR__.'/includes/lang.php';
 require_login();
 
 $user = current_user();
+$edit_vote_id = (int)($_GET['edit'] ?? 0);
 $movie_id = (int)($_GET['movie_id'] ?? 0);
 
-if ($movie_id <= 0) {
-    die('Invalid movie');
-}
-
-// Get movie details
-$stmt = $mysqli->prepare("SELECT * FROM movies WHERE id = ?");
-$stmt->bind_param('i', $movie_id);
-$stmt->execute();
-$movie = $stmt->get_result()->fetch_assoc();
-
-if (!$movie) {
-    die('Movie not found');
+// If editing, load the existing vote
+$existing_vote = null;
+if ($edit_vote_id > 0) {
+    // Load vote and verify ownership
+    $stmt = $mysqli->prepare("
+        SELECT v.*, vd.*, m.id as movie_id, m.title, m.year, m.poster_url
+        FROM votes v
+        INNER JOIN vote_details vd ON vd.vote_id = v.id
+        INNER JOIN movies m ON m.id = v.movie_id
+        WHERE v.id = ? AND v.user_id = ?
+    ");
+    $stmt->bind_param('ii', $edit_vote_id, $user['id']);
+    $stmt->execute();
+    $existing_vote = $stmt->get_result()->fetch_assoc();
+    
+    if (!$existing_vote) {
+        die('Vote not found or access denied');
+    }
+    
+    // Set movie details from existing vote
+    $movie_id = $existing_vote['movie_id'];
+    $movie = [
+        'id' => $existing_vote['movie_id'],
+        'title' => $existing_vote['title'],
+        'year' => $existing_vote['year'],
+        'poster_url' => $existing_vote['poster_url']
+    ];
+} else {
+    // New vote - require movie_id
+    if ($movie_id <= 0) {
+        die('Invalid movie');
+    }
+    
+    // Get movie details
+    $stmt = $mysqli->prepare("SELECT * FROM movies WHERE id = ?");
+    $stmt->bind_param('i', $movie_id);
+    $stmt->execute();
+    $movie = $stmt->get_result()->fetch_assoc();
+    
+    if (!$movie) {
+        die('Movie not found');
+    }
 }
 
 $errors = [];
@@ -55,24 +86,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$errors) {
         $mysqli->begin_transaction();
         try {
-            // Check if vote exists
-            $check = $mysqli->prepare("SELECT id FROM votes WHERE user_id = ? AND movie_id = ?");
-            $check->bind_param('ii', $user['id'], $movie_id);
-            $check->execute();
-            $existing = $check->get_result()->fetch_assoc();
-            
-            if ($existing) {
-                $vote_id = $existing['id'];
-                // Update existing vote
-                $stmt = $mysqli->prepare("UPDATE votes SET updated_at = CURRENT_TIMESTAMP WHERE id = ?");
-                $stmt->bind_param('i', $vote_id);
-                $stmt->execute();
+            if ($edit_vote_id > 0) {
+                // Editing existing vote - verify ownership again
+                $check = $mysqli->prepare("SELECT id FROM votes WHERE id = ? AND user_id = ?");
+                $check->bind_param('ii', $edit_vote_id, $user['id']);
+                $check->execute();
+                $verify = $check->get_result()->fetch_assoc();
+                
+                if (!$verify) {
+                    throw new Exception('Access denied');
+                }
+                
+                $vote_id = $edit_vote_id;
             } else {
-                // Insert new vote
-                $stmt = $mysqli->prepare("INSERT INTO votes (user_id, movie_id) VALUES (?, ?)");
-                $stmt->bind_param('ii', $user['id'], $movie_id);
-                $stmt->execute();
-                $vote_id = $mysqli->insert_id;
+                // Check if vote exists for this movie
+                $check = $mysqli->prepare("SELECT id FROM votes WHERE user_id = ? AND movie_id = ?");
+                $check->bind_param('ii', $user['id'], $movie_id);
+                $check->execute();
+                $existing = $check->get_result()->fetch_assoc();
+                
+                if ($existing) {
+                    $vote_id = $existing['id'];
+                } else {
+                    // Insert new vote
+                    $stmt = $mysqli->prepare("INSERT INTO votes (user_id, movie_id) VALUES (?, ?)");
+                    $stmt->bind_param('ii', $user['id'], $movie_id);
+                    $stmt->execute();
+                    $vote_id = $mysqli->insert_id;
+                }
             }
             
             // Delete existing vote_details
@@ -98,7 +139,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $mysqli->commit();
             
             if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-            $_SESSION['flash'] = 'Vote submitted successfully!';
+            $_SESSION['flash'] = $edit_vote_id > 0 ? 'Vote updated successfully!' : 'Vote submitted successfully!';
+            $_SESSION['flash_edit_vote_id'] = $vote_id;
             redirect('/movie-club-app/stats.php?mine=1');
             
         } catch (Exception $e) {
@@ -356,15 +398,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <label><?= t('competition_status') ?> <span class="required"><?= t('required') ?></span></label>
           <div class="radio-group">
             <label class="radio-option">
-              <input type="radio" name="competition_status" value="In Competition" required>
+              <input type="radio" name="competition_status" value="In Competition" <?= ($existing_vote['competition_status'] ?? '') === 'In Competition' ? 'checked' : '' ?> required>
               <span><?= t('in_competition') ?></span>
             </label>
             <label class="radio-option">
-              <input type="radio" name="competition_status" value="2026 In Competition" required>
+              <input type="radio" name="competition_status" value="2026 In Competition" <?= ($existing_vote['competition_status'] ?? '') === '2026 In Competition' ? 'checked' : '' ?> required>
               <span><?= t('2026_in_competition') ?></span>
             </label>
             <label class="radio-option">
-              <input type="radio" name="competition_status" value="Out of Competition" required>
+              <input type="radio" name="competition_status" value="Out of Competition" <?= ($existing_vote['competition_status'] ?? '') === 'Out of Competition' ? 'checked' : '' ?> required>
               <span><?= t('out_of_competition') ?></span>
             </label>
           </div>
@@ -375,11 +417,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <label for="category"><?= t('category') ?> <span class="required"><?= t('required') ?></span></label>
           <select name="category" id="category" required>
             <option value=""><?= t('choose') ?></option>
-            <option value="Film"><?= t('film') ?></option>
-            <option value="Series"><?= t('series') ?></option>
-            <option value="Miniseries"><?= t('miniseries') ?></option>
-            <option value="Documentary"><?= t('documentary') ?></option>
-            <option value="Animation"><?= t('animation') ?></option>
+            <option value="Film" <?= ($existing_vote['category'] ?? '') === 'Film' ? 'selected' : '' ?>><?= t('film') ?></option>
+            <option value="Series" <?= ($existing_vote['category'] ?? '') === 'Series' ? 'selected' : '' ?>><?= t('series') ?></option>
+            <option value="Miniseries" <?= ($existing_vote['category'] ?? '') === 'Miniseries' ? 'selected' : '' ?>><?= t('miniseries') ?></option>
+            <option value="Documentary" <?= ($existing_vote['category'] ?? '') === 'Documentary' ? 'selected' : '' ?>><?= t('documentary') ?></option>
+            <option value="Animation" <?= ($existing_vote['category'] ?? '') === 'Animation' ? 'selected' : '' ?>><?= t('animation') ?></option>
           </select>
         </div>
 
@@ -388,18 +430,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <label for="where_watched"><?= t('where_watched') ?> <span class="required"><?= t('required') ?></span></label>
           <select name="where_watched" id="where_watched" required>
             <option value=""><?= t('choose') ?></option>
-            <option value="Cinema"><?= t('cinema') ?></option>
-            <option value="Netflix">Netflix</option>
-            <option value="Sky/Now TV">Sky / Now TV</option>
-            <option value="Amazon Prime Video">Amazon Prime Video</option>
-            <option value="Disney+">Disney+</option>
-            <option value="Apple TV+">Apple TV+</option>
-            <option value="Tim Vision">Tim Vision</option>
-            <option value="Paramount+">Paramount+</option>
-            <option value="Rai Play">Rai Play</option>
-            <option value="Mubi">Mubi</option>
-            <option value="Hulu">Hulu</option>
-            <option value="Other">Other</option>
+            <option value="Cinema" <?= ($existing_vote['where_watched'] ?? '') === 'Cinema' ? 'selected' : '' ?>><?= t('cinema') ?></option>
+            <option value="Netflix" <?= ($existing_vote['where_watched'] ?? '') === 'Netflix' ? 'selected' : '' ?>>Netflix</option>
+            <option value="Sky/Now TV" <?= ($existing_vote['where_watched'] ?? '') === 'Sky/Now TV' ? 'selected' : '' ?>>Sky / Now TV</option>
+            <option value="Amazon Prime Video" <?= ($existing_vote['where_watched'] ?? '') === 'Amazon Prime Video' ? 'selected' : '' ?>>Amazon Prime Video</option>
+            <option value="Disney+" <?= ($existing_vote['where_watched'] ?? '') === 'Disney+' ? 'selected' : '' ?>>Disney+</option>
+            <option value="Apple TV+" <?= ($existing_vote['where_watched'] ?? '') === 'Apple TV+' ? 'selected' : '' ?>>Apple TV+</option>
+            <option value="Tim Vision" <?= ($existing_vote['where_watched'] ?? '') === 'Tim Vision' ? 'selected' : '' ?>>Tim Vision</option>
+            <option value="Paramount+" <?= ($existing_vote['where_watched'] ?? '') === 'Paramount+' ? 'selected' : '' ?>>Paramount+</option>
+            <option value="Rai Play" <?= ($existing_vote['where_watched'] ?? '') === 'Rai Play' ? 'selected' : '' ?>>Rai Play</option>
+            <option value="Mubi" <?= ($existing_vote['where_watched'] ?? '') === 'Mubi' ? 'selected' : '' ?>>Mubi</option>
+            <option value="Hulu" <?= ($existing_vote['where_watched'] ?? '') === 'Hulu' ? 'selected' : '' ?>>Hulu</option>
+            <option value="Other" <?= ($existing_vote['where_watched'] ?? '') === 'Other' ? 'selected' : '' ?>>Other</option>
           </select>
         </div>
 
@@ -407,7 +449,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="form-group">
           <label for="writing"><?= t('writing') ?> <span class="required"><?= t('required') ?></span></label>
           <div class="rating-input">
-            <input type="number" name="writing" id="writing" min="1" max="10" step="0.5" placeholder="1-10" required>
+            <input type="number" name="writing" id="writing" min="1" max="10" step="0.5" placeholder="1-10" value="<?= htmlspecialchars($existing_vote['writing'] ?? '') ?>" required>
             <span class="rating-hint"><?= t('rate_1_to_10') ?></span>
           </div>
         </div>
@@ -415,7 +457,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="form-group">
           <label for="direction"><?= t('direction') ?> <span class="required"><?= t('required') ?></span></label>
           <div class="rating-input">
-            <input type="number" name="direction" id="direction" min="1" max="10" step="0.5" placeholder="1-10" required>
+            <input type="number" name="direction" id="direction" min="1" max="10" step="0.5" placeholder="1-10" value="<?= htmlspecialchars($existing_vote['direction'] ?? '') ?>" required>
             <span class="rating-hint"><?= t('rate_1_to_10') ?></span>
           </div>
         </div>
@@ -423,7 +465,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="form-group">
           <label for="acting_or_theme"><?= t('acting_theme') ?> <span class="required"><?= t('required') ?></span></label>
           <div class="rating-input">
-            <input type="number" name="acting_or_theme" id="acting_or_theme" min="1" max="10" step="0.5" placeholder="1-10" required>
+            <input type="number" name="acting_or_theme" id="acting_or_theme" min="1" max="10" step="0.5" placeholder="1-10" value="<?= htmlspecialchars($existing_vote['acting_or_doc_theme'] ?? '') ?>" required>
             <span class="rating-hint"><?= t('rate_1_to_10') ?></span>
           </div>
         </div>
@@ -431,7 +473,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="form-group">
           <label for="emotional_involvement"><?= t('emotional_involvement') ?> <span class="required"><?= t('required') ?></span></label>
           <div class="rating-input">
-            <input type="number" name="emotional_involvement" id="emotional_involvement" min="1" max="10" step="0.5" placeholder="1-10" required>
+            <input type="number" name="emotional_involvement" id="emotional_involvement" min="1" max="10" step="0.5" placeholder="1-10" value="<?= htmlspecialchars($existing_vote['emotional_involvement'] ?? '') ?>" required>
             <span class="rating-hint"><?= t('rate_1_to_10') ?></span>
           </div>
         </div>
@@ -439,7 +481,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="form-group">
           <label for="novelty"><?= t('novelty') ?> <span class="required"><?= t('required') ?></span></label>
           <div class="rating-input">
-            <input type="number" name="novelty" id="novelty" min="1" max="10" step="0.5" placeholder="1-10" required>
+            <input type="number" name="novelty" id="novelty" min="1" max="10" step="0.5" placeholder="1-10" value="<?= htmlspecialchars($existing_vote['novelty'] ?? '') ?>" required>
             <span class="rating-hint"><?= t('rate_1_to_10') ?></span>
           </div>
         </div>
@@ -447,7 +489,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="form-group">
           <label for="casting_research"><?= t('casting_research') ?> <span class="required"><?= t('required') ?></span></label>
           <div class="rating-input">
-            <input type="number" name="casting_research" id="casting_research" min="1" max="10" step="0.5" placeholder="1-10" required>
+            <input type="number" name="casting_research" id="casting_research" min="1" max="10" step="0.5" placeholder="1-10" value="<?= htmlspecialchars($existing_vote['casting_research_art'] ?? '') ?>" required>
             <span class="rating-hint"><?= t('rate_1_to_10') ?></span>
           </div>
         </div>
@@ -455,7 +497,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="form-group">
           <label for="sound"><?= t('sound') ?> <span class="required"><?= t('required') ?></span></label>
           <div class="rating-input">
-            <input type="number" name="sound" id="sound" min="1" max="10" step="0.5" placeholder="1-10" required>
+            <input type="number" name="sound" id="sound" min="1" max="10" step="0.5" placeholder="1-10" value="<?= htmlspecialchars($existing_vote['sound'] ?? '') ?>" required>
             <span class="rating-hint"><?= t('rate_1_to_10') ?></span>
           </div>
         </div>
@@ -463,7 +505,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <!-- Adjective -->
         <div class="form-group">
           <label for="adjective"><?= t('adjective') ?></label>
-          <input type="text" name="adjective" id="adjective" placeholder="<?= t('adjective_placeholder') ?>">
+          <input type="text" name="adjective" id="adjective" placeholder="<?= t('adjective_placeholder') ?>" value="<?= htmlspecialchars($existing_vote['adjective'] ?? '') ?>">
           <p class="helper-text"><?= t('adjective_helper') ?></p>
         </div>
 

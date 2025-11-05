@@ -3,6 +3,7 @@ return [
     'site_title' => 'IL DIVANO D\'ORO',
     'home' => 'Home',
     'results' => 'Risultati',
+    'all_votes' => 'Tutti i Voti',
     'logout' => 'Esci',
     'login' => 'Accedi',
     'register' => 'Registrati',
