@@ -11,31 +11,61 @@ $success = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     
+  // If changing password
+  if (!empty($_POST['change_password'])) {
+    $current = $_POST['current_password'] ?? '';
+    $new = $_POST['new_password'] ?? '';
+    $confirm = $_POST['confirm_password'] ?? '';
+    if ($new === '' || $confirm === '' || $current === '') {
+      $errors[] = 'All password fields are required';
+    } elseif ($new !== $confirm) {
+      $errors[] = 'New password and confirmation do not match';
+    } elseif (strlen($new) < 6) {
+      $errors[] = 'New password must be at least 6 characters';
+    } else {
+      // Verify current password
+      $stmt = $mysqli->prepare("SELECT password_hash FROM users WHERE id=?");
+      $stmt->bind_param('i', $user['id']);
+      $stmt->execute();
+      $row = $stmt->get_result()->fetch_assoc();
+      if (!$row || !password_verify($current, $row['password_hash'])) {
+        $errors[] = 'Current password is incorrect';
+      } else {
+        $newHash = password_hash($new, PASSWORD_DEFAULT);
+        $stmt2 = $mysqli->prepare("UPDATE users SET password_hash=? WHERE id=?");
+        $stmt2->bind_param('si', $newHash, $user['id']);
+        $stmt2->execute();
+        $success = 'Password updated successfully';
+      }
+    }
+  } else {
+    // Standard profile update (username/email)
     $new_email = trim($_POST['email'] ?? '');
     $new_username = trim($_POST['username'] ?? '');
-    
+        
     if (empty($new_email) || empty($new_username)) {
-        $errors[] = t('all_fields_required');
+      $errors[] = t('all_fields_required');
     } else {
-        try {
-            $stmt = $mysqli->prepare("UPDATE users SET username = ?, email = ? WHERE id = ?");
-            $stmt->bind_param('ssi', $new_username, $new_email, $user['id']);
-            $stmt->execute();
-            
-            // Update session
-            $_SESSION['user']['username'] = $new_username;
-            $_SESSION['user']['email'] = $new_email;
-            $user = current_user();
-            
-            $success = t('profile_updated');
-        } catch (mysqli_sql_exception $e) {
-            if (str_contains($e->getMessage(), 'Duplicate')) {
-                $errors[] = t('username_email_exists');
-            } else {
-                $errors[] = t('error_updating_profile');
-            }
+      try {
+        $stmt = $mysqli->prepare("UPDATE users SET username = ?, email = ? WHERE id = ?");
+        $stmt->bind_param('ssi', $new_username, $new_email, $user['id']);
+        $stmt->execute();
+                
+        // Update session
+        $_SESSION['user']['username'] = $new_username;
+        $_SESSION['user']['email'] = $new_email;
+        $user = current_user();
+                
+        $success = t('profile_updated');
+      } catch (mysqli_sql_exception $e) {
+        if (str_contains($e->getMessage(), 'Duplicate')) {
+          $errors[] = t('username_email_exists');
+        } else {
+          $errors[] = t('error_updating_profile');
         }
+      }
     }
+  }
 }
 
 // Get user's votes count
@@ -141,6 +171,8 @@ include __DIR__.'/includes/header.php';
       color: #fff;
     }
     .btn.secondary:hover { background: #555; }
+  .grid-2 { display:grid; grid-template-columns:1fr; gap:1rem }
+  @media(min-width:720px){ .grid-2{ grid-template-columns:1fr 1fr } }
     
     footer {
       text-align: center;
@@ -197,6 +229,26 @@ include __DIR__.'/includes/header.php';
         </label>
         <button type="submit"><?= t('save_changes') ?></button>
         <a href="index.php" class="btn secondary"><?= t('cancel') ?></a>
+      </form>
+    </div>
+
+    <div class="profile-box">
+      <h2>🔒 Change Password</h2>
+      <form method="post">
+        <?= csrf_field() ?>
+        <input type="hidden" name="change_password" value="1">
+        <div class="grid-2">
+          <label>Current Password
+            <input type="password" name="current_password" placeholder="Enter current password" required>
+          </label>
+          <label>New Password
+            <input type="password" name="new_password" placeholder="Enter new password" required>
+          </label>
+        </div>
+        <label>Confirm New Password
+          <input type="password" name="confirm_password" placeholder="Re-type new password" required>
+        </label>
+        <button type="submit">Update Password</button>
       </form>
     </div>
   </div>
