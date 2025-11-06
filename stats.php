@@ -335,9 +335,10 @@ $rows = $mysqli->query($sql)->fetch_all(MYSQLI_ASSOC);
 
   <main>
     <div class="nav-buttons">
-      <a href="export_results.php" class="btn">⬇ <?= t('download_excel') ?></a>
+      <?php if (function_exists('is_admin') && is_admin()): ?>
+        <a href="export_results.php" class="btn">⬇ <?= t('download_excel') ?></a>
+      <?php endif; ?>
       <a href="?mine=1" class="btn"><?= t('my_votes') ?></a>
-
     </div>
 
     <section class="results-container">

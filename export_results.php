@@ -30,6 +30,10 @@ $sql = "
     ORDER BY m.title ASC, v.created_at DESC
 ";
 
+// Restrict full export to admins only
+if (!is_admin()) {
+    redirect('/movie-club-app/index.php');
+}
 $votes = $mysqli->query($sql)->fetch_all(MYSQLI_ASSOC);
 
 // Query for aggregated results

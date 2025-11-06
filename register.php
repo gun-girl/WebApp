@@ -26,11 +26,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   if (!$errors) {
     $hash = password_hash($pass, PASSWORD_DEFAULT);
     try {
-      $stmt = $mysqli->prepare("INSERT INTO users(username,email,password_hash) VALUES(?,?,?)");
-      $stmt->bind_param('sss', $username, $email, $hash);
+      $role = 'user';
+      $stmt = $mysqli->prepare("INSERT INTO users(username,email,password_hash,role) VALUES(?,?,?,?)");
+      $stmt->bind_param('ssss', $username, $email, $hash, $role);
       $stmt->execute();
       $id = $stmt->insert_id;
-      login_user(['id' => $id, 'username' => $username, 'email' => $email]);
+      login_user(['id' => $id, 'username' => $username, 'email' => $email, 'role' => $role]);
       redirect('/movie-club-app/index.php');
     } catch (mysqli_sql_exception $e) {
       $errors[] = str_contains($e->getMessage(), 'Duplicate') ? t('username_email_exists') : 'DB error';

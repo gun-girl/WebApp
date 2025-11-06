@@ -79,6 +79,14 @@
     align-items: center;
     gap: 0.5rem;
   }
+  .badge-admin {
+    background: #f6c90e;
+    color: #000;
+    font-size: .75rem;
+    padding: .1rem .4rem;
+    border-radius: .25rem;
+    font-weight: 700;
+  }
   .user-button:hover {
     background: rgba(246,201,14,.1);
     color: #f6c90e;
@@ -223,6 +231,9 @@
       <div class="user-menu">
         <button class="user-button" id="userMenuBtn">
           <span><?= e($user['username']) ?> 👤</span>
+          <?php if (function_exists('is_admin') && is_admin()): ?>
+            <span class="badge-admin">ADMIN</span>
+          <?php endif; ?>
           <span class="dropdown-arrow">▼</span>
         </button>
         <div class="dropdown-menu" id="userDropdown">

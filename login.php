@@ -6,11 +6,22 @@ $errors=[];
 if ($_SERVER['REQUEST_METHOD']==='POST') {
   verify_csrf();
   $email=trim($_POST['email']??''); $pass=$_POST['password']??'';
-  $stmt=$mysqli->prepare("SELECT id,username,email,password_hash FROM users WHERE email=?");
+  // Be backward-compatible if the 'role' column hasn't been added yet
+  $hasRole = false;
+  try {
+    $resCols = $mysqli->query("SHOW COLUMNS FROM users LIKE 'role'");
+    $hasRole = $resCols && $resCols->num_rows > 0;
+  } catch (Throwable $e) { /* ignore */ }
+
+  $sql = $hasRole
+    ? "SELECT id,username,email,password_hash,role FROM users WHERE email=?"
+    : "SELECT id,username,email,password_hash FROM users WHERE email=?";
+  $stmt=$mysqli->prepare($sql);
   $stmt->bind_param('s',$email); $stmt->execute();
   $res=$stmt->get_result()->fetch_assoc();
+  if ($res && !$hasRole) { $res['role'] = 'user'; }
   if ($res && password_verify($pass,$res['password_hash'])) {
-    login_user($res); redirect('/movie-club-app/index.php');
+  login_user($res); redirect('/movie-club-app/index.php');
   } else $errors[]=t('invalid_credentials');
 }
 ?>

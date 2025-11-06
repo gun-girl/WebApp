@@ -9,13 +9,28 @@ function current_user(): ?array {
 }
 
 function login_user(array $user): void {
-    $_SESSION['user'] = ['id'=>$user['id'], 'username'=>$user['username'], 'email'=>$user['email'] ?? ''];
+    $_SESSION['user'] = [
+        'id' => $user['id'],
+        'username' => $user['username'],
+        'email' => $user['email'] ?? '',
+        'role' => $user['role'] ?? 'user',
+    ];
 }
 
 function logout_user(): void { session_destroy(); }
 
 function require_login(): void {
     if (!current_user()) { redirect('/movie-club-app/login.php'); }
+}
+
+function is_admin(): bool {
+    $u = current_user();
+    return $u && (($u['role'] ?? 'user') === 'admin');
+}
+
+function require_admin(): void {
+    require_login();
+    if (!is_admin()) { redirect('/movie-club-app/index.php'); }
 }
 function csrf_field() {
     if (session_status() !== PHP_SESSION_ACTIVE) {
