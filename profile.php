@@ -44,55 +44,10 @@ $stmt->bind_param('i', $user['id']);
 $stmt->execute();
 $vote_data = $stmt->get_result()->fetch_assoc();
 $vote_count = $vote_data['vote_count'];
-?>
-<!DOCTYPE html>
-<html lang="<?= current_lang() ?>">
-<head>
-  <meta charset="UTF-8">
-  <title><?= t('profile') ?> – <?= t('site_title') ?></title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Poppins', system-ui, sans-serif;
-      background: radial-gradient(circle at top, #0c0c0c, #000);
-      color: #eee;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-    header {
-      background: rgba(0,0,0,0.8);
-      backdrop-filter: blur(8px);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 1rem 2rem;
-      border-bottom: 1px solid #222;
-    }
-    .header-logo {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-    }
-    .header-logo img {
-      height: 50px;
-      width: auto;
-    }
-    header h1 {
-      font-size: 1.6rem;
-      letter-spacing: 1px;
-      font-weight: 600;
-      color: #f6c90e;
-    }
-    nav a {
-      color: #fff;
-      text-decoration: none;
-      margin-left: 1rem;
-      transition: color .2s;
-      font-weight: 500;
-    }
-    nav a:hover { color: #f6c90e; }
 
+include __DIR__.'/includes/header.php';
+?>
+<style>
     .profile-container {
       flex: 1;
       padding: 2rem;
@@ -194,24 +149,9 @@ $vote_count = $vote_data['vote_count'];
       font-size: .9rem;
       border-top: 1px solid #222;
     }
-  </style>
-</head>
-<body>
-  <header>
-    <div class="header-logo">
-      <img src="/movie-club-app/assests/img/logo.png" alt="<?= t('site_title') ?>">
-    </div>
-    <nav>
-      <span><?= t('hello') ?>, <?= htmlspecialchars($user['username']) ?></span>
-      | <a href="logout.php"><?= t('logout') ?></a>
-      | <a href="stats.php"><?= t('all_votes') ?></a>
-      | <a href="index.php">🏠 <?= t('home') ?></a>
-      | <a href="?lang=en"><?= t('lang_en') ?></a>
-      | <a href="?lang=it"><?= t('lang_it') ?></a>
-    </nav>
-  </header>
+</style>
 
-  <div class="profile-container">
+<div class="profile-container">
     <div class="profile-box">
       <h2>👤 <?= t('my_profile') ?></h2>
       
@@ -261,6 +201,4 @@ $vote_count = $vote_data['vote_count'];
     </div>
   </div>
 
-  <footer><?= t('footer_text') ?></footer>
-</body>
-</html>
+<?php include __DIR__.'/includes/footer.php'; ?>

@@ -14,12 +14,8 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
   } else $errors[]=t('invalid_credentials');
 }
 ?>
-<!DOCTYPE html>
-<html lang="<?= current_lang() ?>">
-<head>
-  <meta charset="UTF-8">
-  <title><?= t('login') ?> – <?= t('site_title') ?></title>
-  <style>
+<?php include __DIR__.'/includes/header.php'; ?>
+<style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Poppins', system-ui, sans-serif;
@@ -29,38 +25,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
       display: flex;
       flex-direction: column;
     }
-    header {
-      background: rgba(0,0,0,0.8);
-      backdrop-filter: blur(8px);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 1rem 2rem;
-      border-bottom: 1px solid #222;
-    }
-    .header-logo {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-    }
-    .header-logo img {
-      height: 50px;
-      width: auto;
-    }
-    header h1 {
-      font-size: 1.6rem;
-      letter-spacing: 1px;
-      font-weight: 600;
-      color: #f6c90e;
-    }
-    nav a {
-      color: #fff;
-      text-decoration: none;
-      margin-left: 1rem;
-      transition: color .2s;
-      font-weight: 500;
-    }
-    nav a:hover { color: #f6c90e; }
+    /* header/nav styles are provided by shared header */
 
     .login-container {
       flex: 1;
@@ -71,16 +36,16 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     }
     .login-box {
       background: #111;
-      border-radius: 0.75rem;
-      padding: 2rem;
-      max-width: 420px;
-      width: 100%;
-      box-shadow: 0 4px 20px rgba(0,0,0,.5);
+      border-radius: 0.9rem;
+      padding: 3.25rem;
+      max-width: 900px; 
+      width: min(92vw, 1360px);
+      box-shadow: 0 6px 28px rgba(0,0,0,.55);
     }
     .login-box h2 {
       color: #f6c90e;
-      margin-bottom: 1.5rem;
-      font-size: 1.8rem;
+      margin-bottom: 2.2rem;
+      font-size: 2.4rem;
       text-align: center;
     }
     .error {
@@ -100,19 +65,19 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     input {
       display: block;
       width: 100%;
-      padding: .7rem;
+      padding: 1rem;
       margin-top: .3rem;
       border: none;
       border-radius: .3rem;
       background: #222;
       color: #fff;
-      font-size: 1rem;
+      font-size: 1.15rem;
     }
     input::placeholder { color: #777; }
     button, .btn {
       display: inline-block;
       width: 100%;
-      padding: .7rem;
+      padding: 1.05rem;
       margin-top: .5rem;
       background: #f6c90e;
       color: #000;
@@ -120,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
       border-radius: .3rem;
       cursor: pointer;
       font-weight: 600;
-      font-size: 1rem;
+      font-size: 1.15rem;
       text-align: center;
       text-decoration: none;
       transition: background .2s;
@@ -140,20 +105,6 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
       border-top: 1px solid #222;
     }
   </style>
-</head>
-<body>
-  <header>
-    <div class="header-logo">
-      <img src="/movie-club-app/assests/img/logo.png" alt="<?= t('site_title') ?>">
-    </div>
-    <nav>
-      <a href="/movie-club-app/register.php"><?= t('register') ?></a>
-      | <a href="/movie-club-app/login.php"><?= t('login') ?></a>
-      | <a href="/movie-club-app/index.php">🏠 <?= t('home') ?></a>
-      | <a href="?lang=en"><?= t('lang_en') ?></a>
-      | <a href="?lang=it"><?= t('lang_it') ?></a>
-    </nav>
-  </header>
 
   <div class="login-container">
     <div class="login-box">
@@ -175,6 +126,4 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     </div>
   </div>
 
-  <footer><?= t('footer_text') ?></footer>
-</body>
-</html>
+<?php include __DIR__.'/includes/footer.php'; ?>
