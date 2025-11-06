@@ -193,6 +193,8 @@
     font-weight: 600;
   }
 
+  .hello-only { color:#fff; font-weight:500; }
+
   /* Push page content below the fixed header */
   main {
     padding-top: 84px; /* ~50px logo + vertical padding */
@@ -207,12 +209,20 @@
   </div>
   <nav>
     <?php 
+      // Show a standalone "Hello" only on the home page
+      $__parts = parse_url($_SERVER['REQUEST_URI']);
+      $__path = $__parts['path'] ?? '/';
+      $__is_home = ($__path === '/movie-club-app/index.php' || rtrim($__path,'/') === '/movie-club-app');
+      if ($__is_home): ?>
+        <span class="hello-only"><?= e(t('hello')) ?></span>
+    <?php endif; ?>
+    <?php 
       if (current_user()): 
         $user = current_user();
     ?>
       <div class="user-menu">
         <button class="user-button" id="userMenuBtn">
-          <span><?= e(t('hello')) ?>, <?= e($user['username']) ?> 👤</span>
+          <span><?= e($user['username']) ?> 👤</span>
           <span class="dropdown-arrow">▼</span>
         </button>
         <div class="dropdown-menu" id="userDropdown">
@@ -225,11 +235,11 @@
         </div>
       </div>
       | <a href="/movie-club-app/stats.php"><?= e(t('all_votes')) ?></a>
-      | <a href="/movie-club-app/index.php">🏠 <?= e(t('home')) ?></a>
+      | <a href="/movie-club-app/index.php"> <?= e(t('home')) ?></a>
     <?php else: ?>
       <a href="/movie-club-app/register.php"><?= e(t('register')) ?></a> |
       <a href="/movie-club-app/login.php"><?= e(t('login')) ?></a>
-      | <a href="/movie-club-app/index.php">🏠 <?= e(t('home')) ?></a>
+      | <a href="/movie-club-app/index.php"> <?= e(t('home')) ?></a>
     <?php endif; ?>
     |
     <?php
