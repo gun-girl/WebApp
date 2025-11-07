@@ -93,4 +93,7 @@ return [
     'casting_research_art' => 'Casting / Research / Artwork',
     'vote_id' => 'Vote ID',
     'release_year' => 'Release Year'
+    , 'in_competition_section' => 'In Competition'
+    , 'top_rated' => 'Top Rated'
+    , 'recently_added' => 'Recently Added'
 ];

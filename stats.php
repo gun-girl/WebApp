@@ -197,169 +197,99 @@ if ($hasRating) {
 }
 $rows = $mysqli->query($sql)->fetch_all(MYSQLI_ASSOC);
 ?>
-<!DOCTYPE html>
-<html lang="<?= current_lang() ?>">
-<head>
-  <meta charset="UTF-8">
-  <title><?= t('all_votes') ?> – <?= t('site_title') ?></title>
-  <link rel="stylesheet" href="assets/css/style.css">
-  <style>
-    body {
-      background: radial-gradient(circle at top, #0a0a0a, #000);
-      color: #eee;
-      font-family: 'Poppins', system-ui, sans-serif;
-      margin: 0;
-    }
+<style>
+  .results-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 1rem;
+  }
 
-    header {
-      background: rgba(0,0,0,0.85);
-      padding: 1rem 2rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid #222;
-      position: sticky;
-      top: 0;
-      z-index: 10;
-    }
+  .card {
+    background: #111;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    transition: transform .3s ease, box-shadow .3s ease;
+  }
 
-    .header-logo {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-    }
-    .header-logo img {
-      height: 50px;
-      width: auto;
-    }
-    header h1 {
-      color: #f6c90e;
-      font-size: 1.6rem;
-      margin: 0;
-    }
+  .card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 6px 25px rgba(246,201,14,0.4);
+  }
 
-    nav {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
+  .card img {
+    width: 100%;
+    height: 320px;
+    object-fit: cover;
+    display: block;
+  }
 
-    nav a {
-      color: #fff;
-      text-decoration: none;
-      transition: color .2s;
-      font-weight: 500;
-    }
-    nav a:hover { color: #f6c90e; }
+  .card-content {
+    padding: 1rem;
+    text-align: center;
+  }
 
-    .results-container {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 1.5rem;
-      max-width: 1200px;
-      margin: 2rem auto;
-      padding: 1rem;
-    }
+  .card-content h3 {
+    font-size: 1.1rem;
+    color: #fff;
+    margin-bottom: .3rem;
+  }
 
-    .card {
-      background: #111;
-      border-radius: 0.75rem;
-      overflow: hidden;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-      transition: transform .3s ease, box-shadow .3s ease;
-    }
+  .card-content p {
+    margin: .2rem 0;
+    color: #aaa;
+    font-size: .9rem;
+  }
 
-    .card:hover {
-      transform: translateY(-6px);
-      box-shadow: 0 6px 25px rgba(246,201,14,0.4);
-    }
+  .avg-rating {
+    color: #f6c90e;
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-top: .4rem;
+  }
 
-    .card img {
-      width: 100%;
-      height: 320px;
-      object-fit: cover;
-      display: block;
-    }
+  .nav-buttons {
+    text-align: center;
+    margin: 1rem auto;
+  }
 
-    .card-content {
-      padding: 1rem;
-      text-align: center;
-    }
+  .btn {
+    background: #f6c90e;
+    color: #000;
+    padding: .6rem 1.2rem;
+    border-radius: .3rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background .3s;
+    margin: 0 .5rem;
+  }
 
-    .card-content h3 {
-      font-size: 1.1rem;
-      color: #fff;
-      margin-bottom: .3rem;
-    }
+  .btn:hover { background: #ffde50; }
+</style>
 
-    .card-content p {
-      margin: .2rem 0;
-      color: #aaa;
-      font-size: .9rem;
-    }
+<div class="nav-buttons">
+  <?php if (function_exists('is_admin') && is_admin()): ?>
+    <a href="export_results.php" class="btn">⬇ <?= t('download_excel') ?></a>
+  <?php endif; ?>
+  <a href="?mine=1" class="btn"><?= t('my_votes') ?></a>
+</div>
 
-    .avg-rating {
-      color: #f6c90e;
-      font-weight: 700;
-      font-size: 1.1rem;
-      margin-top: .4rem;
-    }
-
-    .nav-buttons {
-      text-align: center;
-      margin: 1rem auto;
-    }
-
-    .btn {
-      background: #f6c90e;
-      color: #000;
-      padding: .6rem 1.2rem;
-      border-radius: .3rem;
-      font-weight: 600;
-      text-decoration: none;
-      transition: background .3s;
-      margin: 0 .5rem;
-    }
-
-    .btn:hover { background: #ffde50; }
-
-    footer {
-      text-align: center;
-      color: #666;
-      padding: 2rem 0;
-      border-top: 1px solid #222;
-      margin-top: 2rem;
-    }
-  </style>
-</head>
-
-  <main>
-    <div class="nav-buttons">
-      <?php if (function_exists('is_admin') && is_admin()): ?>
-        <a href="export_results.php" class="btn">⬇ <?= t('download_excel') ?></a>
-      <?php endif; ?>
-      <a href="?mine=1" class="btn"><?= t('my_votes') ?></a>
+<section class="results-container">
+  <?php foreach ($rows as $r): ?>
+    <div class="card">
+      <?php $poster = $r['poster_url'] ?: '/movie-club-app/assests/img/no-poster.png'; ?>
+      <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($r['title']) ?>">
+      <div class="card-content">
+        <h3><?= htmlspecialchars($r['title']) ?></h3>
+        <p><?= htmlspecialchars($r['year']) ?></p>
+        <p><?= (int)$r['votes_count'] ?> <?= t('votes') ?></p>
+        <p class="avg-rating">⭐ <?= htmlspecialchars($r['avg_rating'] ?? 'N/A') ?></p>
+      </div>
     </div>
-
-    <section class="results-container">
-      <?php foreach ($rows as $r): ?>
-        <div class="card">
-          <img src="<?= htmlspecialchars($r['poster_url'] ?: 'assets/img/no-poster.png') ?>" alt="<?= htmlspecialchars($r['title']) ?>">
-          <div class="card-content">
-            <h3><?= htmlspecialchars($r['title']) ?></h3>
-            <p><?= htmlspecialchars($r['year']) ?></p>
-            <p><?= (int)$r['votes_count'] ?> <?= t('votes') ?></p>
-            <p class="avg-rating">⭐ <?= htmlspecialchars($r['avg_rating'] ?? 'N/A') ?></p>
-          </div>
-        </div>
-      <?php endforeach; ?>
-    </section>
-  </main>
-
-  <footer>
-    © <?= t('site_title') ?> 2025 — <?= t('celebrating_cinema') ?>
-  </footer>
-</body>
-</html>
+  <?php endforeach; ?>
+</section>
 
 <?php include __DIR__.'/includes/footer.php';

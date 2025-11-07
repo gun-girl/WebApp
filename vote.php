@@ -373,7 +373,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       }
     }
   </style>
-</head>
   <div class="vote-container">
     <div class="movie-header">
       <img src="<?= htmlspecialchars($movie['poster_url'] ?: 'assets/img/no-poster.png') ?>" alt="<?= htmlspecialchars($movie['title']) ?>">
@@ -517,7 +516,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
   </div>
 
-  <footer><?= t('footer_text') ?></footer>
-</main>
-</body>
-</html>
+<?php include __DIR__.'/includes/footer.php'; ?>

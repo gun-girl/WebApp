@@ -93,4 +93,7 @@ return [
     'casting_research_art' => 'Casting / Ricerca / Artwork',
     'vote_id' => 'ID Voto',
     'release_year' => 'Anno di uscita'
+    , 'in_competition_section' => 'In Competizione'
+    , 'top_rated' => 'Più votati'
+    , 'recently_added' => 'Aggiunti di recente'
 ];
