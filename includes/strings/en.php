@@ -92,9 +92,19 @@ return [
     'acting_or_doc_theme' => 'Acting / Theme',
     'casting_research_art' => 'Casting / Research / Artwork',
     'vote_id' => 'Vote ID',
-    'release_year' => 'Release Year'
-    , 'in_competition_section' => 'In Competition'
-    , 'top_rated' => 'Top Rated'
+    'release_year' => 'Release Year',
+    'in_competition_section' => 'In Competition',
+    // Sheets / tabs
+    'sheet_votes' => 'Votes {year}',
+    'sheet_results' => 'Results {year}',
+    'sheet_views' => 'Views {year}',
+    'sheet_judges' => 'Judges',
+    'sheet_judges_comp' => 'Judges – Competition Only',
+    'sheet_titles' => 'Title List',
+    'sheet_adjectives' => 'Adjective List',
+    'sheet_finalists_2023' => 'Finalists 2023',
+    'raw_votes' => 'Raw Votes',
+    'top_rated' => 'Top Rated'
     , 'recently_added' => 'Recently Added'
     , 'season' => 'Season'
     , 'episode' => 'Episode'
@@ -104,4 +114,8 @@ return [
     , 'episode_placeholder' => 'Episode #'
     , 'season_episode' => 'Season / Episode'
     , 'season_episode_helper' => 'If voting for a specific episode of a series or miniseries, fill these fields.'
+    , 'movie_results' => 'Movie Results'
+    , 'raw_votes' => 'All Votes (raw)'
+    , 'sheet_movies' => 'Results 2024'
+    , 'sheet_raw' => 'Votes 2024'
 ];
