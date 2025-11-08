@@ -52,25 +52,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     /* header/nav styles are provided by shared header */
 
-    .register-container {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem;
-    }
-    .register-box {
-      background: #111;
-      border-radius: 0.75rem;
-      padding: 2rem;
-      max-width: 420px;
-      width: 100%;
-      box-shadow: 0 4px 20px rgba(0,0,0,.5);
-    }
+    /* Use a container pattern like profile for consistent width */
+  /* Uses shared container/card styles from style.css via .container-800 and .card-box */
+  .register-container{ max-width:800px; margin:0 auto; width:100%; padding:2rem; }
+  .register-box{ max-width:800px; min-width:800px; width:100%; margin:0 auto; }
     .register-box h2 {
       color: #f6c90e;
-      margin-bottom: 1.5rem;
-      font-size: 1.8rem;
+      margin-bottom: 1.5rem; /* match profile */
+      font-size: 1.8rem;     /* match profile */
       text-align: center;
     }
     .error {
@@ -90,19 +79,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     input {
       display: block;
       width: 100%;
-      padding: .7rem;
+      padding: .7rem;        /* match profile */
       margin-top: .3rem;
       border: none;
       border-radius: .3rem;
       background: #222;
       color: #fff;
-      font-size: 1rem;
+      font-size: 1rem;       /* match profile */
     }
     input::placeholder { color: #777; }
     button, .btn {
       display: inline-block;
       width: 100%;
-      padding: .7rem;
+      padding: .7rem;        /* match profile */
       margin-top: .5rem;
       background: #f6c90e;
       color: #000;
@@ -110,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       border-radius: .3rem;
       cursor: pointer;
       font-weight: 600;
-      font-size: 1rem;
+      font-size: 1rem;       /* match profile */
       text-align: center;
       text-decoration: none;
       transition: background .2s;
@@ -130,10 +119,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       border-top: 1px solid #222;
     }
   </style>
-</style>
 
-  <div class="register-container">
-    <div class="register-box">
+  <div class="register-container container-800">
+    <div class="register-box card-box">
       <h2><?= t('register') ?></h2>
       <?php foreach ($errors as $er): ?>
         <p class="error"><?= htmlspecialchars($er) ?></p>

@@ -5,7 +5,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title><?= e(t('site_title')) ?></title>
-<link rel="stylesheet" href="/movie-club-app/assets/css/style.css">
+<?php $cssPath = __DIR__ . '/../assets/css/style.css'; $cssVer = @filemtime($cssPath) ?: time(); ?>
+<link rel="stylesheet" href="/movie-club-app/assets/css/style.css?v=<?= $cssVer ?>">
 <style>
   /* === GLOBAL === */
   * { box-sizing: border-box; margin: 0; padding: 0; }

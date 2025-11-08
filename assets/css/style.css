@@ -24,8 +24,8 @@ button:hover{background:var(--accent-hover)}
 .btn{display:inline-block;padding:.5rem 1rem;background:var(--accent);color:#111;text-decoration:none;border-radius:.25rem;margin-right:.5rem;font-weight:600}
 .btn:hover{background:var(--accent-hover)}
 .btn-small{padding:.25rem .5rem;font-size:.85em}
-.centered-container,.login-container,.register-container{flex:1;display:flex;align-items:center;justify-content:center;padding:2rem}
-.auth-card,.login-box,.register-box{background:#111;border-radius:.75rem;padding:2rem;max-width:420px;width:100%;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+.centered-container{flex:1;display:flex;align-items:center;justify-content:center;padding:2rem}
+.auth-card,.login-box,.register-box{background:#111;border-radius:.75rem;padding:2rem;max-width:800px;width:100%;box-shadow:0 4px 20px rgba(0,0,0,.5)}
 .vote-form{max-width:520px;margin:2rem auto}
 .form-group{margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between}
 .form-group label{display:inline-block;width:210px;margin-right:1rem;font-size:.9rem;color:#ccc}
@@ -42,3 +42,7 @@ button:hover{background:var(--accent-hover)}
 .season-episode-fields input{flex:1;min-width:0}
 .footer{margin-top:3rem;padding:2rem 1rem;font-size:.8rem;color:#777;text-align:center}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+
+/* Shared container and card to match profile sizing */
+.container-800{flex:1;max-width:800px;margin:0 auto;padding:2rem;width:100%}
+.card-box{background:#111;border-radius:.75rem;padding:2rem;box-shadow:0 4px 20px rgba(0,0,0,.5)}

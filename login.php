@@ -38,25 +38,14 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     }
     /* header/nav styles are provided by shared header */
 
-    .login-container {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem;
-    }
-    .login-box {
-      background: #111;
-      border-radius: 0.9rem;
-      padding: 3.25rem;
-      max-width: 900px; 
-      width: min(92vw, 1360px);
-      box-shadow: 0 6px 28px rgba(0,0,0,.55);
-    }
+  /* Uses shared container/card styles from style.css via .container-800 and .card-box */
+  /* Redundant explicit widths to guarantee visual match if any cache/override remains */
+  .login-container{ max-width:800px; margin:0 auto; width:100%; padding:2rem; }
+  .login-box{ max-width:800px; min-width:800px; width:100%; margin:0 auto; }
     .login-box h2 {
       color: #f6c90e;
-      margin-bottom: 2.2rem;
-      font-size: 2.4rem;
+      margin-bottom: 1.5rem; /* match profile */
+      font-size: 1.8rem;     /* match profile */
       text-align: center;
     }
     .error {
@@ -76,19 +65,19 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     input {
       display: block;
       width: 100%;
-      padding: 1rem;
+      padding: .7rem;        /* match profile */
       margin-top: .3rem;
       border: none;
       border-radius: .3rem;
       background: #222;
       color: #fff;
-      font-size: 1.15rem;
+      font-size: 1rem;       /* match profile */
     }
     input::placeholder { color: #777; }
     button, .btn {
       display: inline-block;
       width: 100%;
-      padding: 1.05rem;
+      padding: .7rem;        /* match profile */
       margin-top: .5rem;
       background: #f6c90e;
       color: #000;
@@ -96,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
       border-radius: .3rem;
       cursor: pointer;
       font-weight: 600;
-      font-size: 1.15rem;
+      font-size: 1rem;       /* match profile */
       text-align: center;
       text-decoration: none;
       transition: background .2s;
@@ -117,8 +106,8 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     }
   </style>
 
-  <div class="login-container">
-    <div class="login-box">
+  <div class="login-container container-800">
+    <div class="login-box card-box">
       <h2><?= t('login') ?></h2>
       <?php foreach($errors as $er): ?>
         <p class="error"><?= htmlspecialchars($er) ?></p>
