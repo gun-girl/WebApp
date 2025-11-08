@@ -33,6 +33,42 @@ $tabs = [
   'finalists_2023' => t('sheet_finalists_2023'),
 ];
 
+// Global fixed bottom tabs styling for all sheets (keeps bottom tabs visible while scrolling)
+?>
+<style>
+  /* Fixed, full-width bottom tab bar so the buttons span the full viewport */
+  .sheet-tabs {
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+  z-index: 1400 !important;
+  /* full-width dark footer bar (restored color) */
+  background: rgba(8,8,8,0.95) !important;
+    padding: .35rem .6rem !important;
+    display: flex !important;
+    gap: .5rem !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-top: 1px solid rgba(255,255,255,0.03) !important;
+    border-radius: 0 !important;
+    box-shadow: 0 -6px 18px rgba(0,0,0,0.35) !important;
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  .sheet-tabs .sheet-tab { flex: 0 0 auto !important; }
+
+  /* Ensure tabs don't cover page content */
+  main { padding-bottom: 140px !important; }
+
+  /* Small-screen: left-align the tabs row so it's easier to scroll horizontally */
+  @media (max-width:900px) {
+    .sheet-tabs { justify-content: flex-start !important; padding: .25rem .5rem !important; }
+  }
+</style>
+<?php
+
 // detect whether votes.rating exists in the DB
 $cols = $mysqli->query("SHOW COLUMNS FROM votes")->fetch_all(MYSQLI_ASSOC);
 $fields = array_column($cols, 'Field');
@@ -273,7 +309,8 @@ if ($sheet === 'results') {
       <?php endforeach; ?>
     </tbody>
   </table>
-
+  
+  <div class="sheet-copyright">© IL DIVANO D’ORO</div>
   <div class="sheet-tabs">
     <?php foreach ($tabs as $code => $label): ?>
       <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>"><?= e($label) ?></a>
@@ -327,6 +364,26 @@ if (($sheet === 'votes') || ($sheet === 'raw' && function_exists('is_admin') && 
   .sheet-tab{background:#1a1a1a;color:#ccc;border:1px solid #333;border-bottom:none;border-radius:.5rem .5rem 0 0;padding:.5rem 1rem;text-decoration:none}
   .sheet-tab.active{background:#f6c90e;color:#000;font-weight:700}
     </style>
+
+  <style>
+    /* Make the sheet-tabs sticky at the bottom so tabs remain visible while scrolling */
+    .sheet-tabs {
+      position: sticky;
+      bottom: 0;
+      z-index: 1100;
+      background: rgba(8,8,8,0.95);
+      padding: .5rem 1rem;
+      display: flex;
+      gap: .5rem;
+      align-items: center;
+      justify-content: center;
+      border-top: 1px solid #222;
+    }
+    .sheet-tabs .sheet-tab { flex: 0 0 auto; }
+
+    /* Prevent the sticky tabs from covering content */
+    main { padding-bottom: 96px !important; }
+  </style>
     <div class="raw-wrapper">
       <h2 style="text-align:center;"><?= t('raw_votes') ?></h2>
       <table class="raw-table">
@@ -372,6 +429,7 @@ if (($sheet === 'votes') || ($sheet === 'raw' && function_exists('is_admin') && 
       </tbody>
       </table>
     </div>
+    <div class="sheet-copyright">© IL DIVANO D’ORO</div>
     <div class="sheet-tabs">
       <?php foreach ($tabs as $code => $label): ?>
         <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>"><?= e($label) ?></a>
@@ -498,6 +556,7 @@ if ($sheet === 'views') {
         <?php endforeach; ?>
       </tbody>
     </table>
+    <div class="sheet-copyright">© IL DIVANO D’ORO</div>
     <div class="sheet-tabs">
       <?php foreach ($tabs as $code => $label): ?>
         <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>"><?= e($label) ?></a>
@@ -638,6 +697,7 @@ if ($sheet === 'judges' || $sheet === 'judges_comp') {
         <?php endforeach; ?>
       </tbody>
     </table>
+    <div class="sheet-copyright">© IL DIVANO D’ORO</div>
     <div class="sheet-tabs">
       <?php foreach ($tabs as $code => $label): ?>
         <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>"><?= e($label) ?></a>
@@ -671,6 +731,7 @@ if ($sheet === 'titles') {
         <?php endforeach; ?>
       </tbody>
     </table>
+    <div class="sheet-copyright">© IL DIVANO D’ORO</div>
     <div class="sheet-tabs">
       <?php foreach ($tabs as $code => $label): ?>
         <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>"><?= e($label) ?></a>
@@ -745,6 +806,7 @@ if ($sheet === 'adjectives') {
         </tbody>
       </table>
     <?php endif; ?>
+    <div class="sheet-copyright">© IL DIVANO D’ORO</div>
     <div class="sheet-tabs">
       <?php foreach ($tabs as $code => $label): ?>
         <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>"><?= e($label) ?></a>
@@ -783,6 +845,7 @@ if ($sheet === 'finalists_2023') {
         <?php endforeach; ?>
       </tbody>
     </table>
+    <div class="sheet-copyright">© IL DIVANO D’ORO</div>
     <div class="sheet-tabs">
       <?php foreach ($tabs as $code => $label): ?>
         <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>"><?= e($label) ?></a>
