@@ -19,17 +19,16 @@
     background: rgba(0,0,0,0.8);
     backdrop-filter: blur(8px);
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
+    top: 0; left: 0; right: 0;
     z-index: 1000;
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr; /* left and right take equal space; center stays truly centered */
     align-items: center;
-    justify-content: space-between;
-    padding: 1rem 2rem;
+    padding: .75rem 2rem;
     border-bottom: 1px solid #222;
     width: 100%;
     box-sizing: border-box;
+    column-gap: 1.5rem;
   }
   .header-logo {
     display: flex;
@@ -49,8 +48,16 @@
   nav {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.75rem;
+    justify-content: flex-end; /* sits in right grid column */
+    justify-self: end;
   }
+  .header-logo { justify-self: start; }
+  .header-center { display: flex; justify-content: center; align-items: center; }
+  .global-search { display:flex; align-items:center; gap:.5rem; }
+  .global-search input[type=text]{width:280px;max-width:100%;padding:.55rem .75rem;border:1px solid #333;border-radius:.4rem;background:#181818;color:#eee;font-size:.9rem;}
+  .global-search button{background:#f6c90e;color:#000;border:none;padding:.55rem .9rem;border-radius:.4rem;font-weight:600;cursor:pointer;font-size:.85rem;}
+  .global-search button:hover{background:#ffde50;}
   nav a {
     color: #fff;
     text-decoration: none;
@@ -204,17 +211,24 @@
   .hello-only { color:#fff; font-weight:500; }
 
   /* Push page content below the fixed header */
-  main {
-    padding-top: 84px; /* ~50px logo + vertical padding */
-  }
+  main { padding-top: 82px; }
 </style>
 </head>
 <body>
+<?php $show_search = !in_array(basename($_SERVER['PHP_SELF']), ['login.php','register.php']); ?>
 <header>
-  <!-- Global header: include this file on every page. Remove any other language switchers elsewhere. -->
+  <!-- Global header -->
   <div class="header-logo">
-  <img src="/movie-club-app/assets/img/logo.png" alt="<?= e(t('site_title')) ?>" onerror="this.onerror=null;this.src='/movie-club-app/assets/img/no-poster.svg';">
+    <img src="/movie-club-app/assets/img/logo.png" alt="<?= e(t('site_title')) ?>" onerror="this.onerror=null;this.src='/movie-club-app/assets/img/no-poster.svg';">
   </div>
+  <?php if ($show_search): ?>
+    <div class="header-center">
+      <form class="global-search" method="get" action="/movie-club-app/index.php">
+        <input type="text" name="search" placeholder="<?= e(t('search_movies')) ?>" value="<?= htmlspecialchars($_GET['search'] ?? '') ?>" aria-label="<?= e(t('search_movies')) ?>">
+        <button type="submit"><?= e(t('search')) ?></button>
+      </form>
+    </div>
+  <?php endif; ?>
   <nav>
     <?php 
       // Show a standalone "Hello" only on the home page
@@ -225,6 +239,10 @@
         <span class="hello-only"><?= e(t('hello')) ?></span>
     <?php endif; ?>
     <?php 
+      // track whether we print any left-side links to decide separator before language
+      $printed_links = false;
+      $current_script = basename($_SERVER['PHP_SELF']);
+      $is_auth_page = in_array($current_script, ['login.php','register.php']);
       if (current_user()): 
         $user = current_user();
     ?>
@@ -247,12 +265,17 @@
       </div>
       | <a href="/movie-club-app/stats.php"><?= e(t('all_votes')) ?></a>
       | <a href="/movie-club-app/index.php"> <?= e(t('home')) ?></a>
+      <?php $printed_links = true; ?>
     <?php else: ?>
-      <a href="/movie-club-app/register.php"><?= e(t('register')) ?></a> |
-      <a href="/movie-club-app/login.php"><?= e(t('login')) ?></a>
-      | <a href="/movie-club-app/index.php"> <?= e(t('home')) ?></a>
+      <?php if (!$is_auth_page): ?>
+        <a href="/movie-club-app/register.php"><?= e(t('register')) ?></a> |
+        <a href="/movie-club-app/login.php"><?= e(t('login')) ?></a>
+        | <a href="/movie-club-app/index.php"> <?= e(t('home')) ?></a>
+        <?php $printed_links = true; ?>
+      <?php endif; ?>
     <?php endif; ?>
-    |
+    <?php if ($printed_links): ?>|
+    <?php endif; ?>
     <?php
       // Language switcher dropdown that preserves all query params except lang
       $query = $_GET;

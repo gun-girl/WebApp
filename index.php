@@ -187,10 +187,7 @@ if ($search) {
       .movies-container { padding: 1rem; }
     }
   </style>
-  <form method="get" class="search-bar">
-    <input type="text" name="search" placeholder="<?= t('search_movies') ?>" value="<?= htmlspecialchars($search) ?>">
-    <button type="submit"><?= t('search') ?></button>
-  </form>
+  <!-- Search is now in the global header -->
 
   <?php if ($search): ?>
     <section class="movies-container">
