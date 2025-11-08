@@ -118,7 +118,9 @@ if ($search) {
     /* === MOVIE GRID === */
     .movies-container {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      /* Keep card width consistent; do not stretch when fewer results */
+      grid-template-columns: repeat(auto-fill, 240px);
+      justify-content: center; /* center tracks when leftover space exists */
       gap: 1.5rem;
       padding: 2rem;
       max-width: 1200px;
@@ -194,8 +196,8 @@ if ($search) {
     <section class="movies-container">
       <?php foreach ($movies as $movie): ?>
         <div class="movie-card">
-          <?php $poster = ($movie['poster_url'] ?? null); if (!$poster || $poster==='N/A') $poster='/movie-club-app/assests/img/no-poster.png'; ?>
-          <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>">
+          <?php $poster = ($movie['poster_url'] ?? null); if (!$poster || $poster==='N/A') $poster='/movie-club-app/assets/img/no-poster.svg'; ?>
+          <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src='/movie-club-app/assets/img/no-poster.svg';">
           <div class="movie-info">
             <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
             <div class="movie-year"><?= htmlspecialchars($movie['year']) ?></div>
@@ -234,8 +236,8 @@ if ($search) {
         <div id="rowIn" class="movie-row">
         <?php foreach ($inCompetition as $movie): ?>
           <div class="movie-card">
-            <?php $poster = ($movie['poster_url'] ?? null); if (!$poster || $poster==='N/A') $poster='/movie-club-app/assests/img/no-poster.png'; ?>
-            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>">
+            <?php $poster = ($movie['poster_url'] ?? null); if (!$poster || $poster==='N/A') $poster='/movie-club-app/assets/img/no-poster.svg'; ?>
+            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src='/movie-club-app/assets/img/no-poster.svg';">
             <div class="movie-info">
               <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
               <div class="movie-year"><?= htmlspecialchars($movie['year']) ?></div>
@@ -257,8 +259,8 @@ if ($search) {
         <div id="rowTop" class="movie-row">
         <?php foreach ($topRated as $movie): ?>
           <div class="movie-card">
-            <?php $poster = ($movie['poster_url'] ?? null); if (!$poster || $poster==='N/A') $poster='/movie-club-app/assests/img/no-poster.png'; ?>
-            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>">
+            <?php $poster = ($movie['poster_url'] ?? null); if (!$poster || $poster==='N/A') $poster='/movie-club-app/assets/img/no-poster.svg'; ?>
+            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src='/movie-club-app/assets/img/no-poster.svg';">
             <div class="movie-info">
               <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
               <div class="movie-year"><?= htmlspecialchars($movie['year']) ?></div>
@@ -280,8 +282,8 @@ if ($search) {
         <div id="rowRec" class="movie-row">
         <?php foreach ($recent as $movie): ?>
           <div class="movie-card">
-            <?php $poster = ($movie['poster_url'] ?? null); if (!$poster || $poster==='N/A') $poster='/movie-club-app/assests/img/no-poster.png'; ?>
-            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>">
+            <?php $poster = ($movie['poster_url'] ?? null); if (!$poster || $poster==='N/A') $poster='/movie-club-app/assets/img/no-poster.svg'; ?>
+            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src='/movie-club-app/assets/img/no-poster.svg';">
             <div class="movie-info">
               <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
               <div class="movie-year"><?= htmlspecialchars($movie['year']) ?></div>

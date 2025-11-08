@@ -96,4 +96,12 @@ return [
     , 'in_competition_section' => 'In Competition'
     , 'top_rated' => 'Top Rated'
     , 'recently_added' => 'Recently Added'
+    , 'season' => 'Season'
+    , 'episode' => 'Episode'
+    , 'season_number' => 'Season'
+    , 'episode_number' => 'Episode'
+    , 'season_placeholder' => 'Season #'
+    , 'episode_placeholder' => 'Episode #'
+    , 'season_episode' => 'Season / Episode'
+    , 'season_episode_helper' => 'If voting for a specific episode of a series or miniseries, fill these fields.'
 ];

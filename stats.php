@@ -64,10 +64,10 @@ if (!empty($_GET['mine']) && current_user()) {
       $numExpr = implode('+', $numParts);
       $denExpr = implode('+', $denParts);
 
-      $sqlUser = "SELECT v.id AS vote_id, m.title, m.year, 
-        vd.writing, vd.direction, vd.acting_or_doc_theme, vd.emotional_involvement,
-        vd.novelty, vd.casting_research_art, vd.sound,
-        vd.competition_status, vd.category, vd.where_watched,
+    $sqlUser = "SELECT v.id AS vote_id, m.title, m.year, 
+      vd.writing, vd.direction, vd.acting_or_doc_theme, vd.emotional_involvement,
+      vd.novelty, vd.casting_research_art, vd.sound,
+      vd.competition_status, vd.category, vd.where_watched, vd.season_number, vd.episode_number,
         ($numExpr) AS total_score,
         $denExpr AS non_empty_count,
         ( ($numExpr) / NULLIF($denExpr,0) ) AS calc_rating, 
@@ -111,6 +111,8 @@ if (!empty($_GET['mine']) && current_user()) {
           <?php endforeach; ?>
           <th style="background: #ffd700;">Totale</th>
           <th style="background: #ffd700;"><?= t('computed_rating') ?></th>
+          <th><?= t('season') ?></th>
+          <th><?= t('episode') ?></th>
           <th><?= t('when') ?></th>
           <th><?= t('actions') ?></th>
         </tr>
@@ -125,6 +127,8 @@ if (!empty($_GET['mine']) && current_user()) {
           <?php endforeach; ?>
           <td class="highlight"><?= number_format($r['total_score'] ?? 0, 2) ?></td>
           <td class="highlight"><?= number_format($r['calc_rating'] ?? 0, 2) ?></td>
+          <td><?= e($r['season_number'] ?? '') ?></td>
+          <td><?= e($r['episode_number'] ?? '') ?></td>
           <td><?= e($r['created_at']) ?></td>
           <td>
             <a href="vote.php?edit=<?= $r['vote_id'] ?>" class="btn btn-small"><?= t('edit') ?></a>
@@ -280,8 +284,8 @@ $rows = $mysqli->query($sql)->fetch_all(MYSQLI_ASSOC);
 <section class="results-container">
   <?php foreach ($rows as $r): ?>
     <div class="card">
-      <?php $poster = $r['poster_url'] ?: '/movie-club-app/assests/img/no-poster.png'; ?>
-      <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($r['title']) ?>">
+  <?php $poster = $r['poster_url']; if(!$poster || $poster==='N/A'){ $poster='/movie-club-app/assets/img/no-poster.svg'; } ?>
+  <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($r['title']) ?>" onerror="this.onerror=null;this.src='/movie-club-app/assets/img/no-poster.svg';">
       <div class="card-content">
         <h3><?= htmlspecialchars($r['title']) ?></h3>
         <p><?= htmlspecialchars($r['year']) ?></p>

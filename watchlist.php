@@ -212,7 +212,8 @@ include __DIR__.'/includes/header.php';
     <div class="watchlist-grid">
       <?php foreach ($watchlist_items as $item): ?>
         <div class="watchlist-card">
-          <img src="<?= htmlspecialchars($item['poster_url'] ?: '/movie-club-app/assests/img/no-poster.png') ?>" alt="<?= htmlspecialchars($item['title']) ?>">
+          <?php $poster = $item['poster_url']; if(!$poster || $poster==='N/A'){ $poster='/movie-club-app/assets/img/no-poster.svg'; } ?>
+          <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($item['title']) ?>" onerror="this.onerror=null;this.src='/movie-club-app/assets/img/no-poster.svg';">
           <div class="watchlist-card-content">
             <h3><?= htmlspecialchars($item['title']) ?></h3>
             <p><?= htmlspecialchars($item['year']) ?></p>

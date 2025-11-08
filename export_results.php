@@ -11,7 +11,9 @@ $sql = "
         u.username,
         m.title,
         m.year,
-        vd.competition_status,
+    vd.competition_status,
+    vd.season_number,
+    vd.episode_number,
         vd.category,
         vd.where_watched,
         vd.writing,
@@ -99,7 +101,7 @@ echo '<Table>';
 $headers = [
     'Informazioni Giurati',
     'Cosa hai guardato?',
-    'In che categoria vorresti far appartenere il titolo?',
+    'Categoria',
     'Dove lo hai visto?',
     'Scrittura',
     'Regia',
@@ -110,9 +112,11 @@ $headers = [
     'Sonoro',
     'Totale',
     'Voto calcolato',
-    'Descrivi con un aggettivo quanto vuoi uscito il ' . $currentYear,
+    'Aggettivo',
     'Giurato',
-    'anno è uscito il film'
+    'Anno',
+    'Stagione',
+    'Episodio'
 ];
 
 echo '<Row>';
@@ -171,14 +175,16 @@ foreach ($votes as $vote) {
             $vote['casting_research_art'] + $vote['sound']) / 7;
     echo '<Cell ss:StyleID="Formula"><Data ss:Type="Number">' . number_format($avg, 2, '.', '') . '</Data></Cell>';
     
-    // Descrivi con un aggettivo
+    // Aggettivo
     echo '<Cell><Data ss:Type="String">' . htmlspecialchars($vote['adjective'] ?: '') . '</Data></Cell>';
-    
-    // Giurato (duplicate for formula reference)
+    // Giurato
     echo '<Cell><Data ss:Type="String">' . htmlspecialchars($vote['username']) . '</Data></Cell>';
-    
-    // anno è uscito il film
+    // Anno
     echo '<Cell><Data ss:Type="Number">' . $vote['year'] . '</Data></Cell>';
+    // Stagione
+    echo '<Cell><Data ss:Type="Number">' . ($vote['season_number'] !== null ? (int)$vote['season_number'] : '') . '</Data></Cell>';
+    // Episodio
+    echo '<Cell><Data ss:Type="Number">' . ($vote['episode_number'] !== null ? (int)$vote['episode_number'] : '') . '</Data></Cell>';
     
     echo '</Row>';
     $rowNum++;

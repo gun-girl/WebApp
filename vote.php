@@ -67,9 +67,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $acting_or_theme = (float)($_POST['acting_or_theme'] ?? 0);
     $emotional_involvement = (float)($_POST['emotional_involvement'] ?? 0);
     $novelty = (float)($_POST['novelty'] ?? 0);
-    $casting_research = (float)($_POST['casting_research'] ?? 0);
-    $sound = (float)($_POST['sound'] ?? 0);
-    $adjective = trim($_POST['adjective'] ?? '');
+  $casting_research = (float)($_POST['casting_research'] ?? 0);
+  $sound = (float)($_POST['sound'] ?? 0);
+  $adjective = trim($_POST['adjective'] ?? '');
+  // Season / Episode (only relevant for Series / Miniseries)
+  $season_number = isset($_POST['season_number']) && $_POST['season_number'] !== '' ? (int)$_POST['season_number'] : null;
+  $episode_number = isset($_POST['episode_number']) && $_POST['episode_number'] !== '' ? (int)$_POST['episode_number'] : null;
     
     // Validation
     if (empty($competition_status)) $errors[] = 'Competition status is required';
@@ -81,7 +84,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($emotional_involvement < 1 || $emotional_involvement > 10) $errors[] = 'Emotional involvement score must be between 1-10';
     if ($novelty < 1 || $novelty > 10) $errors[] = 'Novelty score must be between 1-10';
     if ($casting_research < 1 || $casting_research > 10) $errors[] = 'Casting/Research score must be between 1-10';
-    if ($sound < 1 || $sound > 10) $errors[] = 'Sound score must be between 1-10';
+  if ($sound < 1 || $sound > 10) $errors[] = 'Sound score must be between 1-10';
+  if (in_array($category, ['Series','Miniseries'])) {
+    if ($season_number === null || $season_number < 1) $errors[] = 'Season number required for series/miniseries';
+    if ($episode_number === null || $episode_number < 1) $errors[] = 'Episode number required for series/miniseries';
+  }
     
     if (!$errors) {
         $mysqli->begin_transaction();
@@ -122,18 +129,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute();
             
             // Insert new vote_details
-            $stmt = $mysqli->prepare("
-                INSERT INTO vote_details 
-                (vote_id, writing, direction, acting_or_doc_theme, emotional_involvement, 
-                 novelty, casting_research_art, sound, competition_status, category, 
-                 where_watched, adjective)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ");
-            $stmt->bind_param('idddddddssss', 
-                $vote_id, $writing, $direction, $acting_or_theme, $emotional_involvement,
-                $novelty, $casting_research, $sound, $competition_status, $category,
-                $where_watched, $adjective
-            );
+        $stmt = $mysqli->prepare("
+          INSERT INTO vote_details 
+          (vote_id, writing, direction, acting_or_doc_theme, emotional_involvement, 
+           novelty, casting_research_art, sound, competition_status, category, 
+           season_number, episode_number, where_watched, adjective)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        $stmt->bind_param('idddddddssiiss', 
+          $vote_id, $writing, $direction, $acting_or_theme, $emotional_involvement,
+          $novelty, $casting_research, $sound, $competition_status, $category,
+          $season_number, $episode_number, $where_watched, $adjective
+        );
             $stmt->execute();
             
             $mysqli->commit();
@@ -375,7 +382,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   </style>
   <div class="vote-container">
     <div class="movie-header">
-      <img src="<?= htmlspecialchars($movie['poster_url'] ?: 'assets/img/no-poster.png') ?>" alt="<?= htmlspecialchars($movie['title']) ?>">
+  <?php $poster = $movie['poster_url']; if(!$poster || $poster==='N/A'){ $poster='/movie-club-app/assets/img/no-poster.svg'; } ?>
+  <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src='/movie-club-app/assets/img/no-poster.svg';">
       <div class="movie-info">
         <h2><?= htmlspecialchars($movie['title']) ?></h2>
         <p class="year"><?= htmlspecialchars($movie['year']) ?></p>
@@ -422,6 +430,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <option value="Documentary" <?= ($existing_vote['category'] ?? '') === 'Documentary' ? 'selected' : '' ?>><?= t('documentary') ?></option>
             <option value="Animation" <?= ($existing_vote['category'] ?? '') === 'Animation' ? 'selected' : '' ?>><?= t('animation') ?></option>
           </select>
+        </div>
+
+        <!-- Season / Episode (only for Series / Miniseries) -->
+        <div class="form-group" id="seasonEpisodeGroup" style="display:none;">
+          <label><?= t('season_episode') ?></label>
+          <div class="season-episode-fields">
+            <input type="number" name="season_number" min="1" placeholder="<?= t('season_placeholder') ?>" value="<?= htmlspecialchars($existing_vote['season_number'] ?? '') ?>">
+            <input type="number" name="episode_number" min="1" placeholder="<?= t('episode_placeholder') ?>" value="<?= htmlspecialchars($existing_vote['episode_number'] ?? '') ?>">
+          </div>
+          <p class="helper-text"><?= t('season_episode_helper') ?></p>
         </div>
 
         <!-- Where Watched -->
@@ -516,4 +534,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
   </div>
 
+<script>
+  const categorySelect = document.getElementById('category');
+  const seasonEpisodeGroup = document.getElementById('seasonEpisodeGroup');
+  function toggleSeasonEpisode(){
+    const v = categorySelect.value;
+    if(v === 'Series' || v === 'Miniseries') {
+      seasonEpisodeGroup.style.display = 'block';
+    } else {
+      seasonEpisodeGroup.style.display = 'none';
+    }
+  }
+  toggleSeasonEpisode();
+  categorySelect.addEventListener('change', toggleSeasonEpisode);
+</script>
 <?php include __DIR__.'/includes/footer.php'; ?>

@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title><?= e(t('site_title')) ?></title>
-<link rel="stylesheet" href="/movie-club-app/assests/css/style.css">
+<link rel="stylesheet" href="/movie-club-app/assets/css/style.css">
 <style>
   /* === GLOBAL === */
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -213,7 +213,7 @@
 <header>
   <!-- Global header: include this file on every page. Remove any other language switchers elsewhere. -->
   <div class="header-logo">
-    <img src="/movie-club-app/assests/img/logo.png" alt="<?= e(t('site_title')) ?>">
+  <img src="/movie-club-app/assets/img/logo.png" alt="<?= e(t('site_title')) ?>" onerror="this.onerror=null;this.src='/movie-club-app/assets/img/no-poster.svg';">
   </div>
   <nav>
     <?php 

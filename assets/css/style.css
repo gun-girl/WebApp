@@ -1,0 +1,44 @@
+:root{--gap:1rem;--bg:#111;--fg:#f5f5f5;--card:#1b1b1b;--accent:#ffc107;--accent-hover:#e0a800}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,Roboto,Arial}
+header{max-width:none;width:100%;margin:0;padding:1rem 2rem;box-sizing:border-box}
+main,footer{max-width:1200px;margin:auto;padding:1rem}
+nav a{color:#9ad;margin-right:.5rem;text-decoration:none}
+nav a:hover{color:#bce}
+form.search{margin:.5rem 0;display:flex;gap:.5rem}
+.grid{display:grid;grid-template-columns:1fr;gap:var(--gap)}
+@media(min-width:640px){.grid{grid-template-columns:repeat(3,1fr)}}
+.card{background:var(--card);padding:.75rem;border-radius:.5rem;display:flex;flex-direction:column}
+.card .img-wrap{width:100%;aspect-ratio:2/3;background:#111;border-radius:.25rem;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.card img{width:100%;height:auto;max-height:320px;object-fit:contain;border-radius:.25rem;background:#111;padding:.25rem}
+.card h3{margin:.5rem 0 .25rem;font-size:1.05rem;line-height:1.2}
+label{display:block;margin:.5rem 0}
+input,button,select{font:inherit;padding:.5rem;border-radius:.25rem;border:1px solid #333;background:#1d1d1d;color:var(--fg)}
+select:focus,input:focus{outline:2px solid #444}
+button{cursor:pointer;background:var(--accent);color:#111;border:0;font-weight:600}
+button:hover{background:var(--accent-hover)}
+.error{background:#612;color:#fee;padding:.5rem;border-radius:.25rem}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{padding:.5rem;border-bottom:1px solid #333;text-align:left}
+.nav-buttons{margin:1rem 0}
+.btn{display:inline-block;padding:.5rem 1rem;background:var(--accent);color:#111;text-decoration:none;border-radius:.25rem;margin-right:.5rem;font-weight:600}
+.btn:hover{background:var(--accent-hover)}
+.btn-small{padding:.25rem .5rem;font-size:.85em}
+.centered-container,.login-container,.register-container{flex:1;display:flex;align-items:center;justify-content:center;padding:2rem}
+.auth-card,.login-box,.register-box{background:#111;border-radius:.75rem;padding:2rem;max-width:420px;width:100%;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+.vote-form{max-width:520px;margin:2rem auto}
+.form-group{margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between}
+.form-group label{display:inline-block;width:210px;margin-right:1rem;font-size:.9rem;color:#ccc}
+.form-group input{width:80px}
+.logo img{height:54px;width:auto;display:block}
+.lang-switcher button{background:#222;color:#ddd;border:1px solid #333;padding:.35rem .6rem}
+.lang-switcher button.active{background:var(--accent);color:#111;border-color:var(--accent)}
+.header-bar{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.header-left{display:flex;align-items:center;gap:1rem}
+.header-right{display:flex;align-items:center;gap:1rem}
+.search-results{margin-top:1rem}
+.placeholder-poster{background:repeating-linear-gradient(45deg,#333,#333 10px,#2a2a2a 10px,#2a2a2a 20px);display:flex;align-items:center;justify-content:center;color:#888;font-size:.9rem;border-radius:.25rem}
+.season-episode-fields{display:flex;gap:.5rem;margin:.5rem 0}
+.season-episode-fields input{flex:1;min-width:0}
+.footer{margin-top:3rem;padding:2rem 1rem;font-size:.8rem;color:#777;text-align:center}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
