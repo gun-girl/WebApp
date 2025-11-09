@@ -152,6 +152,13 @@ if (!empty($_GET['mine']) && current_user()) {
       .table td { background: #1a1a1a; }
       .table tr:hover td { background: #2a2a2a; }
     </style>
+    <div class="nav-buttons">
+      <?php if (function_exists('is_admin') && is_admin()): ?>
+        <a href="export_results.php" class="btn">⬇ <?= t('download_excel') ?></a>
+      <?php endif; ?>
+      <a href="?mine=1" class="btn"><?= t('my_votes') ?></a>
+    </div>
+
     <table class="table">
       <thead>
         <tr>
@@ -309,8 +316,7 @@ if ($sheet === 'results') {
       <?php endforeach; ?>
     </tbody>
   </table>
-  
-  <div class="sheet-copyright">© IL DIVANO D’ORO</div>
+
   <div class="sheet-tabs">
     <?php foreach ($tabs as $code => $label): ?>
       <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>"><?= e($label) ?></a>
@@ -386,6 +392,12 @@ if (($sheet === 'votes') || ($sheet === 'raw' && function_exists('is_admin') && 
   </style>
     <div class="raw-wrapper">
       <h2 style="text-align:center;"><?= t('raw_votes') ?></h2>
+      <div class="nav-buttons">
+        <?php if (function_exists('is_admin') && is_admin()): ?>
+          <a href="export_results.php" class="btn">⬇ <?= t('download_excel') ?></a>
+        <?php endif; ?>
+        <a href="?mine=1" class="btn"><?= t('my_votes') ?></a>
+      </div>
       <table class="raw-table">
       <thead>
         <tr>
@@ -429,7 +441,6 @@ if (($sheet === 'votes') || ($sheet === 'raw' && function_exists('is_admin') && 
       </tbody>
       </table>
     </div>
-    <div class="sheet-copyright">© IL DIVANO D’ORO</div>
     <div class="sheet-tabs">
       <?php foreach ($tabs as $code => $label): ?>
         <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>"><?= e($label) ?></a>
@@ -527,6 +538,13 @@ if ($sheet === 'views') {
       </div>
     </div>
 
+    <div class="nav-buttons">
+      <?php if (function_exists('is_admin') && is_admin()): ?>
+        <a href="export_results.php" class="btn">⬇ <?= t('download_excel') ?></a>
+      <?php endif; ?>
+      <a href="?mine=1" class="btn"><?= t('my_votes') ?></a>
+    </div>
+
     <table class="table">
       <thead>
         <tr>
@@ -556,7 +574,6 @@ if ($sheet === 'views') {
         <?php endforeach; ?>
       </tbody>
     </table>
-    <div class="sheet-copyright">© IL DIVANO D’ORO</div>
     <div class="sheet-tabs">
       <?php foreach ($tabs as $code => $label): ?>
         <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>"><?= e($label) ?></a>
@@ -697,7 +714,6 @@ if ($sheet === 'judges' || $sheet === 'judges_comp') {
         <?php endforeach; ?>
       </tbody>
     </table>
-    <div class="sheet-copyright">© IL DIVANO D’ORO</div>
     <div class="sheet-tabs">
       <?php foreach ($tabs as $code => $label): ?>
         <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>"><?= e($label) ?></a>
@@ -723,6 +739,13 @@ if ($sheet === 'titles') {
       .sheet-tab{background:#1a1a1a;color:#ccc;border:1px solid #333;border-bottom:none;border-radius:.5rem .5rem 0 0;padding:.5rem 1rem;text-decoration:none}
       .sheet-tab.active{background:#f6c90e;color:#000;font-weight:700}
     </style>
+    <div class="nav-buttons">
+      <?php if (function_exists('is_admin') && is_admin()): ?>
+        <a href="export_results.php" class="btn">⬇ <?= t('download_excel') ?></a>
+      <?php endif; ?>
+      <a href="?mine=1" class="btn"><?= t('my_votes') ?></a>
+    </div>
+
     <table class="table">
       <thead><tr><th><?= t('sheet_titles') ?></th></tr></thead>
       <tbody>
@@ -731,7 +754,6 @@ if ($sheet === 'titles') {
         <?php endforeach; ?>
       </tbody>
     </table>
-    <div class="sheet-copyright">© IL DIVANO D’ORO</div>
     <div class="sheet-tabs">
       <?php foreach ($tabs as $code => $label): ?>
         <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>"><?= e($label) ?></a>
@@ -760,6 +782,13 @@ if ($sheet === 'adjectives') {
       .sheet-tab{background:#1a1a1a;color:#ccc;border:1px solid #333;border-bottom:none;border-radius:.5rem .5rem 0 0;padding:.5rem 1rem;text-decoration:none}
       .sheet-tab.active{background:#f6c90e;color:#000;font-weight:700}
     </style>
+    <div class="nav-buttons">
+      <?php if (function_exists('is_admin') && is_admin()): ?>
+        <a href="export_results.php" class="btn">⬇ <?= t('download_excel') ?></a>
+      <?php endif; ?>
+      <a href="?mine=1" class="btn"><?= t('my_votes') ?></a>
+    </div>
+
     <?php if (!$hasAdj): ?>
       <p style="padding:1rem;background:#111;border:1px solid #333;border-radius:.5rem;max-width:1200px;margin:1rem auto;">No adjective field in vote details.</p>
     <?php else: ?>
@@ -806,7 +835,6 @@ if ($sheet === 'adjectives') {
         </tbody>
       </table>
     <?php endif; ?>
-    <div class="sheet-copyright">© IL DIVANO D’ORO</div>
     <div class="sheet-tabs">
       <?php foreach ($tabs as $code => $label): ?>
         <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>"><?= e($label) ?></a>
@@ -837,6 +865,13 @@ if ($sheet === 'finalists_2023') {
       .sheet-tab{background:#1a1a1a;color:#ccc;border:1px solid #333;border-bottom:none;border-radius:.5rem .5rem 0 0;padding:.5rem 1rem;text-decoration:none}
       .sheet-tab.active{background:#f6c90e;color:#000;font-weight:700}
     </style>
+    <div class="nav-buttons">
+      <?php if (function_exists('is_admin') && is_admin()): ?>
+        <a href="export_results.php" class="btn">⬇ <?= t('download_excel') ?></a>
+      <?php endif; ?>
+      <a href="?mine=1" class="btn"><?= t('my_votes') ?></a>
+    </div>
+
     <table class="table">
       <thead><tr><th><?= t('sheet_finalists_2023') ?></th><th>Categoria</th></tr></thead>
       <tbody>
@@ -845,7 +880,6 @@ if ($sheet === 'finalists_2023') {
         <?php endforeach; ?>
       </tbody>
     </table>
-    <div class="sheet-copyright">© IL DIVANO D’ORO</div>
     <div class="sheet-tabs">
       <?php foreach ($tabs as $code => $label): ?>
         <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>"><?= e($label) ?></a>
