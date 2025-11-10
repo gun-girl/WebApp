@@ -68,12 +68,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 }
 
-// Get user's votes count
-$stmt = $mysqli->prepare("SELECT COUNT(*) as vote_count FROM votes WHERE user_id = ?");
-$stmt->bind_param('i', $user['id']);
+// Get user's votes count for the current calendar year (treat calendar year as the active year for user-facing counts)
+$active_year = (int)date('Y');
+// Safely count votes for the active year. Some installations may not have a competition_year column,
+// so detect the column and use COALESCE(competition_year, YEAR(created_at)) when present, otherwise
+// fall back to YEAR(created_at).
+$hasVotesYearCol = $mysqli->query("SHOW COLUMNS FROM votes LIKE 'competition_year'")->fetch_all(MYSQLI_ASSOC);
+if ($hasVotesYearCol) {
+  $stmt = $mysqli->prepare("SELECT COUNT(*) as vote_count FROM votes WHERE user_id = ? AND COALESCE(competition_year, YEAR(created_at)) = ?");
+} else {
+  $stmt = $mysqli->prepare("SELECT COUNT(*) as vote_count FROM votes WHERE user_id = ? AND YEAR(created_at) = ?");
+}
+$stmt->bind_param('ii', $user['id'], $active_year);
 $stmt->execute();
 $vote_data = $stmt->get_result()->fetch_assoc();
-$vote_count = $vote_data['vote_count'];
+$vote_count = $vote_data['vote_count'] ?? 0;
 
 include __DIR__.'/includes/header.php';
 ?>
@@ -213,7 +222,7 @@ include __DIR__.'/includes/header.php';
       </div>
 
       <div style="margin-top: 1.5rem;">
-        <a href="stats.php?mine=1" class="btn"><?= t('view_my_votes') ?></a>
+        <a href="stats.php?mine=1&year=<?= (int)$active_year ?>" class="btn"><?= t('view_my_votes') ?></a>
       </div>
     </div>
 

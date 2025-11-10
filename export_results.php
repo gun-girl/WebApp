@@ -3,9 +3,25 @@ require_once __DIR__.'/includes/auth.php';
 require_once __DIR__.'/includes/lang.php';
 
 // Get current year for filename and headers
-$currentYear = date('Y');
+// Use active competition year if available
+$currentYear = function_exists('get_active_year') ? get_active_year() : (int)date('Y');
 
-// Query all votes with details
+// Respect ?year= parameter for exporting a different competition year (falls back to currentYear)
+$selected_year = (int)($_GET['year'] ?? $currentYear);
+$exportYear = $selected_year;
+
+// Ensure only admins can run exports
+if (!is_admin()) {
+    redirect('/movie-club-app/index.php');
+}
+
+// Detect whether votes table has competition_year column and build the proper WHERE clause
+$cols = $mysqli->query("SHOW COLUMNS FROM votes")->fetch_all(MYSQLI_ASSOC);
+$fields = array_column($cols, 'Field');
+$hasCompetitionYear = in_array('competition_year', $fields);
+$whereYear = $hasCompetitionYear ? ("v.competition_year = " . (int)$exportYear) : ("YEAR(v.created_at) = " . (int)$exportYear);
+
+// Query all votes with details (filtered by selected/export year)
 $sql = "
     SELECT 
         u.username,
@@ -29,16 +45,13 @@ $sql = "
     INNER JOIN users u ON u.id = v.user_id
     INNER JOIN movies m ON m.id = v.movie_id
     INNER JOIN vote_details vd ON vd.vote_id = v.id
+    WHERE " . $whereYear . "
     ORDER BY m.title ASC, v.created_at DESC
 ";
 
-// Restrict full export to admins only
-if (!is_admin()) {
-    redirect('/movie-club-app/index.php');
-}
 $votes = $mysqli->query($sql)->fetch_all(MYSQLI_ASSOC);
 
-// Query for aggregated results
+// Query for aggregated results (filtered by selected/export year)
 $resultsSql = "
     SELECT 
         m.title,
@@ -60,6 +73,7 @@ $resultsSql = "
     INNER JOIN movies m ON m.id = v.movie_id
     INNER JOIN vote_details vd ON vd.vote_id = v.id
     INNER JOIN users u ON u.id = v.user_id
+    WHERE " . $whereYear . "
     GROUP BY m.id, m.title, m.year, vd.category, vd.where_watched, vd.competition_status
     ORDER BY m.title ASC
 ";
@@ -68,7 +82,7 @@ $results = $mysqli->query($resultsSql)->fetch_all(MYSQLI_ASSOC);
 
 // Output as Excel-compatible HTML with formulas
 header('Content-Type: application/vnd.ms-excel; charset=UTF-8');
-header('Content-Disposition: attachment; filename="IL_DIVANO_DORO_' . $currentYear . '_Results.xls"');
+header('Content-Disposition: attachment; filename="IL_DIVANO_DORO_' . $exportYear . '_Results.xls"');
 header('Pragma: no-cache');
 header('Expires: 0');
 

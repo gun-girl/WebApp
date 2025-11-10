@@ -1,4 +1,9 @@
-<?php require_once __DIR__ . '/helper.php'; require_once __DIR__ . '/auth.php'; require_once __DIR__ . '/lang.php'; ?>
+<?php require_once __DIR__ . '/helper.php'; require_once __DIR__ . '/auth.php'; require_once __DIR__ . '/lang.php';
+// current active year for small admin controls in the header
+$header_active_year = function_exists('get_active_year') ? get_active_year() : (int)date('Y');
+// Treat the calendar year as the "current" active year for display and quick navigation
+$calendar_year = (int)date('Y');
+?>
 <!doctype html>
 <html lang="<?= current_lang() ?>">
 <head>
@@ -255,7 +260,7 @@
           <?php endif; ?>
           <span class="dropdown-arrow">▼</span>
         </button>
-        <div class="dropdown-menu" id="userDropdown">
+          <div class="dropdown-menu" id="userDropdown">
           <a href="/movie-club-app/profile.php" class="dropdown-item">👤 <?= e(t('your_profile')) ?></a>
           <a href="/movie-club-app/watchlist.php" class="dropdown-item">➕ <?= e(t('watchlist')) ?></a>
           <a href="/movie-club-app/stats.php?mine=1" class="dropdown-item">⭐ <?= e(t('your_ratings')) ?></a>
@@ -264,7 +269,73 @@
           <a href="/movie-club-app/logout.php" class="dropdown-item">🚪 <?= e(t('sign_out')) ?></a>
         </div>
       </div>
-      | <a href="/movie-club-app/stats.php"><?= e(t('all_votes')) ?></a>
+      |
+      <div style="position:relative; display:inline-block;">
+        <button id="competitionsBtn" class="lang-button" style="background:transparent;border:none;padding:.5rem 1rem;cursor:pointer;">All competitions ▾</button>
+        <div id="competitionsMenu" class="dropdown-menu" style="right:auto;left:0;">
+          <a class="dropdown-item" href="/movie-club-app/stats.php?sheet=votes&year=<?= $calendar_year ?>">All competitions</a>
+          <?php
+            // Build list of competition years from both `competitions` table AND distinct years seen in `votes`.
+            // This ensures the dropdown shows every year created on the site (either explicitly created or inferred from votes).
+            $competitions = [];
+            // from competitions table (if exists)
+            $hasCompetitionsTable = $mysqli->query("SHOW TABLES LIKE 'competitions'")->fetch_all(MYSQLI_NUM);
+            if ($hasCompetitionsTable) {
+              $rows = $mysqli->query("SELECT year FROM competitions")->fetch_all(MYSQLI_ASSOC);
+              foreach ($rows as $r) { $competitions[] = (int)$r['year']; }
+            }
+            // from votes table: if competition_year column exists, use it (falling back to created_at year when null),
+            // otherwise fall back to YEAR(created_at). This preserves historical years even after creating a competitions table.
+            $hasVotesYearCol = $mysqli->query("SHOW COLUMNS FROM votes LIKE 'competition_year'")->fetch_all(MYSQLI_ASSOC);
+            if ($hasVotesYearCol) {
+              // use COALESCE(competition_year, YEAR(created_at)) to capture votes that may not have competition_year set
+              $rows2 = $mysqli->query("SELECT DISTINCT COALESCE(competition_year, YEAR(created_at)) AS y FROM votes WHERE (competition_year IS NOT NULL OR created_at IS NOT NULL)")->fetch_all(MYSQLI_ASSOC);
+              foreach ($rows2 as $r) { $competitions[] = (int)$r['y']; }
+            } else {
+              // no competition_year column: infer years from created_at
+              $rows2 = $mysqli->query("SELECT DISTINCT YEAR(created_at) AS y FROM votes WHERE created_at IS NOT NULL")->fetch_all(MYSQLI_ASSOC);
+              foreach ($rows2 as $r) { $competitions[] = (int)$r['y']; }
+            }
+            // always include the active year (from settings) to avoid hiding it
+            // For display purposes, show the calendar/current year as active (per user request)
+            $act = $calendar_year;
+            if ($act) { $competitions[] = $act; }
+            // normalize: unique, numeric, sort descending
+            $competitions = array_map('intval', array_values(array_unique($competitions)));
+            rsort($competitions, SORT_NUMERIC);
+          ?>
+          <?php foreach ($competitions as $cy): ?>
+            <div style="display:flex;gap:.5rem;align-items:center;padding:.15rem 0.6rem;">
+              <!-- Primary action: navigate to stats for the selected year -->
+              <a class="dropdown-item" href="/movie-club-app/stats.php?year=<?= (int)$cy ?>" style="flex:1;text-decoration:none;"><?= (int)$cy ?><?= $cy === $act ? ' (active)' : '' ?></a>
+              <?php if (function_exists('is_admin') && is_admin()): ?>
+                <!-- Admin controls: quick set-active, rename, delete -->
+                <form method="post" action="/movie-club-app/admin_competitions.php" style="margin:0;">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="action" value="set_active">
+                  <input type="hidden" name="year" value="<?= (int)$cy ?>">
+                  <button type="submit" class="dropdown-item" title="Set active year" style="background:none;border:none;color:#ffd700;margin-left:.25rem;">⭐</button>
+                </form>
+                <button type="button" class="dropdown-item" style="background:none;border:none;color:#9fd3ff;margin-left:.25rem;" onclick="renameCompetition(<?= (int)$cy ?>)">✏️</button>
+                <form method="post" action="/movie-club-app/admin_competitions.php" style="margin:0;display:inline-block;">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="action" value="delete">
+                  <input type="hidden" name="year" value="<?= (int)$cy ?>">
+                  <button type="submit" class="dropdown-item" title="Delete year" style="background:none;border:none;color:#ffb4b4;margin-left:.25rem;">🗑</button>
+                </form>
+              <?php endif; ?>
+            </div>
+          <?php endforeach; ?>
+          <?php if (function_exists('is_admin') && is_admin()): ?>
+            <div class="dropdown-divider"></div>
+            <form method="post" action="/movie-club-app/admin_competitions.php" style="margin:0;padding:.25rem 0.6rem;display:flex;gap:.5rem;align-items:center;">
+              <?= csrf_field() ?>
+              <input type="hidden" name="action" value="create">
+              <button type="submit" class="dropdown-item" style="background:none;border:none;color:inherit;text-align:left;width:100%;">🎉 Create & set next year</button>
+            </form>
+          <?php endif; ?>
+        </div>
+      </div>
       | <a href="/movie-club-app/index.php"> <?= e(t('home')) ?></a>
       <?php $printed_links = true; ?>
     <?php else: ?>
@@ -341,6 +412,42 @@
         langDropdown.classList.remove('show');
       }
     });
+  }
+
+  // Competitions dropdown toggle (All competitions menu)
+  const competitionsBtn = document.getElementById('competitionsBtn');
+  const competitionsMenu = document.getElementById('competitionsMenu');
+  if (competitionsBtn && competitionsMenu) {
+    competitionsBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      competitionsMenu.classList.toggle('show');
+      if (userDropdown) userDropdown.classList.remove('show');
+      if (langDropdown) langDropdown.classList.remove('show');
+    });
+    document.addEventListener('click', function(e) {
+      if (!competitionsMenu.contains(e.target) && e.target !== competitionsBtn) {
+        competitionsMenu.classList.remove('show');
+      }
+    });
+  }
+
+  // rename handler: prompt and submit hidden form
+  function renameCompetition(oldYear) {
+    const n = prompt('Enter new year for ' + oldYear + ':', oldYear+1);
+    if (!n) return;
+    const newYear = parseInt(n);
+    if (!newYear || newYear < 1900 || newYear > 3000) { alert('Invalid year'); return; }
+    if (!confirm('Rename ' + oldYear + ' to ' + newYear + '?')) return;
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/movie-club-app/admin_competitions.php';
+    form.style.display = 'none';
+    const csrf = document.createElement('input'); csrf.type='hidden'; csrf.name='csrf_token'; csrf.value='<?= $_SESSION['csrf_token'] ?? '' ?>'; form.appendChild(csrf);
+    const a = document.createElement('input'); a.type='hidden'; a.name='action'; a.value='rename'; form.appendChild(a);
+    const b = document.createElement('input'); b.type='hidden'; b.name='year'; b.value=oldYear; form.appendChild(b);
+    const c = document.createElement('input'); c.type='hidden'; c.name='new_year'; c.value=newYear; form.appendChild(c);
+    document.body.appendChild(form);
+    form.submit();
   }
 </script>
 <main>

@@ -28,3 +28,29 @@ if (!function_exists('verify_csrf')) {
         }
     }
 }
+
+/**
+ * Return the active competition year stored in settings table or current year as fallback.
+ */
+function get_active_year(): int
+{
+    global $mysqli;
+    // default to 2025 until the calendar reaches 2026, then use the actual current year
+    $nowYear = (int)date('Y');
+    $default = ($nowYear < 2026) ? 2025 : $nowYear;
+    if (!isset($mysqli) || !$mysqli) return $default;
+    // attempt to read from settings table
+    try {
+        $stmt = $mysqli->prepare("SELECT setting_value FROM settings WHERE setting_key = 'active_year' LIMIT 1");
+        if ($stmt) {
+            $stmt->execute();
+            $res = $stmt->get_result()->fetch_assoc();
+            if ($res && is_numeric($res['setting_value'])) {
+                return (int)$res['setting_value'];
+            }
+        }
+    } catch (Exception $e) {
+        // ignore and fall back
+    }
+    return $default;
+}

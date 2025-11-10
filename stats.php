@@ -19,18 +19,44 @@ if (!empty($_SESSION['flash'])) {
 }
 
 // Which sheet to show (multi-sheet UI like Excel)
-$currentYear = date('Y');
 $sheet = isset($_GET['sheet']) ? $_GET['sheet'] : 'results';
+// Prefer configured active year when available; fallback to current year
+$currentYear = function_exists('get_active_year') ? (int)get_active_year() : (int)date('Y');
+// Selected competition year (filter votes). Default to configured active year or ?year= in URL
+$selected_year = (int)($_GET['year'] ?? $currentYear);
+// Build list of available years from both `competitions` table (if present) and votes table
+$years = [];
+// from competitions table if exists
+$hasCompetitionsTable = $mysqli->query("SHOW TABLES LIKE 'competitions'")->fetch_all(MYSQLI_NUM);
+if ($hasCompetitionsTable) {
+  $rows = $mysqli->query("SELECT year FROM competitions")->fetch_all(MYSQLI_ASSOC);
+  foreach ($rows as $r) { $years[] = (int)$r['year']; }
+}
+// from votes table: prefer competition_year when present else YEAR(created_at)
+$hasVotesYearCol = $mysqli->query("SHOW COLUMNS FROM votes LIKE 'competition_year'")->fetch_all(MYSQLI_ASSOC);
+if ($hasVotesYearCol) {
+  $rows2 = $mysqli->query("SELECT DISTINCT COALESCE(competition_year, YEAR(created_at)) AS y FROM votes WHERE (competition_year IS NOT NULL OR created_at IS NOT NULL)")->fetch_all(MYSQLI_ASSOC);
+  foreach ($rows2 as $r) { $years[] = (int)$r['y']; }
+} else {
+  $rows2 = $mysqli->query("SELECT DISTINCT YEAR(created_at) AS y FROM votes WHERE created_at IS NOT NULL")->fetch_all(MYSQLI_ASSOC);
+  foreach ($rows2 as $r) { $years[] = (int)$r['y']; }
+}
+// always include the active/current year so it appears in the list
+if ($currentYear) { $years[] = (int)$currentYear; }
+// normalize: unique, sort descending
+$years = array_map('intval', array_values(array_unique($years)));
+rsort($years, SORT_NUMERIC);
 // Tab labels in the order matching the workbook
 $tabs = [
-  'votes' => str_replace('{year}', $currentYear, t('sheet_votes')),
-  'results' => str_replace('{year}', $currentYear, t('sheet_results')),
-  'views' => str_replace('{year}', $currentYear, t('sheet_views')),
+  'votes' => str_replace('{year}', $selected_year, t('sheet_votes')),
+  'results' => str_replace('{year}', $selected_year, t('sheet_results')),
+  'views' => str_replace('{year}', $selected_year, t('sheet_views')),
   'judges' => t('sheet_judges'),
   'judges_comp' => t('sheet_judges_comp'),
   'titles' => t('sheet_titles'),
   'adjectives' => t('sheet_adjectives'),
-  'finalists_2023' => t('sheet_finalists_2023'),
+  // finalists should be per-selected-year rather than fixed to 2023
+  'finalists' => 'Finalists ' . $selected_year,
 ];
 
 // Global fixed bottom tabs styling for all sheets (keeps bottom tabs visible while scrolling)
@@ -67,19 +93,81 @@ $tabs = [
     .sheet-tabs { justify-content: flex-start !important; padding: .25rem .5rem !important; }
   }
 </style>
+<!-- Inline year selector (centered) -->
+<div style="text-align:center;margin:1rem 0;">
+  <form id="yearForm" method="get" action="/movie-club-app/stats.php" style="display:inline-block;">
+    <label for="yearSelect" style="color:#ddd;margin-right:.5rem;font-weight:600;">Select year:</label>
+    <select id="yearSelect" name="year" style="padding:.5rem .6rem;border-radius:.35rem;background:#1a1a1a;color:#fff;border:1px solid #333;font-weight:600;">
+      <?php foreach ($years as $y): ?>
+        <option value="<?= (int)$y ?>" <?= ((int)$y === (int)$selected_year) ? 'selected' : '' ?>><?= (int)$y ?></option>
+      <?php endforeach; ?>
+    </select>
+    <?php // Preserve other GET params (sheet, mine, lang, etc.) when switching years ?>
+    <?php foreach ($_GET as $k=>$v): if ($k === 'year') continue; if (is_array($v)) continue; ?>
+      <input type="hidden" name="<?= htmlspecialchars($k) ?>" value="<?= htmlspecialchars($v) ?>">
+    <?php endforeach; ?>
+  </form>
+</div>
+<script>
+  // Auto-submit the year form when selection changes
+  (function(){
+    var sel = document.getElementById('yearSelect');
+    if (sel) sel.addEventListener('change', function(){ document.getElementById('yearForm').submit(); });
+  })();
+</script>
 <?php
 
 // detect whether votes.rating exists in the DB
 $cols = $mysqli->query("SHOW COLUMNS FROM votes")->fetch_all(MYSQLI_ASSOC);
 $fields = array_column($cols, 'Field');
 $hasRating = in_array('rating', $fields);
+// active competition year (used to scope queries)
+$active_year = function_exists('get_active_year') ? get_active_year() : (int)date('Y');
+// Check whether the DB has the competition_year column; if not, don't add year filters (keeps backwards compatibility)
+$hasCompetitionYear = in_array('competition_year', $fields);
+$activeYearInt = (int)$active_year;
+// Use the year selected in the UI for filtering display queries. Keep $activeYearInt as the configured/active
+// competition year (admin-facing), but use $viewYearInt when constructing SQL WHERE/JOIN fragments for this page
+// so ?year=YYYY controls which year's votes/results are shown.
+$viewYearInt = (int)$selected_year;
+// year filter fragments to reuse in queries (use selected/view year)
+$yearCond = '';
+$whereYearClause = '';
+$leftJoinVotesForResults = "LEFT JOIN votes v ON v.movie_id = m.id";
+$subYearV2 = $subYearV3 = $subYearV4 = $subYearV5 = '';
+if ($hasCompetitionYear) {
+  $yearCond = " AND v.competition_year = " . $viewYearInt;
+  $whereYearClause = "WHERE v.competition_year = " . $viewYearInt;
+  $leftJoinVotesForResults = "LEFT JOIN votes v ON v.movie_id = m.id AND v.competition_year = " . $viewYearInt;
+  $subYearV2 = $subYearV3 = $subYearV4 = $subYearV5 = " AND v2.competition_year = " . $viewYearInt; // will be overwritten individually below when needed
+  // correct the per-subquery fragments
+  $subYearV2 = " AND v2.competition_year = " . $viewYearInt;
+  $subYearV3 = " AND v3.competition_year = " . $viewYearInt;
+  $subYearV4 = " AND v4.competition_year = " . $viewYearInt;
+  $subYearV5 = " AND v5.competition_year = " . $viewYearInt;
+} else {
+  // Fallback: filter by YEAR(created_at) when competition_year column is not present
+  $yearCond = " AND YEAR(v.created_at) = " . $viewYearInt;
+  $whereYearClause = "WHERE YEAR(v.created_at) = " . $viewYearInt;
+  // For the LEFT JOIN used in results aggregation we keep the simple join; subqueries need YEAR() checks
+  $leftJoinVotesForResults = "LEFT JOIN votes v ON v.movie_id = m.id";
+  $subYearV2 = " AND YEAR(v2.created_at) = " . $viewYearInt;
+  $subYearV3 = " AND YEAR(v3.created_at) = " . $viewYearInt;
+  $subYearV4 = " AND YEAR(v4.created_at) = " . $viewYearInt;
+  $subYearV5 = " AND YEAR(v5.created_at) = " . $viewYearInt;
+}
 
 // If user requested their own votes, show per-user list
 if (!empty($_GET['mine']) && current_user()) {
   $uid = current_user()['id'];
   if ($hasRating) {
-    $stmt = $mysqli->prepare("SELECT v.id AS vote_id, m.title, m.year, v.rating, v.created_at FROM votes v JOIN movies m ON m.id=v.movie_id WHERE v.user_id=? ORDER BY v.created_at DESC");
-    $stmt->bind_param('i', $uid);
+    if ($hasCompetitionYear) {
+  $stmt = $mysqli->prepare("SELECT v.id AS vote_id, m.title, m.year, v.rating, v.created_at FROM votes v JOIN movies m ON m.id=v.movie_id WHERE v.user_id=? AND v.competition_year = ? ORDER BY v.created_at DESC");
+  $stmt->bind_param('ii', $uid, $viewYearInt);
+    } else {
+      $stmt = $mysqli->prepare("SELECT v.id AS vote_id, m.title, m.year, v.rating, v.created_at FROM votes v JOIN movies m ON m.id=v.movie_id WHERE v.user_id=? ORDER BY v.created_at DESC");
+      $stmt->bind_param('i', $uid);
+    }
     $stmt->execute();
     $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     ?>
@@ -126,16 +214,26 @@ if (!empty($_GET['mine']) && current_user()) {
         FROM votes v
         JOIN movies m ON m.id=v.movie_id
         LEFT JOIN vote_details vd ON vd.vote_id = v.id
-        WHERE v.user_id = ?
+  WHERE v.user_id = ?" . ($hasCompetitionYear ? " AND v.competition_year = " . $viewYearInt : "") . "
         ORDER BY v.created_at DESC";
       $stmt = $mysqli->prepare($sqlUser);
-      $stmt->bind_param('i', $uid);
+      if ($hasCompetitionYear) {
+        // bind user id only, year already inlined into SQL (integer) to avoid different param counts
+        $stmt->bind_param('i', $uid);
+      } else {
+        $stmt->bind_param('i', $uid);
+      }
       $stmt->execute();
       $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     } else {
       // no numeric detail columns: just list votes without computed rating
-      $stmt = $mysqli->prepare("SELECT v.id AS vote_id, m.title, m.year, NULL AS calc_rating, v.created_at FROM votes v JOIN movies m ON m.id=v.movie_id WHERE v.user_id=? ORDER BY v.created_at DESC");
-      $stmt->bind_param('i', $uid);
+      if ($hasCompetitionYear) {
+  $stmt = $mysqli->prepare("SELECT v.id AS vote_id, m.title, m.year, NULL AS calc_rating, v.created_at FROM votes v JOIN movies m ON m.id=v.movie_id WHERE v.user_id=? AND v.competition_year = " . $viewYearInt . " ORDER BY v.created_at DESC");
+        $stmt->bind_param('i', $uid);
+      } else {
+        $stmt = $mysqli->prepare("SELECT v.id AS vote_id, m.title, m.year, NULL AS calc_rating, v.created_at FROM votes v JOIN movies m ON m.id=v.movie_id WHERE v.user_id=? ORDER BY v.created_at DESC");
+        $stmt->bind_param('i', $uid);
+      }
       $stmt->execute();
       $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     }
@@ -156,7 +254,7 @@ if (!empty($_GET['mine']) && current_user()) {
       <?php if (function_exists('is_admin') && is_admin()): ?>
         <a href="export_results.php" class="btn">⬇ <?= t('download_excel') ?></a>
       <?php endif; ?>
-      <a href="?mine=1" class="btn"><?= t('my_votes') ?></a>
+  <a href="?mine=1&year=<?= $viewYearInt ?>" class="btn"><?= t('my_votes') ?></a>
     </div>
 
     <table class="table">
@@ -226,31 +324,31 @@ if ($sheet === 'results') {
              COUNT(v.id) AS votes_count,
              ROUND(AVG($ratingExpr),2) AS avg_rating
              $avgSelectSql,
-             (
-               SELECT vd2.category FROM vote_details vd2
-               JOIN votes v2 ON v2.id = vd2.vote_id
-               WHERE v2.movie_id = m.id AND TRIM(COALESCE(vd2.category,''))<>''
-               GROUP BY vd2.category ORDER BY COUNT(*) DESC LIMIT 1
-             ) AS category_mode,
+                   (
+                     SELECT vd2.category FROM vote_details vd2
+                     JOIN votes v2 ON v2.id = vd2.vote_id
+                     WHERE v2.movie_id = m.id" . $subYearV2 . " AND TRIM(COALESCE(vd2.category,''))<>''
+                     GROUP BY vd2.category ORDER BY COUNT(*) DESC LIMIT 1
+                   ) AS category_mode,
              (
                SELECT vd3.where_watched FROM vote_details vd3
                JOIN votes v3 ON v3.id = vd3.vote_id
-               WHERE v3.movie_id = m.id AND TRIM(COALESCE(vd3.where_watched,''))<>''
+               WHERE v3.movie_id = m.id" . $subYearV3 . " AND TRIM(COALESCE(vd3.where_watched,''))<>''
                GROUP BY vd3.where_watched ORDER BY COUNT(*) DESC LIMIT 1
              ) AS platform_mode,
              (
                SELECT vd4.competition_status FROM vote_details vd4
                JOIN votes v4 ON v4.id = vd4.vote_id
-               WHERE v4.movie_id = m.id AND TRIM(COALESCE(vd4.competition_status,''))<>''
+               WHERE v4.movie_id = m.id" . $subYearV4 . " AND TRIM(COALESCE(vd4.competition_status,''))<>''
                GROUP BY vd4.competition_status ORDER BY COUNT(*) DESC LIMIT 1
              ) AS comp_mode,
              (
                SELECT GROUP_CONCAT(DISTINCT TRIM(vd5.adjective) ORDER BY TRIM(vd5.adjective) SEPARATOR ', ')
                FROM vote_details vd5 JOIN votes v5 ON v5.id = vd5.vote_id
-               WHERE v5.movie_id = m.id AND TRIM(COALESCE(vd5.adjective,''))<>''
+               WHERE v5.movie_id = m.id" . $subYearV5 . " AND TRIM(COALESCE(vd5.adjective,''))<>''
              ) AS adjectives
       FROM movies m
-      LEFT JOIN votes v ON v.movie_id = m.id
+      " . $leftJoinVotesForResults . "
       LEFT JOIN vote_details vd ON vd.vote_id = v.id
       GROUP BY m.id
       HAVING votes_count > 0
@@ -279,9 +377,9 @@ if ($sheet === 'results') {
 
   <div class="nav-buttons">
     <?php if (function_exists('is_admin') && is_admin()): ?>
-      <a href="export_results.php" class="btn">⬇ <?= t('download_excel') ?></a>
+  <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
     <?php endif; ?>
-    <a href="?mine=1" class="btn"><?= t('my_votes') ?></a>
+  <a href="?mine=1&year=<?= $viewYearInt ?>" class="btn"><?= t('my_votes') ?></a>
   </div>
 
   <table class="table">
@@ -319,10 +417,10 @@ if ($sheet === 'results') {
 
   <div class="sheet-tabs">
     <?php foreach ($tabs as $code => $label): ?>
-      <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>"><?= e($label) ?></a>
+      <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>&amp;year=<?= $selected_year ?>"><?= e($label) ?></a>
     <?php endforeach; ?>
     <?php if (function_exists('is_admin') && is_admin()): ?>
-      <a class="sheet-tab <?= $sheet==='raw' ? 'active' : '' ?>" href="?sheet=raw">RAW</a>
+      <a class="sheet-tab <?= $sheet==='raw' ? 'active' : '' ?>" href="?sheet=raw&amp;year=<?= $selected_year ?>">RAW</a>
     <?php endif; ?>
   </div>
 
@@ -346,14 +444,15 @@ if (($sheet === 'votes') || ($sheet === 'raw' && function_exists('is_admin') && 
     $numExpr = implode('+',$numParts);
     $denExpr = implode('+',$denParts);
   }
-    $sqlRaw = "SELECT v.id as vote_id, v.created_at, u.username, m.title, m.year,
+  $sqlRaw = "SELECT v.id as vote_id, v.created_at, u.username, m.title, m.year,
         vd.competition_status, vd.category, vd.where_watched, vd.season_number, vd.episode_number,
         vd.acting_or_doc_theme, vd.casting_research_art, vd.writing, vd.direction, vd.emotional_involvement, vd.novelty, vd.sound,
         " . ($scoreCols ? "($numExpr) AS total_score, ($denExpr) AS non_empty_count, (($numExpr)/NULLIF($denExpr,0)) AS calc_rating" : "NULL AS total_score, NULL AS non_empty_count, NULL AS calc_rating") . "
-        FROM votes v
+    FROM votes v
         JOIN users u ON u.id = v.user_id
         JOIN movies m ON m.id = v.movie_id
         LEFT JOIN vote_details vd ON vd.vote_id = v.id
+  " . $whereYearClause . "
   ORDER BY v.created_at DESC";
     $rawRows = $mysqli->query($sqlRaw)->fetch_all(MYSQLI_ASSOC);
     ?>
@@ -394,9 +493,9 @@ if (($sheet === 'votes') || ($sheet === 'raw' && function_exists('is_admin') && 
       <h2 style="text-align:center;"><?= t('raw_votes') ?></h2>
       <div class="nav-buttons">
         <?php if (function_exists('is_admin') && is_admin()): ?>
-          <a href="export_results.php" class="btn">⬇ <?= t('download_excel') ?></a>
+        <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
         <?php endif; ?>
-        <a href="?mine=1" class="btn"><?= t('my_votes') ?></a>
+  <a href="?mine=1&year=<?= $viewYearInt ?>" class="btn"><?= t('my_votes') ?></a>
       </div>
       <table class="raw-table">
       <thead>
@@ -443,10 +542,10 @@ if (($sheet === 'votes') || ($sheet === 'raw' && function_exists('is_admin') && 
     </div>
     <div class="sheet-tabs">
       <?php foreach ($tabs as $code => $label): ?>
-        <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>"><?= e($label) ?></a>
+        <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>&amp;year=<?= $selected_year ?>"><?= e($label) ?></a>
       <?php endforeach; ?>
       <?php if (function_exists('is_admin') && is_admin()): ?>
-        <a class="sheet-tab <?= $sheet==='raw' ? 'active' : '' ?>" href="?sheet=raw">RAW</a>
+        <a class="sheet-tab <?= $sheet==='raw' ? 'active' : '' ?>" href="?sheet=raw&amp;year=<?= $selected_year ?>">RAW</a>
       <?php endif; ?>
     </div>
     <?php include __DIR__.'/includes/footer.php';
@@ -477,14 +576,14 @@ if ($sheet === 'views') {
     $categories = ['Film','Serie','Miniserie','Documentario','Animazione'];
     $summary = [];
     foreach ($categories as $cat) {
-      $catEsc = $mysqli->real_escape_string($cat);
-      $q1 = $mysqli->query("SELECT COUNT(DISTINCT v.movie_id) AS uniq_titles, COUNT(v.id) AS views
-                            FROM votes v LEFT JOIN vote_details vd ON vd.vote_id=v.id
-                            WHERE COALESCE(vd.category,'Altro')='$catEsc'");
-      $summary[$cat] = $q1 ? $q1->fetch_assoc() : ['uniq_titles'=>0,'views'=>0];
-    }
+        $catEsc = $mysqli->real_escape_string($cat);
+    $q1 = $mysqli->query("SELECT COUNT(DISTINCT v.movie_id) AS uniq_titles, COUNT(v.id) AS views
+              FROM votes v LEFT JOIN vote_details vd ON vd.vote_id=v.id
+              WHERE COALESCE(vd.category,'Altro')='$catEsc'" . $yearCond);
+        $summary[$cat] = $q1 ? $q1->fetch_assoc() : ['uniq_titles'=>0,'views'=>0];
+      }
     // Also totals across all
-    $qTot = $mysqli->query("SELECT COUNT(DISTINCT v.movie_id) AS uniq_titles, COUNT(v.id) AS views FROM votes v");
+  $qTot = $mysqli->query("SELECT COUNT(DISTINCT v.movie_id) AS uniq_titles, COUNT(v.id) AS views FROM votes v " . $whereYearClause);
     $summaryTotal = $qTot ? $qTot->fetch_assoc() : ['uniq_titles'=>0,'views'=>0];
 
     // Platform x category metrics
@@ -493,9 +592,10 @@ if ($sheet === 'views') {
                    COUNT(DISTINCT v.movie_id) AS uniq_titles,
                    COUNT(v.id) AS views,
                    ROUND(AVG($ratingExpr),2) AS avg_rating
-            FROM votes v
-            LEFT JOIN vote_details vd ON vd.vote_id = v.id
-            GROUP BY platform, category
+      FROM votes v
+      LEFT JOIN vote_details vd ON vd.vote_id = v.id
+  " . $whereYearClause . "
+      GROUP BY platform, category
             ORDER BY platform, category";
     $pivot = $mysqli->query($sql)->fetch_all(MYSQLI_ASSOC);
 
@@ -540,9 +640,9 @@ if ($sheet === 'views') {
 
     <div class="nav-buttons">
       <?php if (function_exists('is_admin') && is_admin()): ?>
-        <a href="export_results.php" class="btn">⬇ <?= t('download_excel') ?></a>
+          <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
       <?php endif; ?>
-      <a href="?mine=1" class="btn"><?= t('my_votes') ?></a>
+  <a href="?mine=1&year=<?= $viewYearInt ?>" class="btn"><?= t('my_votes') ?></a>
     </div>
 
     <table class="table">
@@ -562,7 +662,7 @@ if ($sheet === 'views') {
             <td><?= e($plat) ?></td>
             <?php
               // overall platform avg
-              $avg = $mysqli->query("SELECT ROUND(AVG($ratingExpr),2) AS a FROM votes v LEFT JOIN vote_details vd ON vd.vote_id=v.id WHERE COALESCE(NULLIF(TRIM(vd.where_watched),''),'Altro')='".$mysqli->real_escape_string($plat)."'");
+              $avg = $mysqli->query("SELECT ROUND(AVG($ratingExpr),2) AS a FROM votes v LEFT JOIN vote_details vd ON vd.vote_id=v.id WHERE COALESCE(NULLIF(TRIM(vd.where_watched),''),'Altro')='".$mysqli->real_escape_string($plat)."'" . $yearCond);
               $avgRow = $avg ? $avg->fetch_assoc() : ['a'=>null];
             ?>
             <td><?= $avgRow['a'] !== null ? number_format($avgRow['a'],2) : '' ?></td>
@@ -576,10 +676,10 @@ if ($sheet === 'views') {
     </table>
     <div class="sheet-tabs">
       <?php foreach ($tabs as $code => $label): ?>
-        <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>"><?= e($label) ?></a>
+        <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>&amp;year=<?= $selected_year ?>"><?= e($label) ?></a>
       <?php endforeach; ?>
       <?php if (function_exists('is_admin') && is_admin()): ?>
-        <a class="sheet-tab <?= $sheet==='raw' ? 'active' : '' ?>" href="?sheet=raw">RAW</a>
+        <a class="sheet-tab <?= $sheet==='raw' ? 'active' : '' ?>" href="?sheet=raw&amp;year=<?= $selected_year ?>">RAW</a>
       <?php endif; ?>
     </div>
     <?php include __DIR__.'/includes/footer.php';
@@ -654,9 +754,20 @@ if ($sheet === 'judges' || $sheet === 'judges_comp') {
             FROM votes v
             JOIN users u ON u.id = v.user_id
             LEFT JOIN vote_details vd ON vd.vote_id = v.id
-            $compWhere
-            GROUP BY u.username
-            ORDER BY votes DESC, media_totale DESC";
+            ";
+    // ensure we always filter by competition year and optionally by competition status
+    $whereParts = [];
+  if ($hasCompetitionYear) { $whereParts[] = "v.competition_year = " . $viewYearInt; }
+    if (!empty($compWhere)) {
+      // compWhere starts with WHERE ... so strip it and append
+      $compWhereClean = preg_replace('/^WHERE\s+/i', '', $compWhere);
+      $whereParts[] = $compWhereClean;
+    }
+    if (count($whereParts) > 0) {
+      $sql .= ' WHERE ' . implode(' AND ', $whereParts) . "\n            GROUP BY u.username\n            ORDER BY votes DESC, media_totale DESC";
+    } else {
+      $sql .= "\n            GROUP BY u.username\n            ORDER BY votes DESC, media_totale DESC";
+    }
     $rows = $mysqli->query($sql)->fetch_all(MYSQLI_ASSOC);
     ?>
     <style>
@@ -716,11 +827,11 @@ if ($sheet === 'judges' || $sheet === 'judges_comp') {
     </table>
     <div class="sheet-tabs">
       <?php foreach ($tabs as $code => $label): ?>
-        <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>"><?= e($label) ?></a>
-      <?php endforeach; ?>
-      <?php if (function_exists('is_admin') && is_admin()): ?>
-        <a class="sheet-tab <?= $sheet==='raw' ? 'active' : '' ?>" href="?sheet=raw">RAW</a>
-      <?php endif; ?>
+          <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>&amp;year=<?= $selected_year ?>"><?= e($label) ?></a>
+        <?php endforeach; ?>
+        <?php if (function_exists('is_admin') && is_admin()): ?>
+          <a class="sheet-tab <?= $sheet==='raw' ? 'active' : '' ?>" href="?sheet=raw&amp;year=<?= $selected_year ?>">RAW</a>
+        <?php endif; ?>
     </div>
     <?php include __DIR__.'/includes/footer.php';
     exit;
@@ -728,7 +839,7 @@ if ($sheet === 'judges' || $sheet === 'judges_comp') {
 
 // TITLES sheet (unique list like UNIQUE(SORT(...)))
 if ($sheet === 'titles') {
-    $rows = $mysqli->query("SELECT DISTINCT m.title FROM votes v JOIN movies m ON m.id=v.movie_id ORDER BY m.title ASC")->fetch_all(MYSQLI_ASSOC);
+  $rows = $mysqli->query("SELECT DISTINCT m.title FROM votes v JOIN movies m ON m.id=v.movie_id " . $whereYearClause . " ORDER BY m.title ASC")->fetch_all(MYSQLI_ASSOC);
     ?>
     <style>
       .table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.85rem}
@@ -741,9 +852,9 @@ if ($sheet === 'titles') {
     </style>
     <div class="nav-buttons">
       <?php if (function_exists('is_admin') && is_admin()): ?>
-        <a href="export_results.php" class="btn">⬇ <?= t('download_excel') ?></a>
+  <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
       <?php endif; ?>
-      <a href="?mine=1" class="btn"><?= t('my_votes') ?></a>
+  <a href="?mine=1&year=<?= $viewYearInt ?>" class="btn"><?= t('my_votes') ?></a>
     </div>
 
     <table class="table">
@@ -756,11 +867,11 @@ if ($sheet === 'titles') {
     </table>
     <div class="sheet-tabs">
       <?php foreach ($tabs as $code => $label): ?>
-        <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>"><?= e($label) ?></a>
-      <?php endforeach; ?>
-      <?php if (function_exists('is_admin') && is_admin()): ?>
-        <a class="sheet-tab <?= $sheet==='raw' ? 'active' : '' ?>" href="?sheet=raw">RAW</a>
-      <?php endif; ?>
+          <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>&amp;year=<?= $selected_year ?>"><?= e($label) ?></a>
+        <?php endforeach; ?>
+        <?php if (function_exists('is_admin') && is_admin()): ?>
+          <a class="sheet-tab <?= $sheet==='raw' ? 'active' : '' ?>" href="?sheet=raw&amp;year=<?= $selected_year ?>">RAW</a>
+        <?php endif; ?>
     </div>
     <?php include __DIR__.'/includes/footer.php';
     exit;
@@ -784,29 +895,29 @@ if ($sheet === 'adjectives') {
     </style>
     <div class="nav-buttons">
       <?php if (function_exists('is_admin') && is_admin()): ?>
-        <a href="export_results.php" class="btn">⬇ <?= t('download_excel') ?></a>
+  <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
       <?php endif; ?>
-      <a href="?mine=1" class="btn"><?= t('my_votes') ?></a>
+  <a href="?mine=1&year=<?= $viewYearInt ?>" class="btn"><?= t('my_votes') ?></a>
     </div>
 
     <?php if (!$hasAdj): ?>
       <p style="padding:1rem;background:#111;border:1px solid #333;border-radius:.5rem;max-width:1200px;margin:1rem auto;">No adjective field in vote details.</p>
     <?php else: ?>
       <?php
-        $rows = $mysqli->query("SELECT m.title, TRIM(vd.adjective) AS adjective
-                                 FROM votes v
-                                 JOIN movies m ON m.id=v.movie_id
-                                 LEFT JOIN vote_details vd ON vd.vote_id=v.id
-                                 WHERE TRIM(COALESCE(vd.adjective,''))<>''
-                                 ORDER BY m.title, vd.adjective")->fetch_all(MYSQLI_ASSOC);
+  $rows = $mysqli->query("SELECT m.title, TRIM(vd.adjective) AS adjective
+    FROM votes v
+    JOIN movies m ON m.id=v.movie_id
+    LEFT JOIN vote_details vd ON vd.vote_id=v.id
+    WHERE TRIM(COALESCE(vd.adjective,''))<>''" . $yearCond . "
+    ORDER BY m.title, vd.adjective")->fetch_all(MYSQLI_ASSOC);
         // aggregated list per movie
-        $agg = $mysqli->query("SELECT m.title, GROUP_CONCAT(DISTINCT TRIM(vd.adjective) ORDER BY TRIM(vd.adjective) SEPARATOR ', ') AS adjectives
-                               FROM votes v
-                               JOIN movies m ON m.id=v.movie_id
-                               LEFT JOIN vote_details vd ON vd.vote_id=v.id
-                               WHERE TRIM(COALESCE(vd.adjective,''))<>''
-                               GROUP BY m.title
-                               ORDER BY m.title")->fetch_all(MYSQLI_ASSOC);
+  $agg = $mysqli->query("SELECT m.title, GROUP_CONCAT(DISTINCT TRIM(vd.adjective) ORDER BY TRIM(vd.adjective) SEPARATOR ', ') AS adjectives
+             FROM votes v
+             JOIN movies m ON m.id=v.movie_id
+             LEFT JOIN vote_details vd ON vd.vote_id=v.id
+             WHERE TRIM(COALESCE(vd.adjective,''))<>''" . $yearCond . "
+             GROUP BY m.title
+             ORDER BY m.title")->fetch_all(MYSQLI_ASSOC);
         $aggMap = [];
         foreach ($agg as $a) { $aggMap[$a['title']] = $a['adjectives']; }
       ?>
@@ -837,24 +948,25 @@ if ($sheet === 'adjectives') {
     <?php endif; ?>
     <div class="sheet-tabs">
       <?php foreach ($tabs as $code => $label): ?>
-        <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>"><?= e($label) ?></a>
+        <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>&amp;year=<?= $selected_year ?>"><?= e($label) ?></a>
       <?php endforeach; ?>
       <?php if (function_exists('is_admin') && is_admin()): ?>
-        <a class="sheet-tab <?= $sheet==='raw' ? 'active' : '' ?>" href="?sheet=raw">RAW</a>
+        <a class="sheet-tab <?= $sheet==='raw' ? 'active' : '' ?>" href="?sheet=raw&amp;year=<?= $selected_year ?>">RAW</a>
       <?php endif; ?>
     </div>
     <?php include __DIR__.'/includes/footer.php';
     exit;
 }
 
-// FINALISTS 2023 sheet (placeholder based on 2023 titles seen)
-if ($sheet === 'finalists_2023') {
-    $rows = $mysqli->query("SELECT DISTINCT m.title, COALESCE(vd.category,'Altro') AS category
-                             FROM votes v
-                             JOIN movies m ON m.id=v.movie_id
-                             LEFT JOIN vote_details vd ON vd.vote_id=v.id
-                             WHERE m.year=2023
-                             ORDER BY m.title")->fetch_all(MYSQLI_ASSOC);
+// FINALISTS sheet (per-selected-year)
+if ($sheet === 'finalists') {
+  // List movies that received votes in the selected competition year
+  $rows = $mysqli->query("SELECT DISTINCT m.title, COALESCE(vd.category,'Altro') AS category
+               FROM votes v
+               JOIN movies m ON m.id=v.movie_id
+               LEFT JOIN vote_details vd ON vd.vote_id=v.id
+               " . $whereYearClause . "
+               ORDER BY m.title")->fetch_all(MYSQLI_ASSOC);
     ?>
     <style>
       .table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.85rem}
@@ -867,13 +979,13 @@ if ($sheet === 'finalists_2023') {
     </style>
     <div class="nav-buttons">
       <?php if (function_exists('is_admin') && is_admin()): ?>
-        <a href="export_results.php" class="btn">⬇ <?= t('download_excel') ?></a>
+  <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
       <?php endif; ?>
-      <a href="?mine=1" class="btn"><?= t('my_votes') ?></a>
+  <a href="?mine=1&year=<?= $viewYearInt ?>" class="btn"><?= t('my_votes') ?></a>
     </div>
 
     <table class="table">
-      <thead><tr><th><?= t('sheet_finalists_2023') ?></th><th>Categoria</th></tr></thead>
+      <thead><tr><th><?= 'Finalists ' . (int)$selected_year ?></th><th>Categoria</th></tr></thead>
       <tbody>
         <?php foreach ($rows as $r): ?>
           <tr><td><?= e($r['title']) ?></td><td><?= e($r['category']) ?></td></tr>
@@ -882,10 +994,10 @@ if ($sheet === 'finalists_2023') {
     </table>
     <div class="sheet-tabs">
       <?php foreach ($tabs as $code => $label): ?>
-        <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>"><?= e($label) ?></a>
+        <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>&amp;year=<?= $selected_year ?>"><?= e($label) ?></a>
       <?php endforeach; ?>
       <?php if (function_exists('is_admin') && is_admin()): ?>
-        <a class="sheet-tab <?= $sheet==='raw' ? 'active' : '' ?>" href="?sheet=raw">RAW</a>
+        <a class="sheet-tab <?= $sheet==='raw' ? 'active' : '' ?>" href="?sheet=raw&amp;year=<?= $selected_year ?>">RAW</a>
       <?php endif; ?>
     </div>
     <?php include __DIR__.'/includes/footer.php';
