@@ -12,213 +12,6 @@ $calendar_year = (int)date('Y');
 <title><?= e(t('site_title')) ?></title>
 <?php $cssPath = __DIR__ . '/../assets/css/style.css'; $cssVer = @filemtime($cssPath) ?: time(); ?>
 <link rel="stylesheet" href="/movie-club-app/assets/css/style.css?v=<?= $cssVer ?>">
-<style>
-  /* === GLOBAL === */
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: 'Poppins', system-ui, sans-serif;
-    background: radial-gradient(circle at top, #0c0c0c, #000);
-    color: #eee;
-    min-height: 100vh;
-  }
-  header {
-    background: rgba(0,0,0,0.8);
-    backdrop-filter: blur(8px);
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    z-index: 1000;
-    display: grid;
-    grid-template-columns: 1fr auto 1fr; /* left and right take equal space; center stays truly centered */
-    align-items: center;
-    padding: .75rem 2rem;
-    border-bottom: 1px solid #222;
-    width: 100%;
-    box-sizing: border-box;
-    column-gap: 1.5rem;
-  }
-  .header-logo {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-  }
-  .header-logo img {
-    height: 50px;
-    width: auto;
-  }
-  header h1 {
-    font-size: 1.6rem;
-    letter-spacing: 1px;
-    font-weight: 600;
-    color: #f6c90e;
-  }
-  nav {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    justify-content: flex-end; /* sits in right grid column */
-    justify-self: end;
-  }
-  .header-logo { justify-self: start; }
-  .header-center { display: flex; justify-content: center; align-items: center; }
-  .global-search { display:flex; align-items:center; gap:.5rem; }
-  .global-search input[type=text]{width:280px;max-width:100%;padding:.55rem .75rem;border:1px solid #333;border-radius:.4rem;background:#181818;color:#eee;font-size:.9rem;}
-  .global-search button{background:#f6c90e;color:#000;border:none;padding:.55rem .9rem;border-radius:.4rem;font-weight:600;cursor:pointer;font-size:.85rem;}
-  .global-search button:hover{background:#ffde50;}
-  nav a {
-    color: #fff;
-    text-decoration: none;
-    transition: color .2s;
-    font-weight: 500;
-  }
-  nav a:hover { color: #f6c90e; }
-
-  /* === USER DROPDOWN MENU === */
-  .user-menu {
-    position: relative;
-    display: inline-block;
-  }
-  .user-button {
-    background: transparent;
-    border: none;
-    color: #fff;
-    font-weight: 500;
-    cursor: pointer;
-    padding: .5rem 1rem;
-    border-radius: .3rem;
-    transition: all .2s;
-    font-family: inherit;
-    font-size: inherit;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  .badge-admin {
-    background: #f6c90e;
-    color: #000;
-    font-size: .75rem;
-    padding: .1rem .4rem;
-    border-radius: .25rem;
-    font-weight: 700;
-  }
-  .user-button:hover {
-    background: rgba(246,201,14,.1);
-    color: #f6c90e;
-  }
-  .dropdown-arrow {
-    font-size: 0.7rem;
-    transition: transform 0.2s;
-  }
-  .user-button:hover .dropdown-arrow {
-    transform: translateY(2px);
-  }
-  .dropdown-menu {
-    display: none;
-    position: absolute;
-    top: 100%;
-    right: 0;
-    background: #1a1a1a;
-    border: 1px solid #333;
-    border-radius: .5rem;
-    min-width: 250px;
-    box-shadow: 0 8px 25px rgba(0,0,0,.6);
-    margin-top: .5rem;
-    z-index: 1000;
-    overflow: hidden;
-  }
-  .dropdown-menu.show {
-    display: block;
-    animation: fadeIn .2s ease;
-  }
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  .dropdown-item {
-    display: block;
-    padding: .8rem 1.2rem;
-    color: #ccc;
-    text-decoration: none;
-    transition: all .2s;
-    border-bottom: 1px solid #282828;
-    font-size: .95rem;
-  }
-  .dropdown-item:hover {
-    background: rgba(246,201,14,.1);
-    color: #f6c90e;
-    padding-left: 1.5rem;
-  }
-  .dropdown-divider {
-    height: 2px;
-    background: #333;
-    margin: .3rem 0;
-  }
-
-  /* === LANGUAGE DROPDOWN === */
-  .lang-switcher {
-    position: relative;
-    display: inline-block;
-  }
-  .lang-button {
-    background: transparent;
-    border: none;
-    color: #fff;
-    font-weight: 500;
-    cursor: pointer;
-    padding: .5rem 1rem;
-    border-radius: .3rem;
-    transition: all .2s;
-    font-family: inherit;
-    font-size: inherit;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  .lang-button:hover {
-    background: rgba(246,201,14,.1);
-    color: #f6c90e;
-  }
-  .lang-dropdown {
-    display: none;
-    position: absolute;
-    top: 100%;
-    right: 0;
-    background: #1a1a1a;
-    border: 1px solid #333;
-    border-radius: .5rem;
-    min-width: 150px;
-    box-shadow: 0 8px 25px rgba(0,0,0,.6);
-    margin-top: .5rem;
-    z-index: 1000;
-    overflow: hidden;
-  }
-  .lang-dropdown.show {
-    display: block;
-    animation: fadeIn .2s ease;
-  }
-  .lang-option {
-    display: block;
-    padding: .8rem 1.2rem;
-    color: #ccc;
-    text-decoration: none;
-    transition: all .2s;
-    font-size: .95rem;
-  }
-  .lang-option:hover {
-    background: rgba(246,201,14,.1);
-    color: #f6c90e;
-    padding-left: 1.5rem;
-  }
-  .lang-option.active {
-    background: rgba(246,201,14,.2);
-    color: #f6c90e;
-    font-weight: 600;
-  }
-
-  .hello-only { color:#fff; font-weight:500; }
-
-  /* Push page content below the fixed header */
-  main { padding-top: 82px; }
-</style>
 </head>
 <body>
 <?php $show_search = !in_array(basename($_SERVER['PHP_SELF']), ['login.php','register.php']); ?>
@@ -269,7 +62,7 @@ $calendar_year = (int)date('Y');
           <a href="/movie-club-app/logout.php" class="dropdown-item">🚪 <?= e(t('sign_out')) ?></a>
         </div>
       </div>
-      |
+      <div class="nav-primary" style="gap:.5rem;">
       <div style="position:relative; display:inline-block;">
         <button id="competitionsBtn" class="lang-button" style="background:transparent;border:none;padding:.5rem 1rem;cursor:pointer;">All competitions ▾</button>
         <div id="competitionsMenu" class="dropdown-menu" style="right:auto;left:0;">
@@ -337,6 +130,72 @@ $calendar_year = (int)date('Y');
         </div>
       </div>
       | <a href="/movie-club-app/index.php"> <?= e(t('home')) ?></a>
+      </div>
+
+      <!-- Hamburger appears on small screens -->
+      <button id="burgerBtn" class="burger-btn" aria-expanded="false" aria-controls="mobileMenu">☰</button>
+      <div id="mobileMenu" class="mobile-menu" role="menu" aria-label="Main menu">
+        <!-- Account section (when logged in) -->
+        <?php if (current_user()): $mu = current_user(); ?>
+          <button id="mobileAccountToggle" class="mobile-item" type="button">👤 <?= e($mu['username']) ?> ▾</button>
+          <div id="mobileAccountMenu" class="mobile-submenu">
+            <a class="mobile-item" href="/movie-club-app/profile.php"><?= e(t('your_profile')) ?></a>
+            <a class="mobile-item" href="/movie-club-app/watchlist.php"><?= e(t('watchlist')) ?></a>
+            <a class="mobile-item" href="/movie-club-app/stats.php?mine=1"><?= e(t('your_ratings')) ?></a>
+            <a class="mobile-item" href="/movie-club-app/profile.php?settings=1"><?= e(t('account_settings')) ?></a>
+            <a class="mobile-item" href="/movie-club-app/logout.php"><?= e(t('sign_out')) ?></a>
+          </div>
+        <?php else: ?>
+          <a class="mobile-item" href="/movie-club-app/register.php"><?= e(t('register')) ?></a>
+          <a class="mobile-item" href="/movie-club-app/login.php"><?= e(t('login')) ?></a>
+        <?php endif; ?>
+
+        <!-- Collapsible All competitions -->
+        <button id="mobileCompetitionsToggle" class="mobile-item" type="button">All competitions ▾</button>
+        <div id="mobileCompetitionsMenu" class="mobile-submenu">
+          <a class="mobile-item" href="/movie-club-app/stats.php?sheet=votes&year=<?= $calendar_year ?>">All competitions</a>
+          <?php
+            $m_competitions = [];
+            $m_hasCompetitionsTable = $mysqli->query("SHOW TABLES LIKE 'competitions'")->fetch_all(MYSQLI_NUM);
+            if ($m_hasCompetitionsTable) {
+              $m_rows = $mysqli->query("SELECT year FROM competitions")->fetch_all(MYSQLI_ASSOC);
+              foreach ($m_rows as $r) { $m_competitions[] = (int)$r['year']; }
+            }
+            $m_hasVotesYearCol = $mysqli->query("SHOW COLUMNS FROM votes LIKE 'competition_year'")->fetch_all(MYSQLI_ASSOC);
+            if ($m_hasVotesYearCol) {
+              $m_rows2 = $mysqli->query("SELECT DISTINCT COALESCE(competition_year, YEAR(created_at)) AS y FROM votes WHERE (competition_year IS NOT NULL OR created_at IS NOT NULL)")->fetch_all(MYSQLI_ASSOC);
+              foreach ($m_rows2 as $r) { $m_competitions[] = (int)$r['y']; }
+            } else {
+              $m_rows2 = $mysqli->query("SELECT DISTINCT YEAR(created_at) AS y FROM votes WHERE created_at IS NOT NULL")->fetch_all(MYSQLI_ASSOC);
+              foreach ($m_rows2 as $r) { $m_competitions[] = (int)$r['y']; }
+            }
+            $m_act = $calendar_year; if ($m_act) { $m_competitions[] = $m_act; }
+            $m_competitions = array_map('intval', array_values(array_unique($m_competitions)));
+            rsort($m_competitions, SORT_NUMERIC);
+          ?>
+          <?php foreach ($m_competitions as $cy): ?>
+            <a class="mobile-item" href="/movie-club-app/stats.php?year=<?= (int)$cy ?>"><?= (int)$cy ?><?= $cy === $m_act ? ' (active)' : '' ?></a>
+          <?php endforeach; ?>
+        </div>
+
+        <!-- Language section reproduces current URL with lang replacement -->
+        <?php
+          $m_query = $_GET; $m_en = $m_query; $m_it = $m_query;
+          $m_en['lang'] = 'en'; $m_it['lang'] = 'it';
+          $m_parts = parse_url($_SERVER['REQUEST_URI']);
+          $m_path = $m_parts['path'] ?? '/';
+          $m_url_en = $m_path . '?' . http_build_query($m_en);
+          $m_url_it = $m_path . '?' . http_build_query($m_it);
+          $m_current_lang = current_lang();
+        ?>
+        <button id="mobileLangToggle" class="mobile-item" type="button">Language (<?= $m_current_lang === 'it' ? 'IT' : 'EN' ?>) ▾</button>
+        <div id="mobileLangMenu" class="mobile-submenu">
+          <a href="<?= htmlspecialchars($m_url_en) ?>" class="mobile-item<?= $m_current_lang === 'en' ? ' active' : '' ?>">English</a>
+          <a href="<?= htmlspecialchars($m_url_it) ?>" class="mobile-item<?= $m_current_lang === 'it' ? ' active' : '' ?>">Italiano</a>
+        </div>
+
+        <a class="mobile-item" href="/movie-club-app/index.php"><?= e(t('home')) ?></a>
+      </div>
       <?php $printed_links = true; ?>
     <?php else: ?>
       <?php if (!$is_auth_page): ?>
@@ -346,7 +205,7 @@ $calendar_year = (int)date('Y');
         <?php $printed_links = true; ?>
       <?php endif; ?>
     <?php endif; ?>
-    <?php if ($printed_links): ?>|
+    <?php if ($printed_links): ?><span class="nav-sep">|</span>
     <?php endif; ?>
     <?php
       // Language switcher dropdown that preserves all query params except lang
@@ -428,6 +287,55 @@ $calendar_year = (int)date('Y');
       if (!competitionsMenu.contains(e.target) && e.target !== competitionsBtn) {
         competitionsMenu.classList.remove('show');
       }
+    });
+  }
+
+  // Hamburger + mobile menu
+  const burgerBtn = document.getElementById('burgerBtn');
+  const mobileMenu = document.getElementById('mobileMenu');
+  const mobileCompetitionsToggle = document.getElementById('mobileCompetitionsToggle');
+  const mobileCompetitionsMenu = document.getElementById('mobileCompetitionsMenu');
+
+  if (burgerBtn && mobileMenu){
+    burgerBtn.addEventListener('click', function(e){
+      e.stopPropagation();
+      const open = mobileMenu.classList.toggle('show');
+      burgerBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      // close other menus
+      if (userDropdown) userDropdown.classList.remove('show');
+      if (langDropdown) langDropdown.classList.remove('show');
+      if (competitionsMenu) competitionsMenu.classList.remove('show');
+    });
+    document.addEventListener('click', function(e){
+      if (!mobileMenu.contains(e.target) && e.target !== burgerBtn){
+        mobileMenu.classList.remove('show');
+        burgerBtn.setAttribute('aria-expanded','false');
+      }
+    });
+  }
+
+  if (mobileCompetitionsToggle && mobileCompetitionsMenu){
+    mobileCompetitionsToggle.addEventListener('click', function(e){
+      e.stopPropagation();
+      mobileCompetitionsMenu.classList.toggle('show');
+    });
+  }
+
+  // Mobile: Account and Language collapsibles
+  const mobileAccountToggle = document.getElementById('mobileAccountToggle');
+  const mobileAccountMenu = document.getElementById('mobileAccountMenu');
+  if (mobileAccountToggle && mobileAccountMenu){
+    mobileAccountToggle.addEventListener('click', function(e){
+      e.stopPropagation();
+      mobileAccountMenu.classList.toggle('show');
+    });
+  }
+  const mobileLangToggle = document.getElementById('mobileLangToggle');
+  const mobileLangMenu = document.getElementById('mobileLangMenu');
+  if (mobileLangToggle && mobileLangMenu){
+    mobileLangToggle.addEventListener('click', function(e){
+      e.stopPropagation();
+      mobileLangMenu.classList.toggle('show');
     });
   }
 
