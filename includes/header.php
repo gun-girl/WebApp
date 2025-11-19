@@ -13,7 +13,7 @@ $calendar_year = (int)date('Y');
 <?php $cssPath = __DIR__ . '/../assets/css/style.css'; $cssVer = @filemtime($cssPath) ?: time(); ?>
 <link rel="stylesheet" href="/movie-club-app/assets/css/style.css?v=<?= $cssVer ?>">
 </head>
-<body>
+<body class="<?= isset($body_extra_class) && $body_extra_class ? e($body_extra_class) : '' ?>">
 <?php $show_search = !in_array(basename($_SERVER['PHP_SELF']), ['login.php','register.php']); ?>
 <header>
   <!-- Global header -->

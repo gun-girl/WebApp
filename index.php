@@ -87,6 +87,8 @@ if ($searchRequested) {
   }
 }
 ?>
+<?php // Add body class to signal active search state (for hiding duplicate header search on wide screens)
+$body_extra_class = $searchRequested ? 'has-search' : ''; ?>
 <?php include __DIR__ . '/includes/header.php'; ?>
 <style>
 

@@ -158,6 +158,11 @@ nav a:hover { color: #f6c90e; }
 .hello-only { color:#fff; font-weight:500; }
 main { padding-top: 82px; }
 
+/* Hide header's global search when a dedicated search screen is active (large screens only) */
+@media (min-width: 900px){
+	body.has-search header .global-search { display: none; }
+}
+
 @media (max-width: 840px){
 	.auth-shell{padding:4.5rem 1rem 2.5rem;}
 	.auth-card,.login-box,.register-box{width:100%;padding:2rem;box-shadow:0 10px 32px rgba(0,0,0,.45);}
