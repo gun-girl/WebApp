@@ -17,17 +17,25 @@ if ($searchRequested) {
   }
 } else {
   // Prepare homepage sections when not searching
-  // 1) In Competition: movies with vote_details.competition_status indicating competition
+  // 1) In Competition carousel: include both canonical tokens and the human readable values currently stored
+  //    Reason: earlier votes saved values like "In Competition" while some code expected tokens like "in_competition".
+  //    We match against all known variants to avoid empty lists.
   $inCompetition = [];
   try {
+    $competitionStatusInValues = [
+      'in_competition','In Competition','In Competizione',
+      '2026_in_competition','2026 In Competition','2026 In Competizione'
+    ];
+    $escapedList = implode(',', array_map(function($s) use ($mysqli){ return "'".$mysqli->real_escape_string($s)."'"; }, $competitionStatusInValues));
     $q = "SELECT DISTINCT m.*
           FROM movies m
           JOIN votes v ON v.movie_id = m.id
           LEFT JOIN vote_details vd ON vd.vote_id = v.id
-          WHERE vd.competition_status IN ('in_competition','2026_in_competition')
+          WHERE vd.competition_status IN (".$escapedList.")
           ORDER BY v.created_at DESC
           LIMIT 24";
-    $inCompetition = $mysqli->query($q)->fetch_all(MYSQLI_ASSOC);
+    $res = $mysqli->query($q);
+    if ($res) { $inCompetition = $res->fetch_all(MYSQLI_ASSOC); }
   } catch (Throwable $e) { $inCompetition = []; }
 
   // 2) Top Rated: detect schema and compute avg

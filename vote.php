@@ -6,6 +6,14 @@ require_login();
 $user = current_user();
 // Determine competition year early (before any queries use it)
 $active_year = function_exists('get_active_year') ? get_active_year() : (int)date('Y');
+// Detect whether the votes table already has competition_year column (backwards compatibility)
+$hasCompetitionYear = false;
+try {
+  $res = $mysqli->query("SHOW COLUMNS FROM votes LIKE 'competition_year'");
+  if ($res && $res->num_rows > 0) { $hasCompetitionYear = true; }
+} catch (Exception $e) {
+  // ignore; treat as missing
+}
 
 $edit_vote_id = (int)($_GET['edit'] ?? 0);
 $movie_id = (int)($_GET['movie_id'] ?? 0);
@@ -13,9 +21,14 @@ $movie_id = (int)($_GET['movie_id'] ?? 0);
 // If editing, load the existing vote
 $existing_vote = null;
 if ($edit_vote_id > 0) {
-    // Load vote and verify ownership
-    $stmt = $mysqli->prepare("\n        SELECT v.*, vd.*, m.id as movie_id, m.title, m.year, m.poster_url\n        FROM votes v\n        INNER JOIN vote_details vd ON vd.vote_id = v.id\n        INNER JOIN movies m ON m.id = v.movie_id\n      WHERE v.id = ? AND v.user_id = ? AND v.competition_year = ?\n    ");
+  // Load vote and verify ownership (include year condition only if column exists)
+  $sql = "SELECT v.*, vd.*, m.id as movie_id, m.title, m.year, m.poster_url\n            FROM votes v\n            INNER JOIN vote_details vd ON vd.vote_id = v.id\n            INNER JOIN movies m ON m.id = v.movie_id\n            WHERE v.id = ? AND v.user_id = ?" . ($hasCompetitionYear ? " AND v.competition_year = ?" : "");
+  $stmt = $mysqli->prepare($sql);
+  if ($hasCompetitionYear) {
     $stmt->bind_param('iii', $edit_vote_id, $user['id'], $active_year);
+  } else {
+    $stmt->bind_param('ii', $edit_vote_id, $user['id']);
+  }
     $stmt->execute();
     $existing_vote = $stmt->get_result()->fetch_assoc();
     
@@ -91,9 +104,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $mysqli->begin_transaction();
         try {
             if ($edit_vote_id > 0) {
-                // Editing existing vote - verify ownership again and ensure it's for the active year
-                $check = $mysqli->prepare("SELECT id FROM votes WHERE id = ? AND user_id = ? AND competition_year = ?");
+              // Editing existing vote - verify ownership again (year scoped only if column exists)
+              $sqlVerify = "SELECT id FROM votes WHERE id = ? AND user_id = ?" . ($hasCompetitionYear ? " AND competition_year = ?" : "");
+              $check = $mysqli->prepare($sqlVerify);
+              if ($hasCompetitionYear) {
                 $check->bind_param('iii', $edit_vote_id, $user['id'], $active_year);
+              } else {
+                $check->bind_param('ii', $edit_vote_id, $user['id']);
+              }
                 $check->execute();
                 $verify = $check->get_result()->fetch_assoc();
                 
@@ -103,18 +121,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 $vote_id = $edit_vote_id;
             } else {
-                // Check if vote exists for this movie in the active competition year
-                $check = $mysqli->prepare("SELECT id FROM votes WHERE user_id = ? AND movie_id = ? AND competition_year = ?");
-                $check->bind_param('iii', $user['id'], $movie_id, $active_year);
+                // Check if vote exists for this movie in the active competition year (if column exists)
+                $sqlCheck = "SELECT id FROM votes WHERE user_id = ? AND movie_id = ?" . ($hasCompetitionYear ? " AND competition_year = ?" : "");
+                $check = $mysqli->prepare($sqlCheck);
+                if ($hasCompetitionYear) {
+                  $check->bind_param('iii', $user['id'], $movie_id, $active_year);
+                } else {
+                  $check->bind_param('ii', $user['id'], $movie_id);
+                }
                 $check->execute();
                 $existing = $check->get_result()->fetch_assoc();
                 
                 if ($existing) {
                     $vote_id = $existing['id'];
                 } else {
-                    // Insert new vote
-                    $stmt = $mysqli->prepare("INSERT INTO votes (user_id, movie_id, competition_year) VALUES (?, ?, ?)");
-                    $stmt->bind_param('iii', $user['id'], $movie_id, $active_year);
+                    // Insert new vote (include competition_year only if column exists)
+                    if ($hasCompetitionYear) {
+                      $stmt = $mysqli->prepare("INSERT INTO votes (user_id, movie_id, competition_year) VALUES (?, ?, ?)");
+                      $stmt->bind_param('iii', $user['id'], $movie_id, $active_year);
+                    } else {
+                      $stmt = $mysqli->prepare("INSERT INTO votes (user_id, movie_id) VALUES (?, ?)");
+                      $stmt->bind_param('ii', $user['id'], $movie_id);
+                    }
                     $stmt->execute();
                     $vote_id = $mysqli->insert_id;
                 }
