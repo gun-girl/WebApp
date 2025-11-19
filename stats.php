@@ -265,7 +265,7 @@ if (!empty($_GET['mine']) && current_user()) {
           <?php foreach ($numericCols as $col): ?>
             <th><?= t($col) ?: ucfirst(str_replace('_', ' ', e($col))) ?></th>
           <?php endforeach; ?>
-          <th style="background: #ffd700;">Totale</th>
+          <th style="background: #ffd700;"><?= t('total') ?></th>
           <th style="background: #ffd700;"><?= t('computed_rating') ?></th>
           <th><?= t('season') ?></th>
           <th><?= t('episode') ?></th>
@@ -390,7 +390,7 @@ if ($sheet === 'results') {
         <th><?= t('where_watched') ?></th>
         <th><?= t('competition_status') ?></th>
         <th><?= t('votes') ?></th>
-        <th>Totale</th>
+        <th><?= t('total') ?></th>
         <?php foreach ($detailCols as $c): ?>
           <th><?= t($c) ?: ucfirst(str_replace('_',' ', $c)) ?></th>
         <?php endforeach; ?>
@@ -513,7 +513,7 @@ if (($sheet === 'votes') || ($sheet === 'raw' && function_exists('is_admin') && 
           <?php foreach($scoreCols as $col): ?>
             <th><?= t($col) ?: ucfirst(str_replace('_',' ', e($col))) ?></th>
           <?php endforeach; ?>
-          <th>Totale</th>
+          <th><?= t('total') ?></th>
           <th><?= t('computed_rating') ?></th>
         </tr>
       </thead>
@@ -628,13 +628,13 @@ if ($sheet === 'views') {
       <h3><?= e(t('sheet_views')) ?></h3>
       <div class="summary-grid">
         <?php foreach ($categories as $cat): $s=$summary[$cat]; ?>
-          <div class="summary-item"><strong><?= e($cat) ?> — Titoli Unici</strong><?= (int)$s['uniq_titles'] ?></div>
+          <div class="summary-item"><strong><?= e($cat) ?> — <?= e(t('unique_titles')) ?></strong><?= (int)$s['uniq_titles'] ?></div>
         <?php endforeach; ?>
-        <div class="summary-item"><strong>TOTALE — Titoli Unici</strong><?= (int)$summaryTotal['uniq_titles'] ?></div>
+        <div class="summary-item"><strong><?= e(t('total')) ?> — <?= e(t('unique_titles')) ?></strong><?= (int)$summaryTotal['uniq_titles'] ?></div>
         <?php foreach ($categories as $cat): $s=$summary[$cat]; ?>
-          <div class="summary-item"><strong><?= e($cat) ?> — Totale Visioni</strong><?= (int)$s['views'] ?></div>
+          <div class="summary-item"><strong><?= e($cat) ?> — <?= e(t('total_views')) ?></strong><?= (int)$s['views'] ?></div>
         <?php endforeach; ?>
-        <div class="summary-item"><strong>TOTALE — Visioni</strong><?= (int)$summaryTotal['views'] ?></div>
+        <div class="summary-item"><strong><?= e(t('total_views')) ?></strong><?= (int)$summaryTotal['views'] ?></div>
       </div>
     </div>
 
@@ -648,11 +648,11 @@ if ($sheet === 'views') {
     <table class="table">
       <thead>
         <tr>
-          <th>Piattaforma</th>
-          <th>Media Qualitativa</th>
+          <th><?= t('platform') ?></th>
+          <th><?= t('qualitative_average') ?></th>
           <?php foreach ($categories as $cat): ?>
-            <th><?= e($cat) ?> Titoli</th>
-            <th><?= e($cat) ?> Media Voto</th>
+            <th><?= e($cat) ?> <?= t('titles') ?></th>
+            <th><?= e($cat) ?> <?= t('average_rating') ?></th>
           <?php endforeach; ?>
         </tr>
       </thead>
@@ -782,23 +782,23 @@ if ($sheet === 'judges' || $sheet === 'judges_comp') {
     <table class="table">
       <thead>
         <tr>
-          <th>Giudice</th>
-          <th>Voti</th>
-          <th>Film</th>
-          <th>Serie</th>
-          <th>Miniserie</th>
-          <th>Documentario</th>
-          <th>Animazione</th>
-          <th>Media Tot Votazioni</th>
-          <th>Media Sceneggiatura</th>
-          <th>Media Regia</th>
-          <th>Media Recitazione/Tema</th>
-          <th>Media Coinvolgimento</th>
-          <th>Media Senso di Nuovo</th>
-          <th>Media Casting/Artwork</th>
-          <th>Media Sonoro</th>
-          <th>Quanti 10</th>
-          <th>% di 10</th>
+          <th><?= t('judge') ?></th>
+          <th><?= t('votes') ?></th>
+          <th><?= t('film') ?></th>
+          <th><?= t('series') ?></th>
+          <th><?= t('miniseries') ?></th>
+          <th><?= t('documentary') ?></th>
+          <th><?= t('animation') ?></th>
+          <th><?= t('avg_total') ?></th>
+          <th><?= t('avg_writing') ?></th>
+          <th><?= t('avg_direction') ?></th>
+          <th><?= t('avg_acting_theme') ?></th>
+          <th><?= t('avg_emotional') ?></th>
+          <th><?= t('avg_novelty') ?></th>
+          <th><?= t('avg_casting_artwork') ?></th>
+          <th><?= t('avg_sound') ?></th>
+          <th><?= t('count_10s') ?></th>
+          <th><?= t('percent_10s') ?></th>
         </tr>
       </thead>
       <tbody>
@@ -924,11 +924,11 @@ if ($sheet === 'adjectives') {
       <table class="table">
         <thead>
           <tr>
-            <th>FILM</th>
-            <th>AGGETTIVO</th>
-            <th>Aggettivi</th>
+            <th><?= t('film') ?></th>
+            <th><?= t('adjective') ?></th>
+            <th><?= t('adjectives') ?></th>
             <?php for ($i=1;$i<=10;$i++): ?>
-              <th>Aggettivo<?= $i ?></th>
+              <th><?= t('adjective') . $i ?></th>
             <?php endfor; ?>
           </tr>
         </thead>
@@ -985,7 +985,7 @@ if ($sheet === 'finalists') {
     </div>
 
     <table class="table">
-      <thead><tr><th><?= 'Finalists ' . (int)$selected_year ?></th><th>Categoria</th></tr></thead>
+      <thead><tr><th><?= e(t('finalists')) . ' ' . (int)$selected_year ?></th><th><?= t('category') ?></th></tr></thead>
       <tbody>
         <?php foreach ($rows as $r): ?>
           <tr><td><?= e($r['title']) ?></td><td><?= e($r['category']) ?></td></tr>

@@ -6,12 +6,15 @@ require_once __DIR__ . '/includes/omdb.php';
 require_login();
 
 $user = current_user();
-$search = $_GET['search'] ?? '';
+$searchRequested = array_key_exists('search', $_GET);
+$searchTerm = trim($_GET['search'] ?? '');
+$movies = [];
 
-$sql = "SELECT * FROM movies";
-if ($search) {
-  // Use OMDb-backed helper: search locally first, otherwise fetch and cache
-  $movies = get_movie_or_fetch($search);
+if ($searchRequested) {
+  if ($searchTerm !== '') {
+    // Use OMDb-backed helper: search locally first, otherwise fetch and cache
+    $movies = get_movie_or_fetch($searchTerm);
+  }
 } else {
   // Prepare homepage sections when not searching
   // 1) In Competition: movies with vote_details.competition_status indicating competition
@@ -87,33 +90,76 @@ if ($search) {
 <?php include __DIR__ . '/includes/header.php'; ?>
 <style>
 
-    /* === SEARCH === */
-    .search-bar {
-      max-width: 400px;
-      margin: 1.5rem auto;
-      display: flex;
-      justify-content: center;
-      gap: .5rem;
+    /* === SEARCH SCREEN === */
+    .search-screen {
+      max-width: 640px;
+      margin: 2.6rem auto 1.8rem;
+      padding: 1.9rem 1.7rem 2.2rem;
+      background: rgba(12,12,12,0.88);
+      border-radius: 1.6rem;
+      box-shadow: 0 18px 42px rgba(0,0,0,.48);
+      backdrop-filter: blur(10px);
+      text-align: center;
     }
-    .search-bar input {
+    .search-screen__form {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+    }
+    .search-screen__form input {
       flex: 1;
-      padding: .7rem;
-      border-radius: .3rem;
-      border: none;
-      background: #222;
+      padding: .75rem .9rem;
+      border-radius: .6rem;
+      border: 1px solid #2d2d2d;
+      background: rgba(20,20,20,0.95);
       color: #fff;
       font-size: 1rem;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03);
     }
-    .search-bar button {
-      background: #f6c90e;
+    .search-screen__form input:focus {
+      outline: 2px solid rgba(246,201,14,0.55);
+      border-color: rgba(246,201,14,0.55);
+    }
+    .search-screen__form button {
+      background: linear-gradient(135deg, #f8523b, #f6c90e);
       color: #000;
       border: none;
-      padding: .7rem 1rem;
-      border-radius: .3rem;
+      padding: .75rem 1.4rem;
+      border-radius: .6rem;
       cursor: pointer;
-      font-weight: 600;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      transition: transform .2s ease, box-shadow .2s ease;
     }
-    .search-bar button:hover { background: #ffde50; }
+    .search-screen__form button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px rgba(248,82,59,0.35);
+    }
+    .search-screen__hint {
+      margin-top: 1.2rem;
+      color: #a7a7a7;
+      font-size: .95rem;
+    }
+    .search-screen__meta {
+      margin-top: 1.2rem;
+      color: #f6c90e;
+      font-size: .95rem;
+      font-weight: 600;
+      letter-spacing: .03em;
+    }
+    .search-screen__meta span {
+      display: inline-block;
+      margin-left: .35rem;
+      color: #fff;
+    }
+    .search-empty {
+      text-align: center;
+      color: #b3b3b3;
+      margin: 0 auto 3rem;
+      max-width: 520px;
+      font-size: .95rem;
+    }
 
     /* === MOVIE GRID === */
     .movies-container {
@@ -186,23 +232,52 @@ if ($search) {
       header h1 { font-size: 1.3rem; }
       .movies-container { padding: 1rem; }
     }
+    @media (max-width: 540px) {
+      .search-screen {
+        margin: 2.2rem 1.1rem 1.5rem;
+        padding: 1.6rem 1.3rem 1.8rem;
+      }
+      .search-screen__form {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .search-screen__form button {
+        width: 100%;
+      }
+    }
   </style>
-  <!-- Search is now in the global header -->
+  <!-- Search screen -->
 
-  <?php if ($search): ?>
-    <section class="movies-container">
-      <?php foreach ($movies as $movie): ?>
-        <div class="movie-card">
-          <?php $poster = ($movie['poster_url'] ?? null); if (!$poster || $poster==='N/A') $poster='/movie-club-app/assets/img/no-poster.svg'; ?>
-          <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src='/movie-club-app/assets/img/no-poster.svg';">
-          <div class="movie-info">
-            <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
-            <div class="movie-year"><?= htmlspecialchars($movie['year']) ?></div>
-            <a class="rate-btn" href="vote.php?movie_id=<?= $movie['id'] ?>"><?= t('rate') ?> ⭐</a>
-          </div>
-        </div>
-      <?php endforeach; ?>
+  <?php if ($searchRequested): ?>
+    <section class="search-screen">
+      <form class="search-screen__form" method="get" action="/movie-club-app/index.php">
+        <input id="search-page-field" type="text" name="search" placeholder="<?= e(t('search_movies')) ?>" value="<?= htmlspecialchars($searchTerm) ?>"<?= $searchTerm === '' ? ' autofocus' : '' ?>>
+        <button type="submit"><?= e(t('search')) ?></button>
+      </form>
+      <?php if ($searchTerm === ''): ?>
+        <p class="search-screen__hint"><?= e(t('search_intro')) ?></p>
+      <?php else: ?>
+        <p class="search-screen__meta"><?= e(t('results')) ?>:<span>"<?= htmlspecialchars($searchTerm) ?>"</span></p>
+      <?php endif; ?>
     </section>
+
+    <?php if ($searchTerm !== '' && $movies): ?>
+      <section class="movies-container">
+        <?php foreach ($movies as $movie): ?>
+          <div class="movie-card">
+            <?php $poster = ($movie['poster_url'] ?? null); if (!$poster || $poster==='N/A') $poster='/movie-club-app/assets/img/no-poster.svg'; ?>
+            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src='/movie-club-app/assets/img/no-poster.svg';">
+            <div class="movie-info">
+              <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
+              <div class="movie-year"><?= htmlspecialchars($movie['year']) ?></div>
+              <a class="rate-btn" href="vote.php?movie_id=<?= $movie['id'] ?>"><?= t('rate') ?> ⭐</a>
+            </div>
+          </div>
+        <?php endforeach; ?>
+      </section>
+    <?php elseif ($searchTerm !== ''): ?>
+      <p class="search-empty"><?= e(t('search_no_results')) ?></p>
+    <?php endif; ?>
   <?php else: ?>
     <style>
       .home-section { max-width: 1200px; margin: 1rem auto 2rem; padding: 0 1rem; }

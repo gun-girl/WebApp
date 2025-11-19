@@ -23,7 +23,7 @@ $calendar_year = (int)date('Y');
   <?php if ($show_search): ?>
     <div class="header-center">
       <form class="global-search" method="get" action="/movie-club-app/index.php">
-        <input type="text" name="search" placeholder="<?= e(t('search_movies')) ?>" value="<?= htmlspecialchars($_GET['search'] ?? '') ?>" aria-label="<?= e(t('search_movies')) ?>">
+        <input id="search-field" type="text" name="search" placeholder="<?= e(t('search_movies')) ?>" value="<?= htmlspecialchars($_GET['search'] ?? '') ?>" aria-label="<?= e(t('search_movies')) ?>">
         <button type="submit"><?= e(t('search')) ?></button>
       </form>
     </div>
@@ -55,7 +55,7 @@ $calendar_year = (int)date('Y');
         </button>
           <div class="dropdown-menu" id="userDropdown">
           <a href="/movie-club-app/profile.php" class="dropdown-item">👤 <?= e(t('your_profile')) ?></a>
-          <a href="/movie-club-app/watchlist.php" class="dropdown-item">➕ <?= e(t('watchlist')) ?></a>
+          
           <a href="/movie-club-app/stats.php?mine=1" class="dropdown-item">⭐ <?= e(t('your_ratings')) ?></a>
           <a href="/movie-club-app/profile.php?settings=1" class="dropdown-item">⚙️ <?= e(t('account_settings')) ?></a>
           <div class="dropdown-divider"></div>
@@ -64,9 +64,9 @@ $calendar_year = (int)date('Y');
       </div>
       <div class="nav-primary" style="gap:.5rem;">
       <div style="position:relative; display:inline-block;">
-        <button id="competitionsBtn" class="lang-button" style="background:transparent;border:none;padding:.5rem 1rem;cursor:pointer;">All competitions ▾</button>
+        <button id="competitionsBtn" class="lang-button" style="background:transparent;border:none;padding:.5rem 1rem;cursor:pointer;"><?= e(t('all_competitions')) ?> ▾</button>
         <div id="competitionsMenu" class="dropdown-menu" style="right:auto;left:0;">
-          <a class="dropdown-item" href="/movie-club-app/stats.php?sheet=votes&year=<?= $calendar_year ?>">All competitions</a>
+          <a class="dropdown-item" href="/movie-club-app/stats.php?sheet=votes&year=<?= $calendar_year ?>"><?= e(t('all_competitions')) ?></a>
           <?php
             // Build list of competition years from both `competitions` table AND distinct years seen in `votes`.
             // This ensures the dropdown shows every year created on the site (either explicitly created or inferred from votes).
@@ -136,24 +136,17 @@ $calendar_year = (int)date('Y');
       <button id="burgerBtn" class="burger-btn" aria-expanded="false" aria-controls="mobileMenu">☰</button>
       <div id="mobileMenu" class="mobile-menu" role="menu" aria-label="Main menu">
         <!-- Account section (when logged in) -->
-        <?php if (current_user()): $mu = current_user(); ?>
-          <button id="mobileAccountToggle" class="mobile-item" type="button">👤 <?= e($mu['username']) ?> ▾</button>
-          <div id="mobileAccountMenu" class="mobile-submenu">
-            <a class="mobile-item" href="/movie-club-app/profile.php"><?= e(t('your_profile')) ?></a>
-            <a class="mobile-item" href="/movie-club-app/watchlist.php"><?= e(t('watchlist')) ?></a>
-            <a class="mobile-item" href="/movie-club-app/stats.php?mine=1"><?= e(t('your_ratings')) ?></a>
-            <a class="mobile-item" href="/movie-club-app/profile.php?settings=1"><?= e(t('account_settings')) ?></a>
-            <a class="mobile-item" href="/movie-club-app/logout.php"><?= e(t('sign_out')) ?></a>
-          </div>
+        <?php if (current_user()): ?>
+          <a class="mobile-item" href="/movie-club-app/stats.php?mine=1">⭐ <?= e(t('your_ratings')) ?></a>
         <?php else: ?>
           <a class="mobile-item" href="/movie-club-app/register.php"><?= e(t('register')) ?></a>
           <a class="mobile-item" href="/movie-club-app/login.php"><?= e(t('login')) ?></a>
         <?php endif; ?>
 
         <!-- Collapsible All competitions -->
-        <button id="mobileCompetitionsToggle" class="mobile-item" type="button">All competitions ▾</button>
+        <button id="mobileCompetitionsToggle" class="mobile-item" type="button"><?= e(t('all_competitions')) ?> ▾</button>
         <div id="mobileCompetitionsMenu" class="mobile-submenu">
-          <a class="mobile-item" href="/movie-club-app/stats.php?sheet=votes&year=<?= $calendar_year ?>">All competitions</a>
+          <a class="mobile-item" href="/movie-club-app/stats.php?sheet=votes&year=<?= $calendar_year ?>"><?= e(t('all_competitions')) ?></a>
           <?php
             $m_competitions = [];
             $m_hasCompetitionsTable = $mysqli->query("SHOW TABLES LIKE 'competitions'")->fetch_all(MYSQLI_NUM);
@@ -178,23 +171,11 @@ $calendar_year = (int)date('Y');
           <?php endforeach; ?>
         </div>
 
-        <!-- Language section reproduces current URL with lang replacement -->
-        <?php
-          $m_query = $_GET; $m_en = $m_query; $m_it = $m_query;
-          $m_en['lang'] = 'en'; $m_it['lang'] = 'it';
-          $m_parts = parse_url($_SERVER['REQUEST_URI']);
-          $m_path = $m_parts['path'] ?? '/';
-          $m_url_en = $m_path . '?' . http_build_query($m_en);
-          $m_url_it = $m_path . '?' . http_build_query($m_it);
-          $m_current_lang = current_lang();
-        ?>
-        <button id="mobileLangToggle" class="mobile-item" type="button">Language (<?= $m_current_lang === 'it' ? 'IT' : 'EN' ?>) ▾</button>
-        <div id="mobileLangMenu" class="mobile-submenu">
-          <a href="<?= htmlspecialchars($m_url_en) ?>" class="mobile-item<?= $m_current_lang === 'en' ? ' active' : '' ?>">English</a>
-          <a href="<?= htmlspecialchars($m_url_it) ?>" class="mobile-item<?= $m_current_lang === 'it' ? ' active' : '' ?>">Italiano</a>
-        </div>
-
-        <a class="mobile-item" href="/movie-club-app/index.php"><?= e(t('home')) ?></a>
+        <?php if (current_user()): ?>
+          <a class="mobile-item mobile-signout" href="/movie-club-app/logout.php"><?= e(t('sign_out')) ?></a>
+        <?php else: ?>
+          <a class="mobile-item" href="/movie-club-app/index.php"><?= e(t('home')) ?></a>
+        <?php endif; ?>
       </div>
       <?php $printed_links = true; ?>
     <?php else: ?>
@@ -204,8 +185,6 @@ $calendar_year = (int)date('Y');
         | <a href="/movie-club-app/index.php"> <?= e(t('home')) ?></a>
         <?php $printed_links = true; ?>
       <?php endif; ?>
-    <?php endif; ?>
-    <?php if ($printed_links): ?><span class="nav-sep">|</span>
     <?php endif; ?>
     <?php
       // Language switcher dropdown that preserves all query params except lang
@@ -330,15 +309,6 @@ $calendar_year = (int)date('Y');
       mobileAccountMenu.classList.toggle('show');
     });
   }
-  const mobileLangToggle = document.getElementById('mobileLangToggle');
-  const mobileLangMenu = document.getElementById('mobileLangMenu');
-  if (mobileLangToggle && mobileLangMenu){
-    mobileLangToggle.addEventListener('click', function(e){
-      e.stopPropagation();
-      mobileLangMenu.classList.toggle('show');
-    });
-  }
-
   // rename handler: prompt and submit hidden form
   function renameCompetition(oldYear) {
     const n = prompt('Enter new year for ' + oldYear + ':', oldYear+1);

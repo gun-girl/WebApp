@@ -38,14 +38,11 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     }
     /* header/nav styles are provided by shared header */
 
-  /* Uses shared container/card styles from style.css via .container-800 and .card-box */
-  /* Redundant explicit widths to guarantee visual match if any cache/override remains */
-  .login-container{ max-width:800px; margin:0 auto; width:100%; padding:2rem; }
-  .login-box{ max-width:800px; min-width:800px; width:100%; margin:0 auto; }
+  /* Layout sizing handled globally via .auth-shell and .auth-card */
     .login-box h2 {
       color: #f6c90e;
       margin-bottom: 1.5rem; /* match profile */
-      font-size: 1.8rem;     /* match profile */
+      font-size: 2.3rem;
       text-align: center;
     }
     .error {
@@ -65,19 +62,19 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     input {
       display: block;
       width: 100%;
-      padding: .7rem;        /* match profile */
+      padding: .85rem;
       margin-top: .3rem;
       border: none;
       border-radius: .3rem;
       background: #222;
       color: #fff;
-      font-size: 1rem;       /* match profile */
+      font-size: 1.05rem;
     }
     input::placeholder { color: #777; }
     button, .btn {
       display: inline-block;
       width: 100%;
-      padding: .7rem;        /* match profile */
+      padding: 1.05rem;
       margin-top: .5rem;
       background: #f6c90e;
       color: #000;
@@ -85,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
       border-radius: .3rem;
       cursor: pointer;
       font-weight: 600;
-      font-size: 1rem;       /* match profile */
+      font-size: 1.1rem;
       text-align: center;
       text-decoration: none;
       transition: background .2s;
@@ -104,10 +101,15 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
       font-size: .9rem;
       border-top: 1px solid #222;
     }
+    /* Responsive tweaks for narrow screens */
+    @media (max-width: 840px) {
+      .login-box h2 { font-size: 1.9rem; }
+      input, button, .btn { font-size: 1.02rem; padding: .85rem; }
+    }
   </style>
 
-  <div class="login-container container-800">
-    <div class="login-box card-box">
+  <div class="auth-shell">
+    <div class="login-box card-box auth-card">
       <h2><?= t('login') ?></h2>
       <?php foreach($errors as $er): ?>
         <p class="error"><?= htmlspecialchars($er) ?></p>
