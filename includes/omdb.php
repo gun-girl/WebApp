@@ -1,6 +1,5 @@
 <?php
 require_once __DIR__.'/../config.php';
-
 /**
  * Search movies locally; if none found and API key is set, fetch from OMDb,
  * cache into DB, then return associative arrays from DB.
@@ -8,25 +7,26 @@ require_once __DIR__.'/../config.php';
  */
 function get_movie_or_fetch($query): array {
   global $mysqli, $OMDB_API_KEY;
-  // First: try local cached items
-  $stmt = $mysqli->prepare("SELECT * FROM movies WHERE title LIKE CONCAT('%',?,'%') ORDER BY year DESC LIMIT 30");
-  $stmt->bind_param('s',$query); $stmt->execute();
-  $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-  if ($rows) {
-    // Attempt to enrich any rows missing poster_url
-    foreach ($rows as &$r) {
-      if (empty($r['poster_url']) && !empty($r['imdb_id']) && $OMDB_API_KEY) {
-        $detail = fetch_omdb_detail_by_id($r['imdb_id']);
-        if ($detail && !empty($detail['Poster']) && $detail['Poster'] !== 'N/A') {
-          $r['poster_url'] = $detail['Poster'];
-          $upd = $mysqli->prepare("UPDATE movies SET poster_url=? , last_fetched_at=NOW() WHERE imdb_id=?");
-          $upd->bind_param('ss',$r['poster_url'],$r['imdb_id']);
-          $upd->execute();
-        }
-      }
-    }
-    return $rows;
+  // Check if this query was already tried today
+  $stmt = $mysqli->prepare("SELECT 1 FROM query_cache WHERE query = ? AND DATE(date) = CURDATE() LIMIT 1");
+  $stmt->bind_param('s', $query);
+  $stmt->execute();
+  $triedToday = (bool) $stmt->get_result()->fetch_row();
+
+  // If tried today, return whatever is in DB (if any). If empty, do not call the API again.
+  if ($triedToday) {
+    $check = $mysqli->prepare("SELECT * FROM movies WHERE title LIKE CONCAT('%',?,'%') ORDER BY year DESC LIMIT 30");
+    $check->bind_param('s', $query);
+    $check->execute();
+    $rows = $check->get_result()->fetch_all(MYSQLI_ASSOC);
+    if ($rows) return $rows;
+    return []; // already tried today and nothing found — skip external API
   }
+
+  // Mark this query as tried today (insert or update timestamp) so we won't retry until tomorrow
+  $upsert = $mysqli->prepare("INSERT INTO query_cache (query,date) VALUES (?, NOW()) ON DUPLICATE KEY UPDATE date = NOW()");
+  $upsert->bind_param('s', $query);
+  $upsert->execute();
   if (!$OMDB_API_KEY) return [];
 
   // Try broader search (first movie then series) until we get results
@@ -64,7 +64,6 @@ function get_movie_or_fetch($query): array {
         $stmt->execute();
         $collected[$imdb] = true;
       }
-      break; // stop after first successful type
     }
   }
 
