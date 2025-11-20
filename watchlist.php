@@ -75,11 +75,11 @@ include __DIR__.'/includes/header.php';
           <div class="watchlist-card-content">
             <h3><?= htmlspecialchars($item['title']) ?></h3>
             <p><?= htmlspecialchars($item['year']) ?></p>
-            <p style="color: #666; font-size: 0.75rem;">Added: <?= date('M d, Y', strtotime($item['added_at'])) ?></p>
+            <p class="watchlist-date">Added: <?= date('M d, Y', strtotime($item['added_at'])) ?></p>
             
             <div class="watchlist-actions">
               <a href="/movie-club-app/vote.php?movie_id=<?= $item['movie_id'] ?>" class="btn"><?= e(t('rate')) ?></a>
-              <form method="post" style="display: inline;">
+              <form method="post" class="watchlist-form-inline">
                 <?= csrf_field() ?>
                 <input type="hidden" name="movie_id" value="<?= $item['movie_id'] ?>">
                 <input type="hidden" name="action" value="remove">

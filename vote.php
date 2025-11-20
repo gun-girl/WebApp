@@ -227,7 +227,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </select>
       </div>
 
-      <div class="form-group" id="seasonEpisodeGroup" style="display:none;">
+      <div class="form-group season-episode-group-hidden" id="seasonEpisodeGroup">
         <label><?= t('season_episode') ?></label>
         <div class="season-episode-fields">
           <input type="number" name="season_number" min="1" placeholder="<?= t('season_placeholder') ?>" value="<?= htmlspecialchars($existing_vote['season_number'] ?? '') ?>">

@@ -115,10 +115,18 @@ include __DIR__.'/includes/header.php';
           <h3><?= t('total_votes') ?></h3>
           <p><?= $vote_count ?> <?= t('movies_rated') ?></p>
         </div>
+        
+        <?php if (function_exists('is_admin') && is_admin()): ?>
+        <div class="info-card admin-card">
+          <h3> Admin Status</h3>
+          <p>You are an admin</p>
+        </div>
+        <?php endif; ?>
       </div>
 
-      <div style="margin-top: 1.5rem;">
+      <div class="profile-spacing">
         <a href="stats.php?mine=1&year=<?= (int)$active_year ?>" class="btn"><?= t('view_my_votes') ?></a>
+        <a href="logout.php" class="btn btn-logout"><?= t('sign_out') ?></a>
       </div>
     </div>
 

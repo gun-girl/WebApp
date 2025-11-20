@@ -166,8 +166,14 @@ nav a:hover { color: #f6c90e; }
 .lang-option { display: block; padding: .8rem 1.2rem; color: #ccc; text-decoration: none; transition: all .2s; font-size: .95rem; }
 .lang-option:hover { background: rgba(246,201,14,.1); color: #f6c90e; padding-left: 1.5rem; }
 .lang-option.active { background: rgba(246,201,14,.2); color: #f6c90e; font-weight: 600; }
-.hello-only { color:#fff; font-weight:500; }
+.hello-only { display: none; }
+.badge-admin { display: none; }
 main { padding-top: 82px; }
+
+/* Increase padding on mobile to account for browser chrome */
+@media (max-width: 640px) {
+	main { padding-top: 90px; }
+}
 
 /* Hide header's global search when a dedicated search screen is active (large screens only) */
 @media (min-width: 900px){
@@ -335,14 +341,63 @@ main{padding-bottom:140px}
 .remove-btn{background:#dc3545;color:#fff}
 .remove-btn:hover{background:#c82333}
 
+/* === Inline Styles Migration === */
+/* Year selector (stats.php) */
+.year-selector-wrap { text-align: center; margin: 1rem 0; }
+.year-selector-form { display: inline-block; }
+.year-selector-label { color: #ddd; margin-right: .5rem; font-weight: 600; }
+.year-selector-select { padding: .5rem .6rem; border-radius: .35rem; background: #1a1a1a; color: #fff; border: 1px solid #333; font-weight: 600; }
+
+/* Stats page table headers */
+.table-header-gold { background: #ffd700 !important; }
+
+/* Stats page text styles */
+.text-left { text-align: left; }
+.text-center { text-align: center; }
+.text-muted { color: #888; }
+
+/* Competitions dropdown (header.php) */
+.competitions-dropdown-wrap { position: relative; display: inline-block; }
+.competitions-btn { background: transparent; border: none; padding: .5rem 1rem; cursor: pointer; }
+.competitions-menu { right: auto; left: 0; }
+.competition-year-row { display: flex; gap: .5rem; align-items: center; padding: .15rem 0.6rem; }
+.competition-year-link { flex: 1; text-decoration: none; }
+.admin-form-inline { margin: 0; }
+.admin-form-inline.inline-block { display: inline-block; }
+.admin-form-flex { margin: 0; padding: .25rem 0.6rem; display: flex; gap: .5rem; align-items: center; }
+.admin-btn { background: none; border: none; margin-left: .25rem; }
+.admin-btn-star { color: #ffd700; }
+.admin-btn-edit { color: #9fd3ff; }
+.admin-btn-delete { color: #ffb4b4; }
+.admin-btn-create { background: none; border: none; color: inherit; text-align: left; width: 100%; }
+
+/* Vote page season/episode group */
+.season-episode-group-hidden { display: none; }
+
+/* Watchlist styles */
+.watchlist-date { color: #666; font-size: 0.75rem; }
+.watchlist-form-inline { display: inline; }
+
+/* Profile page spacing */
+.profile-spacing { margin-top: 1.5rem; display: flex; gap: 1rem; flex-wrap: wrap; }
+.admin-card { border-left: 4px solid #ffd700 !important; }
+.btn-logout { background: #dc3545; }
+.btn-logout:hover { background: #c82333; }
+
+/* Stats raw votes section */
+.raw-votes-heading { text-align: center; }
+
+/* Stats adjective message */
+.adjective-message { padding: 1rem; background: #111; border: 1px solid #333; border-radius: .5rem; max-width: 1200px; margin: 1rem auto; }
+
 /* Mobile Tabbar and footer adjustments (from footer.php) */
 .mobile-tabbar{display:none}
 .mobile-tabbar a{text-decoration:none}
 @media (max-width:860px){
-	.sheet-tabs{bottom:68px}
+	.sheet-tabs{position:fixed;bottom:68px;left:0;right:0;z-index:1499;}
 	footer{max-width:none;margin:0;padding:0;background:transparent;border:0}
-	main{padding-bottom:200px}
-	.mobile-tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;width:100%;margin:0;justify-content:space-evenly;align-items:center;padding:.55rem 1.1rem .65rem;background:rgba(5,5,5,0.98);border-top:1px solid rgba(255,255,255,0.06);box-shadow:0 -12px 32px rgba(0,0,0,0.6);border-radius:1.35rem 1.35rem 0 0;overflow:hidden;z-index:1500}
+	main{padding-bottom:150px}
+	.mobile-tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;width:100%;margin:0;justify-content:space-evenly;align-items:center;padding:.55rem 1.1rem .65rem;background:rgba(5,5,5,0.98);border-top:1px solid rgba(255,255,255,0.06);box-shadow:0 -12px 32px rgba(0,0,0,0.6);border-radius:1.35rem 1.35rem 0 0;overflow:hidden;z-index:1500;height:68px;}
 	.mobile-tabbar .tab-link{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:.35rem 0;gap:.3rem;color:#aaa;font-weight:600;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;transition:all .3s ease}
 	.mobile-tabbar .tab-link .icon{width:2.35rem;height:2.35rem;display:flex;align-items:center;justify-content:center}
 	.mobile-tabbar .tab-link .icon svg{width:22px;height:22px;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;fill:none;transition:all .3s ease}

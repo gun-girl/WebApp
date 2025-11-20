@@ -27,11 +27,17 @@
       </span>
       <span class="label">Vote</span>
     </a>
-    <a class="tab-link<?= $isStats ? ' active' : '' ?>" href="stats.php">
+    <?php
+      // Admin users see full stats, normal users see only their votes
+      $isAdmin = function_exists('is_admin') && is_admin();
+      $statsUrl = $isAdmin ? 'stats.php' : 'stats.php?mine=1';
+      $statsLabel = $isAdmin ? 'Stats' : t('my_votes');
+    ?>
+    <a class="tab-link<?= $isStats ? ' active' : '' ?>" href="<?= $statsUrl ?>">
       <span class="icon" aria-hidden="true">
         <svg viewBox="0 0 24 24"><path d="M4 21V10" /><path d="M10 21V3" /><path d="M16 21v-6" /><path d="M22 21v-9" /></svg>
       </span>
-      <span class="label">Stats</span>
+      <span class="label"><?= e($statsLabel) ?></span>
     </a>
     <a class="tab-link<?= $isProfile ? ' active' : '' ?>" href="<?= $profileLink ?>">
       <span class="icon" aria-hidden="true">

@@ -67,10 +67,11 @@ $calendar_year = (int)date('Y');
           <a href="/movie-club-app/logout.php" class="dropdown-item">🚪 <?= e(t('sign_out')) ?></a>
         </div>
       </div>
-      <div class="nav-primary" style="gap:.5rem;">
-      <div style="position:relative; display:inline-block;">
-        <button id="competitionsBtn" class="lang-button" style="background:transparent;border:none;padding:.5rem 1rem;cursor:pointer;"><?= e(t('all_competitions')) ?> ▾</button>
-        <div id="competitionsMenu" class="dropdown-menu" style="right:auto;left:0;">
+      <div class="nav-primary">
+      <?php if (function_exists('is_admin') && is_admin()): ?>
+      <div class="competitions-dropdown-wrap">
+        <button id="competitionsBtn" class="lang-button competitions-btn"><?= e(t('all_competitions')) ?> ▾</button>
+        <div id="competitionsMenu" class="dropdown-menu competitions-menu">
           <a class="dropdown-item" href="/movie-club-app/stats.php?sheet=votes&year=<?= $calendar_year ?>"><?= e(t('all_competitions')) ?></a>
           <?php
             // Build list of competition years from both `competitions` table AND distinct years seen in `votes`.
@@ -103,37 +104,38 @@ $calendar_year = (int)date('Y');
             rsort($competitions, SORT_NUMERIC);
           ?>
           <?php foreach ($competitions as $cy): ?>
-            <div style="display:flex;gap:.5rem;align-items:center;padding:.15rem 0.6rem;">
+            <div class="competition-year-row">
               <!-- Primary action: navigate to stats for the selected year -->
-              <a class="dropdown-item" href="/movie-club-app/stats.php?year=<?= (int)$cy ?>" style="flex:1;text-decoration:none;"><?= (int)$cy ?><?= $cy === $act ? ' (active)' : '' ?></a>
+              <a class="dropdown-item competition-year-link" href="/movie-club-app/stats.php?year=<?= (int)$cy ?>"><?= (int)$cy ?><?= $cy === $act ? ' (active)' : '' ?></a>
               <?php if (function_exists('is_admin') && is_admin()): ?>
                 <!-- Admin controls: quick set-active, rename, delete -->
-                <form method="post" action="/movie-club-app/admin_competitions.php" style="margin:0;">
+                <form method="post" action="/movie-club-app/admin_competitions.php" class="admin-form-inline">
                   <?= csrf_field() ?>
                   <input type="hidden" name="action" value="set_active">
                   <input type="hidden" name="year" value="<?= (int)$cy ?>">
-                  <button type="submit" class="dropdown-item" title="Set active year" style="background:none;border:none;color:#ffd700;margin-left:.25rem;">⭐</button>
+                  <button type="submit" class="dropdown-item admin-btn admin-btn-star" title="Set active year">⭐</button>
                 </form>
-                <button type="button" class="dropdown-item" style="background:none;border:none;color:#9fd3ff;margin-left:.25rem;" onclick="renameCompetition(<?= (int)$cy ?>)">✏️</button>
-                <form method="post" action="/movie-club-app/admin_competitions.php" style="margin:0;display:inline-block;">
+                <button type="button" class="dropdown-item admin-btn admin-btn-edit" onclick="renameCompetition(<?= (int)$cy ?>)">✏️</button>
+                <form method="post" action="/movie-club-app/admin_competitions.php" class="admin-form-inline inline-block">
                   <?= csrf_field() ?>
                   <input type="hidden" name="action" value="delete">
                   <input type="hidden" name="year" value="<?= (int)$cy ?>">
-                  <button type="submit" class="dropdown-item" title="Delete year" style="background:none;border:none;color:#ffb4b4;margin-left:.25rem;">🗑</button>
+                  <button type="submit" class="dropdown-item admin-btn admin-btn-delete" title="Delete year">🗑</button>
                 </form>
               <?php endif; ?>
             </div>
           <?php endforeach; ?>
           <?php if (function_exists('is_admin') && is_admin()): ?>
             <div class="dropdown-divider"></div>
-            <form method="post" action="/movie-club-app/admin_competitions.php" style="margin:0;padding:.25rem 0.6rem;display:flex;gap:.5rem;align-items:center;">
+            <form method="post" action="/movie-club-app/admin_competitions.php" class="admin-form-flex">
               <?= csrf_field() ?>
               <input type="hidden" name="action" value="create">
-              <button type="submit" class="dropdown-item" style="background:none;border:none;color:inherit;text-align:left;width:100%;">🎉 Create & set next year</button>
+              <button type="submit" class="dropdown-item admin-btn-create">🎉 Create & set next year</button>
             </form>
           <?php endif; ?>
         </div>
       </div>
+      <?php endif; ?>
       | <a href="/movie-club-app/index.php"> <?= e(t('home')) ?></a>
       </div>
 

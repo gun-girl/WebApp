@@ -62,10 +62,10 @@ $tabs = [
 // Global fixed bottom tabs styling for all sheets (keeps bottom tabs visible while scrolling)
 ?>
 <!-- Inline year selector (centered) -->
-<div style="text-align:center;margin:1rem 0;">
-  <form id="yearForm" method="get" action="/movie-club-app/stats.php" style="display:inline-block;">
-    <label for="yearSelect" style="color:#ddd;margin-right:.5rem;font-weight:600;">Select year:</label>
-    <select id="yearSelect" name="year" style="padding:.5rem .6rem;border-radius:.35rem;background:#1a1a1a;color:#fff;border:1px solid #333;font-weight:600;">
+<div class="year-selector-wrap">
+  <form id="yearForm" method="get" action="/movie-club-app/stats.php" class="year-selector-form">
+    <label for="yearSelect" class="year-selector-label">Select year:</label>
+    <select id="yearSelect" name="year" class="year-selector-select">
       <?php foreach ($years as $y): ?>
         <option value="<?= (int)$y ?>" <?= ((int)$y === (int)$selected_year) ? 'selected' : '' ?>><?= (int)$y ?></option>
       <?php endforeach; ?>
@@ -226,8 +226,8 @@ if (!empty($_GET['mine']) && current_user()) {
           <?php foreach ($numericCols as $col): ?>
             <th><?= t($col) ?: ucfirst(str_replace('_', ' ', e($col))) ?></th>
           <?php endforeach; ?>
-          <th style="background: #ffd700;"><?= t('total') ?></th>
-          <th style="background: #ffd700;"><?= t('computed_rating') ?></th>
+          <th class="table-header-gold"><?= t('total') ?></th>
+          <th class="table-header-gold"><?= t('computed_rating') ?></th>
           <th><?= t('season') ?></th>
           <th><?= t('episode') ?></th>
           <th><?= t('when') ?></th>
@@ -344,7 +344,7 @@ if ($sheet === 'results') {
     <tbody>
       <?php foreach ($rows as $r): ?>
         <tr>
-          <td style="text-align:left;"><?= e($r['title']) ?> <span style="color:#888;">(<?= e($r['year']) ?>)</span></td>
+          <td class="text-left"><?= e($r['title']) ?> <span class="text-muted">(<?= e($r['year']) ?>)</span></td>
           <td><?= e($r['category_mode'] ?? '') ?></td>
           <td><?= e($r['platform_mode'] ?? '') ?></td>
           <td><?= e($r['comp_mode'] ?? '') ?></td>
@@ -353,7 +353,7 @@ if ($sheet === 'results') {
           <?php foreach ($detailCols as $c): $key = 'avg_'.$c; ?>
             <td><?= isset($r[$key]) && $r[$key]!==null ? number_format($r[$key],2) : '' ?></td>
           <?php endforeach; ?>
-          <td style="text-align:left;"><?= e($r['adjectives'] ?? '') ?></td>
+          <td class="text-left"><?= e($r['adjectives'] ?? '') ?></td>
         </tr>
       <?php endforeach; ?>
     </tbody>
@@ -402,7 +402,7 @@ if (($sheet === 'votes') || ($sheet === 'raw' && function_exists('is_admin') && 
     ?>
     
     <div class="raw-wrapper">
-      <h2 style="text-align:center;"><?= t('raw_votes') ?></h2>
+      <h2 class="text-center"><?= t('raw_votes') ?></h2>
       <div class="nav-buttons">
         <?php if (function_exists('is_admin') && is_admin()): ?>
         <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
@@ -776,7 +776,7 @@ if ($sheet === 'adjectives') {
     </div>
 
     <?php if (!$hasAdj): ?>
-      <p style="padding:1rem;background:#111;border:1px solid #333;border-radius:.5rem;max-width:1200px;margin:1rem auto;">No adjective field in vote details.</p>
+      <p class="adjective-message">No adjective field in vote details.</p>
     <?php else: ?>
       <?php
   $rows = $mysqli->query("SELECT m.title, TRIM(vd.adjective) AS adjective
