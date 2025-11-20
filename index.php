@@ -8,6 +8,9 @@ require_login();
 $user = current_user();
 $searchRequested = array_key_exists('search', $_GET);
 $searchTerm = trim($_GET['search'] ?? '');
+if ($searchTerm === '1') {
+  $searchTerm = '';
+}
 $movies = [];
 
 if ($searchRequested) {
@@ -98,164 +101,6 @@ if ($searchRequested) {
 <?php // Add body class to signal active search state (for hiding duplicate header search on wide screens)
 $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
 <?php include __DIR__ . '/includes/header.php'; ?>
-<style>
-
-    /* === SEARCH SCREEN === */
-    .search-screen {
-      max-width: 640px;
-      margin: 2.6rem auto 1.8rem;
-      padding: 1.9rem 1.7rem 2.2rem;
-      background: rgba(12,12,12,0.88);
-      border-radius: 1.6rem;
-      box-shadow: 0 18px 42px rgba(0,0,0,.48);
-      backdrop-filter: blur(10px);
-      text-align: center;
-    }
-    .search-screen__form {
-      display: flex;
-      align-items: center;
-      gap: .75rem;
-    }
-    .search-screen__form input {
-      flex: 1;
-      padding: .75rem .9rem;
-      border-radius: .6rem;
-      border: 1px solid #2d2d2d;
-      background: rgba(20,20,20,0.95);
-      color: #fff;
-      font-size: 1rem;
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03);
-    }
-    .search-screen__form input:focus {
-      outline: 2px solid rgba(246,201,14,0.55);
-      border-color: rgba(246,201,14,0.55);
-    }
-    .search-screen__form button {
-      background: linear-gradient(135deg, #f8523b, #f6c90e);
-      color: #000;
-      border: none;
-      padding: .75rem 1.4rem;
-      border-radius: .6rem;
-      cursor: pointer;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .04em;
-      transition: transform .2s ease, box-shadow .2s ease;
-    }
-    .search-screen__form button:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 10px 20px rgba(248,82,59,0.35);
-    }
-    .search-screen__hint {
-      margin-top: 1.2rem;
-      color: #a7a7a7;
-      font-size: .95rem;
-    }
-    .search-screen__meta {
-      margin-top: 1.2rem;
-      color: #f6c90e;
-      font-size: .95rem;
-      font-weight: 600;
-      letter-spacing: .03em;
-    }
-    .search-screen__meta span {
-      display: inline-block;
-      margin-left: .35rem;
-      color: #fff;
-    }
-    .search-empty {
-      text-align: center;
-      color: #b3b3b3;
-      margin: 0 auto 3rem;
-      max-width: 520px;
-      font-size: .95rem;
-    }
-
-    /* === MOVIE GRID === */
-    .movies-container {
-      display: grid;
-      /* Keep card width consistent; do not stretch when fewer results */
-      grid-template-columns: repeat(auto-fill, 240px);
-      justify-content: center; /* center tracks when leftover space exists */
-      gap: 1.5rem;
-      padding: 2rem;
-      max-width: 1200px;
-      margin: auto;
-    }
-    .movie-card {
-      background: #111;
-      border-radius: 0.75rem;
-      overflow: hidden;
-      box-shadow: 0 4px 15px rgba(0,0,0,.4);
-      transition: transform .3s ease, box-shadow .3s ease;
-      position: relative;
-    }
-    .movie-card:hover {
-      transform: translateY(-6px);
-      box-shadow: 0 6px 25px rgba(246,201,14,.4);
-    }
-    .movie-card img {
-      width: 100%;
-      height: 320px;
-      object-fit: cover;
-      display: block;
-    }
-    .movie-info {
-      padding: 1rem;
-    }
-    .movie-title {
-      font-size: 1.1rem;
-      font-weight: 600;
-      margin-bottom: .3rem;
-      color: #fff;
-    }
-    .movie-year {
-      color: #999;
-      font-size: .9rem;
-      margin-bottom: .6rem;
-    }
-    .rate-btn {
-      display: inline-block;
-      padding: .4rem .9rem;
-      background: #f6c90e;
-      color: #000;
-      border-radius: .3rem;
-      font-weight: 600;
-      text-decoration: none;
-      transition: background .2s;
-    }
-    .rate-btn:hover {
-      background: #ffde50;
-    }
-
-    footer {
-      text-align: center;
-      color: #555;
-      padding: 1.5rem 0;
-      font-size: .9rem;
-      margin-top: 2rem;
-      border-top: 1px solid #222;
-    }
-
-    /* === RESPONSIVE === */
-    @media (max-width: 640px) {
-      header h1 { font-size: 1.3rem; }
-      .movies-container { padding: 1rem; }
-    }
-    @media (max-width: 540px) {
-      .search-screen {
-        margin: 2.2rem 1.1rem 1.5rem;
-        padding: 1.6rem 1.3rem 1.8rem;
-      }
-      .search-screen__form {
-        flex-direction: column;
-        align-items: stretch;
-      }
-      .search-screen__form button {
-        width: 100%;
-      }
-    }
-  </style>
   <!-- Search screen -->
 
   <?php if ($searchRequested): ?>
@@ -289,26 +134,7 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
       <p class="search-empty"><?= e(t('search_no_results')) ?></p>
     <?php endif; ?>
   <?php else: ?>
-    <style>
-      .home-section { max-width: 1200px; margin: 1rem auto 2rem; padding: 0 1rem; }
-      .home-section h2 { color:#f6c90e; margin: .5rem 0 1rem; font-size:1.3rem }
-      .movie-row-wrap{ position:relative }
-      .movie-row { display:grid; grid-auto-flow:column; grid-auto-columns:minmax(180px, 220px); gap:1rem; overflow-x:auto; padding:0 .25rem .5rem; scroll-snap-type:x mandatory; scroll-behavior:smooth }
-      .movie-row .movie-card { width: 200px; scroll-snap-align:start }
-      .movie-row img { height: 280px }
-      .movie-row::-webkit-scrollbar { height: 8px }
-      .movie-row::-webkit-scrollbar-thumb { background:#333; border-radius:4px }
-
-      /* Left/Right nav arrows */
-      .row-nav{ position:absolute; top:35%; transform:translateY(-50%); background:rgba(0,0,0,.55); border:1px solid #333; color:#fff; width:36px; height:64px; border-radius:.4rem; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:2 }
-      .row-nav:hover{ background:rgba(0,0,0,.75) }
-      .row-nav[disabled]{ opacity:.35; cursor:default }
-      .row-nav.prev{ left:-6px }
-      .row-nav.next{ right:-6px }
-      .row-fade{ position:absolute; top:0; bottom:8px; width:50px; pointer-events:none; z-index:1 }
-      .row-fade.left{ left:0; background:linear-gradient(90deg, rgba(17,17,17,1) 0%, rgba(17,17,17,0) 100%) }
-      .row-fade.right{ right:0; background:linear-gradient(270deg, rgba(17,17,17,1) 0%, rgba(17,17,17,0) 100%) }
-    </style>
+    
 
     <section class="home-section">
       <h2><?= t('in_competition_section') ?></h2>
@@ -405,6 +231,19 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
         document.querySelectorAll('.row-nav').forEach(function(btn){ btn.addEventListener('click', scrollRow); });
         window.addEventListener('resize', function(){ ['rowIn','rowTop','rowRec'].forEach(function(id){ var r=document.getElementById(id); if(r) updateButtons(r); }); });
       })();
+    </script>
+  <?php endif; ?>
+  
+  <?php if (isset($_GET['search']) && $_GET['search'] === '1'): ?>
+    <script>
+      // Auto-focus search input when coming from Vote button
+      window.addEventListener('DOMContentLoaded', function() {
+        var searchInput = document.getElementById('search');
+        if (searchInput) {
+          searchInput.focus();
+          searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
     </script>
   <?php endif; ?>
 

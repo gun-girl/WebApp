@@ -177,62 +177,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 <?php include __DIR__.'/includes/header.php'; ?>
-<style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Poppins', system-ui, sans-serif;
-      background: radial-gradient(circle at top, #0c0c0c, #000);
-      color: #eee;
-      min-height: 100vh;
-      padding-bottom: 3rem;
-    }
-    header {
-      background: rgba(0,0,0,0.8);
-      backdrop-filter: blur(8px);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 1rem 2rem;
-      border-bottom: 1px solid #222;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-    .header-logo { display: flex; align-items: center; gap: 1rem; }
-    .header-logo img { height: 50px; width: auto; }
-    header h1 { font-size: 1.6rem; letter-spacing: 1px; font-weight: 600; color: #f6c90e; }
-    nav a { color: #fff; text-decoration: none; margin-left: 1rem; transition: color .2s; font-weight: 500; }
-    nav a:hover { color: #f6c90e; }
-
-    .vote-container { max-width: 900px; margin: 2rem auto; padding: 0 1.5rem; }
-    .movie-header { background: #111; border-radius: 0.75rem; padding: 2rem; margin-bottom: 2rem; box-shadow: 0 4px 20px rgba(0,0,0,.5); display: flex; gap: 2rem; align-items: start; }
-    .movie-header img { width: 150px; height: 220px; object-fit: cover; border-radius: .5rem; }
-    .movie-info h2 { color: #f6c90e; font-size: 2rem; margin-bottom: .5rem; }
-    .movie-info .year { color: #999; font-size: 1.2rem; }
-    .form-box { background: #111; border-radius: 0.75rem; padding: 2rem; box-shadow: 0 4px 20px rgba(0,0,0,.5); }
-    .form-box h3 { color: #f6c90e; margin-bottom: 1.5rem; font-size: 1.5rem; border-bottom: 2px solid #f6c90e; padding-bottom: .5rem; }
-    .error { background: #612; color: #fee; padding: .8rem; border-radius: .3rem; margin-bottom: 1.5rem; }
-    .form-group { margin-bottom: 2rem; }
-    .form-group label { display: block; color: #f6c90e; font-weight: 600; margin-bottom: .7rem; font-size: 1.05rem; }
-    .form-group label .required { color: #ff4444; }
-    .form-group select, .form-group input[type="text"], .form-group input[type="number"] { width: 100%; padding: .8rem; border: 1px solid #333; border-radius: .3rem; background: #1a1a1a; color: #fff; font-size: 1rem; font-family: inherit; }
-    .form-group select:focus, .form-group input:focus { outline: none; border-color: #f6c90e; box-shadow: 0 0 0 2px rgba(246,201,14,.2); }
-    .radio-group { display: flex; flex-direction: column; gap: .7rem; }
-    .radio-option { display: flex; align-items: center; padding: .7rem; background: #1a1a1a; border-radius: .3rem; cursor: pointer; transition: all .2s; }
-    .radio-option:hover { background: #222; border-left: 3px solid #f6c90e; padding-left: calc(.7rem + 3px); }
-    .radio-option input[type="radio"] { margin-right: .7rem; width: 18px; height: 18px; cursor: pointer; }
-    .rating-input { display: flex; align-items: center; gap: 1rem; }
-    .rating-input input[type="number"] { width: 100px; text-align: center; font-size: 1.2rem; font-weight: 600; }
-    .rating-hint { color: #888; font-size: .9rem; font-style: italic; }
-    .submit-section { margin-top: 2.5rem; display: flex; gap: 1rem; }
-    button, .btn { padding: .9rem 2rem; background: #f6c90e; color: #000; border: none; border-radius: .3rem; cursor: pointer; font-weight: 600; font-size: 1.05rem; text-decoration: none; transition: background .2s; display: inline-block; }
-    button:hover, .btn:hover { background: #ffde50; }
-    .btn.secondary { background: #444; color: #fff; }
-    .btn.secondary:hover { background: #555; }
-    .helper-text { color: #888; font-size: .85rem; margin-top: .3rem; }
-    footer { text-align: center; color: #555; padding: 1.5rem 0; font-size: .9rem; margin-top: 3rem; border-top: 1px solid #222; }
-    @media (max-width: 768px) { .movie-header { flex-direction: column; align-items: center; text-align: center; } .submit-section { flex-direction: column; } button, .btn { width: 100%; } }
-</style>
 <div class="vote-container">
   <div class="movie-header">
     <?php $poster = $movie['poster_url']; if(!$poster || $poster==='N/A'){ $poster='/movie-club-app/assets/img/no-poster.svg'; } ?>

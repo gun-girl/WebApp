@@ -61,38 +61,6 @@ $tabs = [
 
 // Global fixed bottom tabs styling for all sheets (keeps bottom tabs visible while scrolling)
 ?>
-<style>
-  /* Fixed, full-width bottom tab bar so the buttons span the full viewport */
-  .sheet-tabs {
-    position: fixed !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-  z-index: 1400 !important;
-  /* full-width dark footer bar (restored color) */
-  background: rgba(8,8,8,0.95) !important;
-    padding: .35rem .6rem !important;
-    display: flex !important;
-    gap: .5rem !important;
-    align-items: center !important;
-    justify-content: center !important;
-    border-top: 1px solid rgba(255,255,255,0.03) !important;
-    border-radius: 0 !important;
-    box-shadow: 0 -6px 18px rgba(0,0,0,0.35) !important;
-    width: 100% !important;
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-  }
-  .sheet-tabs .sheet-tab { flex: 0 0 auto !important; }
-
-  /* Ensure tabs don't cover page content */
-  main { padding-bottom: 140px !important; }
-
-  /* Small-screen: left-align the tabs row so it's easier to scroll horizontally */
-  @media (max-width:900px) {
-    .sheet-tabs { justify-content: flex-start !important; padding: .25rem .5rem !important; }
-  }
-</style>
 <!-- Inline year selector (centered) -->
 <div style="text-align:center;margin:1rem 0;">
   <form id="yearForm" method="get" action="/movie-club-app/stats.php" style="display:inline-block;">
@@ -242,14 +210,7 @@ if (!empty($_GET['mine']) && current_user()) {
       <a href="index.php" class="btn"><?= t('home') ?></a>
     </div>
     <h2><?= t('your_votes_detailed') ?></h2>
-    <style>
-      .table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
-      .table th, .table td { padding: 0.5rem; text-align: center; border: 1px solid #444; }
-      .table th { background: #f6c90e; color: #000; font-weight: bold; }
-      .table td.highlight { background: #ffffcc; color: #000; font-weight: bold; }
-      .table td { background: #1a1a1a; }
-      .table tr:hover td { background: #2a2a2a; }
-    </style>
+    
     <div class="nav-buttons">
       <?php if (function_exists('is_admin') && is_admin()): ?>
         <a href="export_results.php" class="btn">⬇ <?= t('download_excel') ?></a>
@@ -356,24 +317,7 @@ if ($sheet === 'results') {
   ";
   $rows = $mysqli->query($sql)->fetch_all(MYSQLI_ASSOC);
   ?>
-  <style>
-    .nav-buttons { text-align:center; margin:1rem auto; }
-    .btn { background:#f6c90e; color:#000; padding:.6rem 1.2rem; border-radius:.3rem; font-weight:600; text-decoration:none; transition:background .3s; margin:0 .5rem; }
-    .btn:hover { background:#ffde50; }
-  /* Unified table styling (same as "My Votes" table) - expanded to avoid extra scrollbars */
-    .table { border-collapse: collapse; width: 100%; margin: 1rem auto; max-width: 1200px; font-size:0.9rem; }
-    .table th, .table td { padding: 0.5rem; text-align: center; vertical-align: middle; border: 1px solid #444; }
-    .table th { background: #f6c90e; color: #000; font-weight: bold; }
-    .table td { background: #1a1a1a; color: #ddd; }
-  .table tr:hover td { background: #2a2a2a; }
-  .highlight { background:#ffffcc; color:#000; font-weight:700; }
-  .sheet-tabs{max-width:1400px;margin:1rem auto;padding:.5rem 1rem;display:flex;gap:.5rem;border-top:1px solid #333}
-  .sheet-tab{background:#1a1a1a;color:#ccc;border:1px solid #333;border-bottom:none;border-radius:.5rem .5rem 0 0;padding:.5rem 1rem;text-decoration:none}
-  .sheet-tab.active{background:#f6c90e;color:#000;font-weight:700}
-  header { position: fixed !important; top: 0; left: 0; right: 0; z-index: 1200; }
-  main { padding-top: 92px !important; }
-  html, body { overflow-y: auto !important; }
-  </style>
+  
 
   <div class="nav-buttons">
     <?php if (function_exists('is_admin') && is_admin()): ?>
@@ -456,39 +400,7 @@ if (($sheet === 'votes') || ($sheet === 'raw' && function_exists('is_admin') && 
   ORDER BY v.created_at DESC";
     $rawRows = $mysqli->query($sqlRaw)->fetch_all(MYSQLI_ASSOC);
     ?>
-    <style>
-  /* Use unified table styling and remove narrow wrapper to avoid separate scrollbar */
-    .raw-wrapper{max-width:1200px; width:100%; margin:0 auto; padding:0 1rem}
-    .raw-table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:0.9rem}
-    .raw-table th,.raw-table td{padding:.5rem;border:1px solid #444;text-align:center;vertical-align:middle}
-    .raw-table th{background:#f6c90e;color:#000;font-weight:700}
-  .raw-table td{background:#1a1a1a;color:#ddd}
-  .raw-table tbody tr:hover td{background:#2a2a2a}
-  .raw-highlight{background:#ffffcc;color:#000;font-weight:700}
-  .sheet-tabs{max-width:1400px;margin:1rem auto;padding:.5rem 1rem;display:flex;gap:.5rem;border-top:1px solid #333}
-  .sheet-tab{background:#1a1a1a;color:#ccc;border:1px solid #333;border-bottom:none;border-radius:.5rem .5rem 0 0;padding:.5rem 1rem;text-decoration:none}
-  .sheet-tab.active{background:#f6c90e;color:#000;font-weight:700}
-    </style>
-
-  <style>
-    /* Make the sheet-tabs sticky at the bottom so tabs remain visible while scrolling */
-    .sheet-tabs {
-      position: sticky;
-      bottom: 0;
-      z-index: 1100;
-      background: rgba(8,8,8,0.95);
-      padding: .5rem 1rem;
-      display: flex;
-      gap: .5rem;
-      align-items: center;
-      justify-content: center;
-      border-top: 1px solid #222;
-    }
-    .sheet-tabs .sheet-tab { flex: 0 0 auto; }
-
-    /* Prevent the sticky tabs from covering content */
-    main { padding-bottom: 96px !important; }
-  </style>
+    
     <div class="raw-wrapper">
       <h2 style="text-align:center;"><?= t('raw_votes') ?></h2>
       <div class="nav-buttons">
@@ -610,20 +522,7 @@ if ($sheet === 'views') {
     foreach ($pivot as $r) { $lookup[$r['platform']][$r['category']] = $r; }
 
     ?>
-    <style>
-      .table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:0.9rem;max-width:1200px}
-      .table th,.table td{border:1px solid #444;padding:0.5rem;text-align:center;vertical-align:middle}
-      .table th{background:#f6c90e;color:#000;font-weight:700}
-      .table td{background:#1a1a1a;color:#ddd}
-      .sheet-tabs{max-width:1400px;margin:1rem auto;padding:.5rem 1rem;display:flex;gap:.5rem;border-top:1px solid #333}
-      .sheet-tab{background:#1a1a1a;color:#ccc;border:1px solid #333;border-bottom:none;border-radius:.5rem .5rem 0 0;padding:.5rem 1rem;text-decoration:none}
-      .sheet-tab.active{background:#f6c90e;color:#000;font-weight:700}
-      .summary{max-width:1400px;margin:1rem auto;background:#111;border:1px solid #333;border-radius:.5rem;padding:1rem}
-      .summary h3{margin:0 0 .5rem 0}
-      .summary-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:.5rem}
-      .summary-item{background:#1a1a1a;border:1px solid #333;border-radius:.3rem;padding:.5rem}
-      .summary-item strong{display:block;color:#f6c90e;margin-bottom:.25rem}
-    </style>
+    
     <div class="summary">
       <h3><?= e(t('sheet_views')) ?></h3>
       <div class="summary-grid">
@@ -770,15 +669,7 @@ if ($sheet === 'judges' || $sheet === 'judges_comp') {
     }
     $rows = $mysqli->query($sql)->fetch_all(MYSQLI_ASSOC);
     ?>
-    <style>
-      .table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:0.9rem;max-width:1200px}
-      .table th,.table td{border:1px solid #444;padding:0.5rem;text-align:center;vertical-align:middle}
-      .table th{background:#f6c90e;color:#000;font-weight:700}
-      .table td{background:#1a1a1a;color:#ddd}
-      .sheet-tabs{max-width:1400px;margin:1rem auto;padding:.5rem 1rem;display:flex;gap:.5rem;border-top:1px solid #333}
-      .sheet-tab{background:#1a1a1a;color:#ccc;border:1px solid #333;border-bottom:none;border-radius:.5rem .5rem 0 0;padding:.5rem 1rem;text-decoration:none}
-      .sheet-tab.active{background:#f6c90e;color:#000;font-weight:700}
-    </style>
+    
     <table class="table">
       <thead>
         <tr>
@@ -841,15 +732,7 @@ if ($sheet === 'judges' || $sheet === 'judges_comp') {
 if ($sheet === 'titles') {
   $rows = $mysqli->query("SELECT DISTINCT m.title FROM votes v JOIN movies m ON m.id=v.movie_id " . $whereYearClause . " ORDER BY m.title ASC")->fetch_all(MYSQLI_ASSOC);
     ?>
-    <style>
-      .table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.85rem}
-      .table th,.table td{border:1px solid #444;padding:.5rem;text-align:center;vertical-align:middle}
-      .table th{background:#f6c90e;color:#000;font-weight:700}
-      .table td{background:#1a1a1a;color:#ddd}
-      .sheet-tabs{max-width:1200px;margin:1rem auto;padding:.5rem 1rem;display:flex;gap:.5rem;border-top:1px solid #333}
-      .sheet-tab{background:#1a1a1a;color:#ccc;border:1px solid #333;border-bottom:none;border-radius:.5rem .5rem 0 0;padding:.5rem 1rem;text-decoration:none}
-      .sheet-tab.active{background:#f6c90e;color:#000;font-weight:700}
-    </style>
+    
     <div class="nav-buttons">
       <?php if (function_exists('is_admin') && is_admin()): ?>
   <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
@@ -884,15 +767,7 @@ if ($sheet === 'adjectives') {
     $cols = $mysqli->query("SHOW COLUMNS FROM vote_details")->fetch_all(MYSQLI_ASSOC);
     foreach ($cols as $c) { if ($c['Field'] === 'adjective') { $hasAdj = true; break; } }
     ?>
-    <style>
-      .table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.85rem}
-      .table th,.table td{border:1px solid #444;padding:.5rem;text-align:center;vertical-align:middle}
-      .table th{background:#f6c90e;color:#000;font-weight:700}
-      .table td{background:#1a1a1a;color:#ddd}
-      .sheet-tabs{max-width:1200px;margin:1rem auto;padding:.5rem 1rem;display:flex;gap:.5rem;border-top:1px solid #333}
-      .sheet-tab{background:#1a1a1a;color:#ccc;border:1px solid #333;border-bottom:none;border-radius:.5rem .5rem 0 0;padding:.5rem 1rem;text-decoration:none}
-      .sheet-tab.active{background:#f6c90e;color:#000;font-weight:700}
-    </style>
+    
     <div class="nav-buttons">
       <?php if (function_exists('is_admin') && is_admin()): ?>
   <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
@@ -968,15 +843,7 @@ if ($sheet === 'finalists') {
                " . $whereYearClause . "
                ORDER BY m.title")->fetch_all(MYSQLI_ASSOC);
     ?>
-    <style>
-      .table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.85rem}
-      .table th,.table td{border:1px solid #444;padding:.5rem;text-align:center;vertical-align:middle}
-      .table th{background:#f6c90e;color:#000;font-weight:700}
-      .table td{background:#1a1a1a;color:#ddd}
-      .sheet-tabs{max-width:1200px;margin:1rem auto;padding:.5rem 1rem;display:flex;gap:.5rem;border-top:1px solid #333}
-      .sheet-tab{background:#1a1a1a;color:#ccc;border:1px solid #333;border-bottom:none;border-radius:.5rem .5rem 0 0;padding:.5rem 1rem;text-decoration:none}
-      .sheet-tab.active{background:#f6c90e;color:#000;font-weight:700}
-    </style>
+    
     <div class="nav-buttons">
       <?php if (function_exists('is_admin') && is_admin()): ?>
   <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>

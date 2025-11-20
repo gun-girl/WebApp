@@ -32,12 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 include __DIR__ . '/includes/header.php';
 ?>
-<style>
-  .settings-box{max-width:720px;margin:2rem auto;background:#111;padding:1.5rem;border-radius:.5rem}
-  label{display:block;color:#f6c90e;margin-bottom:.5rem}
-  input{width:100%;padding:.6rem;border-radius:.3rem;border:1px solid #333;background:#1a1a1a;color:#fff}
-  button{margin-top:1rem;padding:.6rem 1.2rem;background:#f6c90e;border:none;border-radius:.3rem}
-</style>
+<?php /* page styles moved to assets/css/style.css */ ?>
 <div class="settings-box">
   <h2>⚙️ Site Settings</h2>
   <?php if ($success): ?><p class="success"><?= htmlspecialchars($success) ?></p><?php endif; ?>
