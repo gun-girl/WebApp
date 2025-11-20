@@ -97,6 +97,8 @@ nav a:hover { color: #f6c90e; }
 /* === Hamburger for small screens === */
 .burger-btn { display: none; background: transparent; border: 1px solid #333; color: #fff; padding: .45rem .65rem; border-radius: .4rem; cursor: pointer; font-size: 1rem; }
 .burger-btn:hover { background: rgba(246,201,14,.08); border-color:#444; }
+.burger-crown { width: 18px; height: 18px; margin-right: .15rem; }
+.crown-icon { width: 18px; height: 18px; margin-right: .25rem; vertical-align: middle; }
 .mobile-menu { display: none; position: absolute; right: 1rem; top: 72px; background: #111; border: 1px solid #333; border-radius: .6rem; min-width: 240px; box-shadow: 0 10px 30px rgba(0,0,0,.6); z-index: 1100; overflow: hidden; }
 .mobile-menu.show { display: block; }
 .mobile-item { display:block; padding:.85rem 1rem; color:#ddd; text-decoration:none; border-bottom:1px solid #222; }

@@ -47,7 +47,12 @@ $calendar_year = (int)date('Y');
     ?>
       <div class="user-menu">
         <button class="user-button" id="userMenuBtn">
-          <span><?= e($user['username']) ?> 👤</span>
+          <span>
+            <?php if (function_exists('is_admin') && is_admin()): ?>
+              <svg class="crown-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 19h20v2H2v-2zm2-2h16l-2-9-4 3-2-5-2 5-4-3-2 9z" fill="#ffd700"/></svg>
+            <?php endif; ?>
+            <?= e($user['username']) ?> 👤
+          </span>
           <?php if (function_exists('is_admin') && is_admin()): ?>
             <span class="badge-admin">ADMIN</span>
           <?php endif; ?>
@@ -133,7 +138,12 @@ $calendar_year = (int)date('Y');
       </div>
 
       <!-- Hamburger appears on small screens -->
-      <button id="burgerBtn" class="burger-btn" aria-expanded="false" aria-controls="mobileMenu">☰</button>
+      <button id="burgerBtn" class="burger-btn" aria-expanded="false" aria-controls="mobileMenu">
+        <?php if (function_exists('is_admin') && is_admin()): ?>
+          <svg class="burger-crown" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 19h20v2H2v-2zm2-2h16l-2-9-4 3-2-5-2 5-4-3-2 9z" fill="#ffd700"/></svg>
+        <?php endif; ?>
+        ☰
+      </button>
       <div id="mobileMenu" class="mobile-menu" role="menu" aria-label="Main menu">
         <!-- Account section (when logged in) -->
         <?php if (current_user()): ?>
