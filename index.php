@@ -261,8 +261,6 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
         <div id="rowIn" class="movie-row">
         <?php foreach ($inCompetition as $movie): ?>
           <div class="movie-card">
-            <?php $badgeKey = competition_badge_key($movie); $in = ($badgeKey === 'badge_in_competition'); ?>
-            <div class="comp-badge <?= $in ? 'in' : 'out' ?>"><?= e(t($badgeKey)) ?></div>
             <?php $poster = ($movie['poster_url'] ?? null); if (!$poster || $poster==='N/A') $poster='/movie-club-app/assets/img/no-poster.svg'; ?>
             <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src='/movie-club-app/assets/img/no-poster.svg';">
             <div class="movie-info">
@@ -286,8 +284,6 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
         <div id="rowTop" class="movie-row">
         <?php foreach ($topRated as $movie): ?>
           <div class="movie-card">
-            <?php $badgeKey = competition_badge_key($movie); $in = ($badgeKey === 'badge_in_competition'); ?>
-            <div class="comp-badge <?= $in ? 'in' : 'out' ?>"><?= e(t($badgeKey)) ?></div>
             <?php $poster = ($movie['poster_url'] ?? null); if (!$poster || $poster==='N/A') $poster='/movie-club-app/assets/img/no-poster.svg'; ?>
             <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src='/movie-club-app/assets/img/no-poster.svg';">
             <div class="movie-info">
@@ -311,8 +307,6 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
         <div id="rowRec" class="movie-row">
         <?php foreach ($recent as $movie): ?>
           <div class="movie-card">
-            <?php $badgeKey = competition_badge_key($movie); $in = ($badgeKey === 'badge_in_competition'); ?>
-            <div class="comp-badge <?= $in ? 'in' : 'out' ?>"><?= e(t($badgeKey)) ?></div>
             <?php $poster = ($movie['poster_url'] ?? null); if (!$poster || $poster==='N/A') $poster='/movie-club-app/assets/img/no-poster.svg'; ?>
             <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src='/movie-club-app/assets/img/no-poster.svg';">
             <div class="movie-info">

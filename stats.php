@@ -127,140 +127,7 @@ if ($hasCompetitionYear) {
   $subYearV5 = " AND YEAR(v5.created_at) = " . $viewYearInt;
 }
 
-// If user requested their own votes, show per-user list
-if (!empty($_GET['mine']) && current_user()) {
-  $uid = current_user()['id'];
-  if ($hasRating) {
-    if ($hasCompetitionYear) {
-  $stmt = $mysqli->prepare("SELECT v.id AS vote_id, m.title, m.year, v.rating, v.created_at FROM votes v JOIN movies m ON m.id=v.movie_id WHERE v.user_id=? AND v.competition_year = ? ORDER BY v.created_at DESC");
-  $stmt->bind_param('ii', $uid, $viewYearInt);
-    } else {
-      $stmt = $mysqli->prepare("SELECT v.id AS vote_id, m.title, m.year, v.rating, v.created_at FROM votes v JOIN movies m ON m.id=v.movie_id WHERE v.user_id=? ORDER BY v.created_at DESC");
-      $stmt->bind_param('i', $uid);
-    }
-    $stmt->execute();
-    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-    ?>
-    <h2><?= t('your_votes') ?></h2>
-    <table class="table">
-      <thead><tr><th><?= t('movie') ?></th><th><?= t('year') ?></th><th><?= t('your_rating') ?></th><th><?= t('when') ?></th></tr></thead>
-      <tbody>
-      <?php foreach($rows as $r): ?>
-        <tr>
-          <td><?= e($r['title']) ?></td>
-          <td><?= e($r['year']) ?></td>
-          <td><?= e($r['rating']) ?></td>
-          <td><?= e($r['created_at']) ?></td>
-        </tr>
-      <?php endforeach; ?>
-      </tbody>
-    </table>
-    <?php
-  } else {
-    // No rating column: compute a per-vote score from vote_details (average of available numeric fields)
-    $vdCols = $mysqli->query("SHOW COLUMNS FROM vote_details")->fetch_all(MYSQLI_ASSOC);
-    $numericCols = [];
-    foreach ($vdCols as $c) {
-      $t = strtolower($c['Type']);
-      if (strpos($t, 'tinyint') !== false || strpos($t, 'smallint') !== false || strpos($t, 'int(') !== false || strpos($t, 'int ') !== false || strpos($t, 'decimal') !== false || strpos($t, 'float') !== false || strpos($t, 'double') !== false) {
-        $numericCols[] = $c['Field'];
-      }
-    }
-
-    if ($numericCols) {
-      $numParts = array_map(function($col){ return "COALESCE(vd.`$col`,0)"; }, $numericCols);
-      $denParts = array_map(function($col){ return "(vd.`$col` IS NOT NULL)"; }, $numericCols);
-      $numExpr = implode('+', $numParts);
-      $denExpr = implode('+', $denParts);
-
-    $sqlUser = "SELECT v.id AS vote_id, m.title, m.year, 
-      vd.writing, vd.direction, vd.acting_or_doc_theme, vd.emotional_involvement,
-      vd.novelty, vd.casting_research_art, vd.sound,
-      vd.competition_status, vd.category, vd.where_watched, vd.season_number, vd.episode_number,
-        ($numExpr) AS total_score,
-        $denExpr AS non_empty_count,
-        ( ($numExpr) / NULLIF($denExpr,0) ) AS calc_rating, 
-        v.created_at
-        FROM votes v
-        JOIN movies m ON m.id=v.movie_id
-        LEFT JOIN vote_details vd ON vd.vote_id = v.id
-  WHERE v.user_id = ?" . ($hasCompetitionYear ? " AND v.competition_year = " . $viewYearInt : "") . "
-        ORDER BY v.created_at DESC";
-      $stmt = $mysqli->prepare($sqlUser);
-      if ($hasCompetitionYear) {
-        // bind user id only, year already inlined into SQL (integer) to avoid different param counts
-        $stmt->bind_param('i', $uid);
-      } else {
-        $stmt->bind_param('i', $uid);
-      }
-      $stmt->execute();
-      $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-    } else {
-      // no numeric detail columns: just list votes without computed rating
-      if ($hasCompetitionYear) {
-  $stmt = $mysqli->prepare("SELECT v.id AS vote_id, m.title, m.year, NULL AS calc_rating, v.created_at FROM votes v JOIN movies m ON m.id=v.movie_id WHERE v.user_id=? AND v.competition_year = " . $viewYearInt . " ORDER BY v.created_at DESC");
-        $stmt->bind_param('i', $uid);
-      } else {
-        $stmt = $mysqli->prepare("SELECT v.id AS vote_id, m.title, m.year, NULL AS calc_rating, v.created_at FROM votes v JOIN movies m ON m.id=v.movie_id WHERE v.user_id=? ORDER BY v.created_at DESC");
-        $stmt->bind_param('i', $uid);
-      }
-      $stmt->execute();
-      $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-    }
-    ?>
-    <div class="nav-buttons">
-      <a href="index.php" class="btn"><?= t('home') ?></a>
-    </div>
-    <h2><?= t('your_votes_detailed') ?></h2>
-    
-    <div class="nav-buttons">
-      <?php if (function_exists('is_admin') && is_admin()): ?>
-        <a href="export_results.php" class="btn">⬇ <?= t('download_excel') ?></a>
-      <?php endif; ?>
-  <a href="?mine=1&year=<?= $viewYearInt ?>" class="btn"><?= t('my_votes') ?></a>
-    </div>
-
-    <table class="table">
-      <thead>
-        <tr>
-          <th><?= t('movie') ?></th>
-          <th><?= t('year') ?></th>
-          <?php foreach ($numericCols as $col): ?>
-            <th><?= t($col) ?: ucfirst(str_replace('_', ' ', e($col))) ?></th>
-          <?php endforeach; ?>
-          <th class="table-header-gold"><?= t('total') ?></th>
-          <th class="table-header-gold"><?= t('computed_rating') ?></th>
-          <th><?= t('season') ?></th>
-          <th><?= t('episode') ?></th>
-          <th><?= t('when') ?></th>
-          <th><?= t('actions') ?></th>
-        </tr>
-      </thead>
-      <tbody>
-      <?php foreach($rows as $r): ?>
-        <tr>
-          <td><?= e($r['title']) ?></td>
-          <td><?= e($r['year']) ?></td>
-          <?php foreach ($numericCols as $col): ?>
-            <td><?= number_format($r[$col] ?? 0, 1) ?></td>
-          <?php endforeach; ?>
-          <td class="highlight"><?= number_format($r['total_score'] ?? 0, 2) ?></td>
-          <td class="highlight"><?= number_format($r['calc_rating'] ?? 0, 2) ?></td>
-          <td><?= e($r['season_number'] ?? '') ?></td>
-          <td><?= e($r['episode_number'] ?? '') ?></td>
-          <td><?= e($r['created_at']) ?></td>
-          <td>
-            <a href="vote.php?edit=<?= $r['vote_id'] ?>" class="btn btn-small"><?= t('edit') ?></a>
-          </td>
-        </tr>
-      <?php endforeach; ?>
-      </tbody>
-    </table>
-    <?php
-  }
-  include __DIR__.'/includes/footer.php';
-  exit;
-}
+// All users can view voting results (no mine parameter filtering)
 
 // RESULTS sheet (aggregated movie results)
 if ($sheet === 'results') {
@@ -325,7 +192,6 @@ if ($sheet === 'results') {
     <?php if (function_exists('is_admin') && is_admin()): ?>
   <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
     <?php endif; ?>
-  <a href="?mine=1&year=<?= $viewYearInt ?>" class="btn"><?= t('my_votes') ?></a>
   </div>
 
   <table class="table">
@@ -409,7 +275,6 @@ if (($sheet === 'votes') || ($sheet === 'raw' && function_exists('is_admin') && 
         <?php if (function_exists('is_admin') && is_admin()): ?>
         <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
         <?php endif; ?>
-  <a href="?mine=1&year=<?= $viewYearInt ?>" class="btn"><?= t('my_votes') ?></a>
       </div>
       <table class="raw-table">
       <thead>
@@ -543,7 +408,6 @@ if ($sheet === 'views') {
       <?php if (function_exists('is_admin') && is_admin()): ?>
           <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
       <?php endif; ?>
-  <a href="?mine=1&year=<?= $viewYearInt ?>" class="btn"><?= t('my_votes') ?></a>
     </div>
 
     <table class="table">
@@ -739,7 +603,6 @@ if ($sheet === 'titles') {
       <?php if (function_exists('is_admin') && is_admin()): ?>
   <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
       <?php endif; ?>
-  <a href="?mine=1&year=<?= $viewYearInt ?>" class="btn"><?= t('my_votes') ?></a>
     </div>
 
     <table class="table">
@@ -774,7 +637,6 @@ if ($sheet === 'adjectives') {
       <?php if (function_exists('is_admin') && is_admin()): ?>
   <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
       <?php endif; ?>
-  <a href="?mine=1&year=<?= $viewYearInt ?>" class="btn"><?= t('my_votes') ?></a>
     </div>
 
     <?php if (!$hasAdj): ?>
@@ -850,7 +712,6 @@ if ($sheet === 'finalists') {
       <?php if (function_exists('is_admin') && is_admin()): ?>
   <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
       <?php endif; ?>
-  <a href="?mine=1&year=<?= $viewYearInt ?>" class="btn"><?= t('my_votes') ?></a>
     </div>
 
     <table class="table">

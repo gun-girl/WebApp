@@ -32,17 +32,11 @@
       </span>
       <span class="label"><?= e(t('vote')) ?></span>
     </a>
-    <?php
-      // Admin users see full stats, normal users see only their votes
-      $isAdmin = function_exists('is_admin') && is_admin();
-      $statsUrl = $isAdmin ? 'stats.php' : 'stats.php?mine=1';
-      $statsLabel = $isAdmin ? t('stats') : t('my_votes');
-    ?>
-    <a class="tab-link<?= $isStats ? ' active' : '' ?>" href="<?= $statsUrl ?>">
+    <a class="tab-link<?= $isStats ? ' active' : '' ?>" href="stats.php">
       <span class="icon" aria-hidden="true">
         <svg viewBox="0 0 24 24"><path d="M4 21V10" /><path d="M10 21V3" /><path d="M16 21v-6" /><path d="M22 21v-9" /></svg>
       </span>
-      <span class="label"><?= e($statsLabel) ?></span>
+      <span class="label"><?= e(t('stats')) ?></span>
     </a>
     <a class="tab-link<?= $isProfile ? ' active' : '' ?>" href="<?= $profileLink ?>">
       <span class="icon" aria-hidden="true">
