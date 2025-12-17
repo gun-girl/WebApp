@@ -2,10 +2,20 @@
 // Simple language loader and translator helper
 if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 
+// Persist language in a cookie for long-lived preference
+$langCookieName = 'lang_pref';
+$langCookieTtl = 365 * 24 * 60 * 60; // 1 year
+
 // change language via ?lang=xx
 if (!empty($_GET['lang'])) {
     $langRequested = preg_replace('/[^a-z]/', '', strtolower($_GET['lang']));
     $_SESSION['lang'] = $langRequested;
+    // remember preference across sessions
+    setcookie($langCookieName, $langRequested, [
+        'expires' => time() + $langCookieTtl,
+        'path' => '/',
+        'samesite' => 'Lax'
+    ]);
     // Prefer redirecting to the referring page if available
     if (!empty($_SERVER['HTTP_REFERER'])) {
         header('Location: ' . $_SERVER['HTTP_REFERER']);
@@ -28,10 +38,11 @@ if (!empty($_GET['lang'])) {
     exit;
 }
 
-$currentLang = $_SESSION['lang'] ?? 'en';
+// Default to Italian; use session, then cookie, else fallback to 'it'
+$currentLang = $_SESSION['lang'] ?? ($_COOKIE[$langCookieName] ?? 'it');
 $stringsFile = __DIR__ . "/strings/{$currentLang}.php";
 if (!file_exists($stringsFile)) {
-    $stringsFile = __DIR__ . "/strings/en.php"; // fallback
+    $stringsFile = __DIR__ . "/strings/it.php"; // fallback to Italian
 }
 $L = include $stringsFile;
 
@@ -41,5 +52,6 @@ function t(string $key): string {
 }
 
 function current_lang(): string {
-    return $_SESSION['lang'] ?? 'en';
+    global $langCookieName;
+    return $_SESSION['lang'] ?? ($_COOKIE[$langCookieName] ?? 'it');
 }
