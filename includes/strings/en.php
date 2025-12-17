@@ -94,6 +94,8 @@ return [
     'in_competition' => 'In Competition (Dec 19, 2024 - Oct 31, 2025)',
     '2026_in_competition' => '2026 In Competition (Nov 1, 2025 - end 2026)',
     'out_of_competition' => 'Out of Competition (Dec 18, 2024 and earlier)',
+    'badge_in_competition' => 'In competition',
+    'badge_out_of_competition' => 'Out of competition',
     'category' => 'Category',
     'choose' => 'Choose...',
     'film' => 'Film',

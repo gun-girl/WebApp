@@ -94,6 +94,8 @@ return [
     'in_competition' => 'In Competizione (19 Dic 2024 - 31 Ott 2025)',
     '2026_in_competition' => '2026 In Competizione (1 Nov 2025 - fine 2026)',
     'out_of_competition' => 'Fuori Competizione (18 Dic 2024 e precedenti)',
+    'badge_in_competition' => 'In competizione',
+    'badge_out_of_competition' => 'Fuori competizione',
     'category' => 'Categoria',
     'choose' => 'Scegli...',
     'film' => 'Film',

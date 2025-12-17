@@ -54,3 +54,34 @@ function get_active_year(): int
     }
     return $default;
 }
+
+/**
+ * Determine if a movie/series is in competition for the active year.
+ * Rule: if the parsed release year equals the active competition year.
+ */
+function is_in_competition(array $movie, ?int $activeYear = null): bool
+{
+    if ($activeYear === null) {
+        $activeYear = get_active_year();
+    }
+    $yRaw = $movie['year'] ?? null;
+    if ($yRaw === null || $yRaw === '') return false;
+    if (is_numeric($yRaw)) {
+        $y = (int)$yRaw;
+    } else {
+        if (preg_match('/(\d{4})/', (string)$yRaw, $m)) {
+            $y = (int)$m[1];
+        } else {
+            return false;
+        }
+    }
+    return $y === (int)$activeYear;
+}
+
+/**
+ * Return the i18n key for a compact badge label representing competition status.
+ */
+function competition_badge_key(array $movie, ?int $activeYear = null): string
+{
+    return is_in_competition($movie, $activeYear) ? 'badge_in_competition' : 'badge_out_of_competition';
+}

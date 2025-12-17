@@ -61,6 +61,30 @@ if ($edit_vote_id > 0) {
     }
 }
 
+// Auto-determine competition status based on movie year
+$auto_competition_status = 'Out of Competition'; // default
+$movieYear = null;
+if (isset($movie['year'])) {
+  $yRaw = $movie['year'];
+  if (is_numeric($yRaw)) {
+    $movieYear = (int)$yRaw;
+  } else {
+    if (preg_match('/(\d{4})/', (string)$yRaw, $m)) {
+      $movieYear = (int)$m[1];
+    }
+  }
+  
+  if ($movieYear !== null) {
+    if ($movieYear === $active_year) {
+      $auto_competition_status = 'In Competition';
+    } elseif ($movieYear === $active_year + 1) {
+      $auto_competition_status = '2026 In Competition';
+    } else {
+      $auto_competition_status = 'Out of Competition';
+    }
+  }
+}
+
 $errors = [];
 $success = '';
 
@@ -198,21 +222,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <?= csrf_field() ?>
 
       <div class="form-group">
-        <label><?= t('competition_status') ?> <span class="required"><?= t('required') ?></span></label>
-        <div class="radio-group">
-          <label class="radio-option">
-            <input type="radio" name="competition_status" value="In Competition" <?= ($existing_vote['competition_status'] ?? '') === 'In Competition' ? 'checked' : '' ?> required>
-            <span><?= t('in_competition') ?></span>
-          </label>
-          <label class="radio-option">
-            <input type="radio" name="competition_status" value="2026 In Competition" <?= ($existing_vote['competition_status'] ?? '') === '2026 In Competition' ? 'checked' : '' ?> required>
-            <span><?= t('2026_in_competition') ?></span>
-          </label>
-          <label class="radio-option">
-            <input type="radio" name="competition_status" value="Out of Competition" <?= ($existing_vote['competition_status'] ?? '') === 'Out of Competition' ? 'checked' : '' ?> required>
-            <span><?= t('out_of_competition') ?></span>
-          </label>
+        <label><?= t('competition_status') ?></label>
+        <?php $comp_status = $existing_vote['competition_status'] ?? $auto_competition_status; ?>
+        <div style="background:#1a1a1a;border:1px solid #333;border-radius:.3rem;padding:.8rem;color:#f6c90e;font-weight:600;">
+          <?php
+            if ($comp_status === 'In Competition') {
+              echo t('in_competition');
+            } elseif ($comp_status === '2026 In Competition') {
+              echo t('2026_in_competition');
+            } else {
+              echo t('out_of_competition');
+            }
+          ?>
         </div>
+        <input type="hidden" name="competition_status" value="<?= htmlspecialchars($comp_status) ?>">
       </div>
 
       <div class="form-group">

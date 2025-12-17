@@ -290,9 +290,33 @@ main{padding-bottom:140px}
 
 /* Movies grid/cards (from index.php) */
 .movies-container{display:grid;grid-template-columns:repeat(auto-fill,240px);justify-content:center;gap:1.5rem;padding:2rem;max-width:1200px;margin:auto}
+@media (max-width:1100px){
+  .movies-container{grid-template-columns:repeat(4,1fr);gap:1rem;padding:1rem}
+}
+@media (max-width:640px){
+  .movies-container{grid-template-columns:repeat(4,1fr);gap:.6rem;padding:.6rem}
+}
 .movie-card{background:#111;border-radius:.75rem;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,.4);transition:transform .3s ease, box-shadow .3s ease;position:relative;display:flex;flex-direction:column;height:100%}
 .movie-card:hover{transform:translateY(-6px);box-shadow:0 6px 25px rgba(246,201,14,.4)}
 .movie-card img{width:100%;height:240px;object-fit:cover;display:block;flex-shrink:0}
+@media (max-width:1100px){
+  .movie-card img{height:200px}
+  .movie-info{padding:.5rem}
+  .movie-title{font-size:.9rem}
+  .movie-year{font-size:.75rem}
+  .rate-btn{font-size:.8rem;padding:.25rem .5rem}
+}
+@media (max-width:640px){
+  .movie-card{border-radius:.5rem}
+  .movie-card img{height:160px}
+  .movie-info{padding:.4rem}
+  .movie-title{font-size:.8rem;line-height:1.1}
+  .movie-year{font-size:.7rem}
+  .rate-btn{font-size:.72rem;padding:.2rem .4rem}
+}
+.comp-badge{position:absolute;top:8px;left:8px;padding:.2rem .45rem;border-radius:.35rem;font-size:.68rem;font-weight:700;letter-spacing:.02em;z-index:2;user-select:none}
+.comp-badge.in{background:rgba(40,167,69,.9);color:#fff;border:1px solid rgba(255,255,255,.15)}
+.comp-badge.out{background:rgba(108,117,125,.85);color:#fff;border:1px solid rgba(255,255,255,.12)}
 .movie-info{padding:.7rem;display:flex;flex-direction:column;gap:.3rem;flex:1}
 .movie-title{font-size:1rem;font-weight:600;margin-bottom:.15rem;color:#fff;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .movie-year{color:#999;font-size:.8rem;margin-bottom:.3rem}

@@ -3,6 +3,7 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/lang.php';
 require_once __DIR__ . '/includes/omdb.php';
+require_once __DIR__ . '/includes/helper.php';
 require_login();
 
 $user = current_user();
@@ -20,25 +21,70 @@ if ($searchRequested) {
   }
 } else {
   // Prepare homepage sections when not searching
-  // 1) In Competition carousel: include both canonical tokens and the human readable values currently stored
-  //    Reason: earlier votes saved values like "In Competition" while some code expected tokens like "in_competition".
-  //    We match against all known variants to avoid empty lists.
+  $activeYear = function_exists('get_active_year') ? get_active_year() : (int)date('Y');
+  // 1) In Competition carousel: show movies released in the active year only (2025)
+  //    Priority: voted titles (most recent) first, then supplement with unvoted titles, then API
   $inCompetition = [];
   try {
-    $competitionStatusInValues = [
-      'in_competition','In Competition','In Competizione',
-      '2026_in_competition','2026 In Competition','2026 In Competizione'
-    ];
-    $escapedList = implode(',', array_map(function($s) use ($mysqli){ return "'".$mysqli->real_escape_string($s)."'"; }, $competitionStatusInValues));
-    $q = "SELECT DISTINCT m.*
-          FROM movies m
-          JOIN votes v ON v.movie_id = m.id
-          LEFT JOIN vote_details vd ON vd.vote_id = v.id
-          WHERE vd.competition_status IN (".$escapedList.")
-          ORDER BY v.created_at DESC
-          LIMIT 24";
-    $res = $mysqli->query($q);
+    // First: fetch voted active-year movies (most recent activity first)
+    $stmt = $mysqli->prepare(
+      "SELECT m.*, COUNT(v.id) AS votes_count
+       FROM movies m
+       JOIN votes v ON v.movie_id = m.id
+       WHERE CAST(m.year AS UNSIGNED) = ?
+       GROUP BY m.id
+       ORDER BY MAX(v.created_at) DESC, votes_count DESC
+       LIMIT 24"
+    );
+    $stmt->bind_param('i', $activeYear);
+    $stmt->execute();
+    $res = $stmt->get_result();
     if ($res) { $inCompetition = $res->fetch_all(MYSQLI_ASSOC); }
+    
+    // Second: if we have fewer than 24, supplement with unvoted active-year movies
+    if (count($inCompetition) < 24) {
+      $votedIds = array_column($inCompetition, 'id');
+      $remaining = 24 - count($inCompetition);
+      
+      if ($votedIds) {
+        // Exclude already fetched movies
+        $placeholders = implode(',', array_fill(0, count($votedIds), '?'));
+        $sql = "SELECT m.*
+                FROM movies m
+                WHERE CAST(m.year AS UNSIGNED) = ? AND m.id NOT IN ($placeholders)
+                ORDER BY m.id DESC
+                LIMIT ?";
+        $stmt2 = $mysqli->prepare($sql);
+        $types = 'i' . str_repeat('i', count($votedIds)) . 'i';
+        $params = array_merge([$activeYear], $votedIds, [$remaining]);
+        $stmt2->bind_param($types, ...$params);
+      } else {
+        // No voted movies yet, just fetch all active-year movies
+        $stmt2 = $mysqli->prepare(
+          "SELECT m.*
+           FROM movies m
+           WHERE CAST(m.year AS UNSIGNED) = ?
+           ORDER BY m.id DESC
+           LIMIT ?"
+        );
+        $stmt2->bind_param('ii', $activeYear, $remaining);
+      }
+      
+      $stmt2->execute();
+      $res2 = $stmt2->get_result();
+      if ($res2) { 
+        $unvoted = $res2->fetch_all(MYSQLI_ASSOC);
+        $inCompetition = array_merge($inCompetition, $unvoted);
+      }
+    }
+    
+    // Third: if still empty, fetch recent releases from OMDb API
+    if (count($inCompetition) === 0) {
+      $apiMovies = fetch_recent_releases($activeYear);
+      if ($apiMovies) {
+        $inCompetition = array_slice($apiMovies, 0, 24);
+      }
+    }
   } catch (Throwable $e) { $inCompetition = []; }
 
   // 2) Top Rated: detect schema and compute avg
@@ -117,10 +163,25 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
     </section>
 
     <?php if ($searchTerm !== '' && $movies): ?>
+      <?php
+        // Split movies into with-poster and without-poster groups
+        $moviesWithPoster = [];
+        $moviesWithoutPoster = [];
+        foreach ($movies as $movie) {
+          $poster = $movie['poster_url'] ?? null;
+          if ($poster && $poster !== 'N/A' && $poster !== '') {
+            $moviesWithPoster[] = $movie;
+          } else {
+            $moviesWithoutPoster[] = $movie;
+          }
+        }
+      ?>
       <section class="movies-container">
-        <?php foreach ($movies as $movie): ?>
+        <?php foreach ($moviesWithPoster as $movie): ?>
           <div class="movie-card">
-            <?php $poster = ($movie['poster_url'] ?? null); if (!$poster || $poster==='N/A') $poster='/movie-club-app/assets/img/no-poster.svg'; ?>
+            <?php $badgeKey = competition_badge_key($movie); $in = ($badgeKey === 'badge_in_competition'); ?>
+            <div class="comp-badge <?= $in ? 'in' : 'out' ?>"><?= e(t($badgeKey)) ?></div>
+            <?php $poster = $movie['poster_url']; ?>
             <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src='/movie-club-app/assets/img/no-poster.svg';">
             <div class="movie-info">
               <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
@@ -130,6 +191,32 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
           </div>
         <?php endforeach; ?>
       </section>
+      
+      <?php if ($moviesWithoutPoster): ?>
+        <div style="text-align:center;margin:2rem 0;">
+          <button id="showMoreBtn" class="btn" style="background:#444;color:#fff;">Show more (<?= count($moviesWithoutPoster) ?>)</button>
+        </div>
+        <section class="movies-container" id="noPosterMovies" style="display:none;">
+          <?php foreach ($moviesWithoutPoster as $movie): ?>
+            <div class="movie-card">
+              <?php $badgeKey = competition_badge_key($movie); $in = ($badgeKey === 'badge_in_competition'); ?>
+              <div class="comp-badge <?= $in ? 'in' : 'out' ?>"><?= e(t($badgeKey)) ?></div>
+              <img src="/movie-club-app/assets/img/no-poster.svg" alt="<?= htmlspecialchars($movie['title']) ?>">
+              <div class="movie-info">
+                <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
+                <div class="movie-year"><?= htmlspecialchars($movie['year']) ?></div>
+                <a class="rate-btn" href="vote.php?movie_id=<?= $movie['id'] ?>"><?= t('rate') ?> ⭐</a>
+              </div>
+            </div>
+          <?php endforeach; ?>
+        </section>
+        <script>
+          document.getElementById('showMoreBtn').addEventListener('click', function() {
+            document.getElementById('noPosterMovies').style.display = 'grid';
+            this.style.display = 'none';
+          });
+        </script>
+      <?php endif; ?>
     <?php elseif ($searchTerm !== ''): ?>
       <p class="search-empty"><?= e(t('search_no_results')) ?></p>
     <?php endif; ?>
@@ -144,6 +231,8 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
         <div id="rowIn" class="movie-row">
         <?php foreach ($inCompetition as $movie): ?>
           <div class="movie-card">
+            <?php $badgeKey = competition_badge_key($movie); $in = ($badgeKey === 'badge_in_competition'); ?>
+            <div class="comp-badge <?= $in ? 'in' : 'out' ?>"><?= e(t($badgeKey)) ?></div>
             <?php $poster = ($movie['poster_url'] ?? null); if (!$poster || $poster==='N/A') $poster='/movie-club-app/assets/img/no-poster.svg'; ?>
             <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src='/movie-club-app/assets/img/no-poster.svg';">
             <div class="movie-info">
@@ -167,6 +256,8 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
         <div id="rowTop" class="movie-row">
         <?php foreach ($topRated as $movie): ?>
           <div class="movie-card">
+            <?php $badgeKey = competition_badge_key($movie); $in = ($badgeKey === 'badge_in_competition'); ?>
+            <div class="comp-badge <?= $in ? 'in' : 'out' ?>"><?= e(t($badgeKey)) ?></div>
             <?php $poster = ($movie['poster_url'] ?? null); if (!$poster || $poster==='N/A') $poster='/movie-club-app/assets/img/no-poster.svg'; ?>
             <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src='/movie-club-app/assets/img/no-poster.svg';">
             <div class="movie-info">
@@ -190,6 +281,8 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
         <div id="rowRec" class="movie-row">
         <?php foreach ($recent as $movie): ?>
           <div class="movie-card">
+            <?php $badgeKey = competition_badge_key($movie); $in = ($badgeKey === 'badge_in_competition'); ?>
+            <div class="comp-badge <?= $in ? 'in' : 'out' ?>"><?= e(t($badgeKey)) ?></div>
             <?php $poster = ($movie['poster_url'] ?? null); if (!$poster || $poster==='N/A') $poster='/movie-club-app/assets/img/no-poster.svg'; ?>
             <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src='/movie-club-app/assets/img/no-poster.svg';">
             <div class="movie-info">
