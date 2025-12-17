@@ -55,6 +55,8 @@ return [
     'search_intro' => 'Find a movie you want to rate.',
     'search_no_results' => 'No movies matched your search. Try a different title.',
     'rate' => 'Rate',
+    'vote' => 'Vote',
+    'stats' => 'Stats',
     'my_votes' => 'My Votes',
     'votes' => 'Votes',
     'my_profile' => 'My Profile',

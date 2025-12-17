@@ -1,6 +1,8 @@
 <?php 
 require_once __DIR__.'/includes/auth.php'; 
 require_once __DIR__.'/includes/lang.php';
+// Ensure small-screen toolbar appears on stats pages by tagging body
+$body_extra_class = 'stats-page';
 include __DIR__.'/includes/header.php';
 
 // show flash messages (if any)

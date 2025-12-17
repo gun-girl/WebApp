@@ -13,12 +13,18 @@ $calendar_year = (int)date('Y');
 <?php $cssPath = __DIR__ . '/../assets/css/style.css'; $cssVer = @filemtime($cssPath) ?: time(); ?>
 <link rel="stylesheet" href="/movie-club-app/assets/css/style.css?v=<?= $cssVer ?>">
 </head>
-<body class="<?= isset($body_extra_class) && $body_extra_class ? e($body_extra_class) : '' ?>">
+<?php
+  $bodyClasses = [];
+  if (isset($body_extra_class) && $body_extra_class) { $bodyClasses[] = $body_extra_class; }
+  if (function_exists('current_user') && current_user()) { $bodyClasses[] = 'logged-in'; }
+?>
+<body class="<?= e(implode(' ', $bodyClasses)) ?>">
 <?php $show_search = !in_array(basename($_SERVER['PHP_SELF']), ['login.php','register.php']); ?>
 <header>
   <!-- Global header -->
   <div class="header-logo">
     <img src="/movie-club-app/assets/img/logo.png" alt="<?= e(t('site_title')) ?>" onerror="this.onerror=null;this.src='/movie-club-app/assets/img/no-poster.svg';">
+    <span class="logo-text">DIVANO D'ORO</span>
   </div>
   <?php if ($show_search): ?>
     <div class="header-center">
@@ -139,56 +145,6 @@ $calendar_year = (int)date('Y');
       | <a href="/movie-club-app/index.php"> <?= e(t('home')) ?></a>
       </div>
 
-      <!-- Hamburger appears on small screens -->
-      <button id="burgerBtn" class="burger-btn" aria-expanded="false" aria-controls="mobileMenu">
-        <?php if (function_exists('is_admin') && is_admin()): ?>
-          <svg class="burger-crown" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 19h20v2H2v-2zm2-2h16l-2-9-4 3-2-5-2 5-4-3-2 9z" fill="#ffd700"/></svg>
-        <?php endif; ?>
-        ☰
-      </button>
-      <div id="mobileMenu" class="mobile-menu" role="menu" aria-label="Main menu">
-        <!-- Account section (when logged in) -->
-        <?php if (current_user()): ?>
-          <a class="mobile-item" href="/movie-club-app/stats.php?mine=1">⭐ <?= e(t('your_ratings')) ?></a>
-        <?php else: ?>
-          <a class="mobile-item" href="/movie-club-app/register.php"><?= e(t('register')) ?></a>
-          <a class="mobile-item" href="/movie-club-app/login.php"><?= e(t('login')) ?></a>
-        <?php endif; ?>
-
-        <!-- Collapsible All competitions -->
-        <button id="mobileCompetitionsToggle" class="mobile-item" type="button"><?= e(t('all_competitions')) ?> ▾</button>
-        <div id="mobileCompetitionsMenu" class="mobile-submenu">
-          <a class="mobile-item" href="/movie-club-app/stats.php?sheet=votes&year=<?= $calendar_year ?>"><?= e(t('all_competitions')) ?></a>
-          <?php
-            $m_competitions = [];
-            $m_hasCompetitionsTable = $mysqli->query("SHOW TABLES LIKE 'competitions'")->fetch_all(MYSQLI_NUM);
-            if ($m_hasCompetitionsTable) {
-              $m_rows = $mysqli->query("SELECT year FROM competitions")->fetch_all(MYSQLI_ASSOC);
-              foreach ($m_rows as $r) { $m_competitions[] = (int)$r['year']; }
-            }
-            $m_hasVotesYearCol = $mysqli->query("SHOW COLUMNS FROM votes LIKE 'competition_year'")->fetch_all(MYSQLI_ASSOC);
-            if ($m_hasVotesYearCol) {
-              $m_rows2 = $mysqli->query("SELECT DISTINCT COALESCE(competition_year, YEAR(created_at)) AS y FROM votes WHERE (competition_year IS NOT NULL OR created_at IS NOT NULL)")->fetch_all(MYSQLI_ASSOC);
-              foreach ($m_rows2 as $r) { $m_competitions[] = (int)$r['y']; }
-            } else {
-              $m_rows2 = $mysqli->query("SELECT DISTINCT YEAR(created_at) AS y FROM votes WHERE created_at IS NOT NULL")->fetch_all(MYSQLI_ASSOC);
-              foreach ($m_rows2 as $r) { $m_competitions[] = (int)$r['y']; }
-            }
-            $m_act = $calendar_year; if ($m_act) { $m_competitions[] = $m_act; }
-            $m_competitions = array_map('intval', array_values(array_unique($m_competitions)));
-            rsort($m_competitions, SORT_NUMERIC);
-          ?>
-          <?php foreach ($m_competitions as $cy): ?>
-            <a class="mobile-item" href="/movie-club-app/stats.php?year=<?= (int)$cy ?>"><?= (int)$cy ?><?= $cy === $m_act ? ' (active)' : '' ?></a>
-          <?php endforeach; ?>
-        </div>
-
-        <?php if (current_user()): ?>
-          <a class="mobile-item mobile-signout" href="/movie-club-app/logout.php"><?= e(t('sign_out')) ?></a>
-        <?php else: ?>
-          <a class="mobile-item" href="/movie-club-app/index.php"><?= e(t('home')) ?></a>
-        <?php endif; ?>
-      </div>
       <?php $printed_links = true; ?>
     <?php else: ?>
       <?php if (!$is_auth_page): ?>
@@ -223,10 +179,48 @@ $calendar_year = (int)date('Y');
     </div>
   </nav>
 </header>
+    <a class="mobile-item" href="/movie-club-app/stats.php?sheet=votes&year=<?= $calendar_year ?>"><?= e(t('all_competitions')) ?></a>
+    <?php
+      $m_competitions = [];
+      $m_hasCompetitionsTable = $mysqli->query("SHOW TABLES LIKE 'competitions'")->fetch_all(MYSQLI_NUM);
+      if ($m_hasCompetitionsTable) {
+        $m_rows = $mysqli->query("SELECT year FROM competitions")->fetch_all(MYSQLI_ASSOC);
+        foreach ($m_rows as $r) { $m_competitions[] = (int)$r['year']; }
+      }
+      $m_hasVotesYearCol = $mysqli->query("SHOW COLUMNS FROM votes LIKE 'competition_year'")->fetch_all(MYSQLI_ASSOC);
+      if ($m_hasVotesYearCol) {
+        $m_rows2 = $mysqli->query("SELECT DISTINCT COALESCE(competition_year, YEAR(created_at)) AS y FROM votes WHERE (competition_year IS NOT NULL OR created_at IS NOT NULL)")->fetch_all(MYSQLI_ASSOC);
+        foreach ($m_rows2 as $r) { $m_competitions[] = (int)$r['y']; }
+      } else {
+        $m_rows2 = $mysqli->query("SELECT DISTINCT YEAR(created_at) AS y FROM votes WHERE created_at IS NOT NULL")->fetch_all(MYSQLI_ASSOC);
+        foreach ($m_rows2 as $r) { $m_competitions[] = (int)$r['y']; }
+      }
+      $m_act = $calendar_year; if ($m_act) { $m_competitions[] = $m_act; }
+      $m_competitions = array_map('intval', array_values(array_unique($m_competitions)));
+      rsort($m_competitions, SORT_NUMERIC);
+    ?>
+    <?php foreach ($m_competitions as $cy): ?>
+      <a class="mobile-item" href="/movie-club-app/stats.php?year=<?= (int)$cy ?>"><?= (int)$cy ?><?= $cy === $m_act ? ' (active)' : '' ?></a>
+    <?php endforeach; ?>
+  </div>
+  <hr class="mobile-sep" />
+
+  <div class="mobile-heading">Account</div>
+  <?php if (current_user()): ?>
+    <a class="mobile-item" href="/movie-club-app/profile.php">👤 <?= e(t('your_profile')) ?></a>
+    <a class="mobile-item" href="/movie-club-app/stats.php?mine=1">⭐ <?= e(t('your_ratings')) ?></a>
+    <a class="mobile-item mobile-signout" href="/movie-club-app/logout.php">🚪 <?= e(t('sign_out')) ?></a>
+  <?php else: ?>
+    <a class="mobile-item" href="/movie-club-app/register.php"><?= e(t('register')) ?></a>
+    <a class="mobile-item" href="/movie-club-app/login.php"><?= e(t('login')) ?></a>
+  <?php endif; ?>
 <script>
   // User dropdown menu toggle
   const userBtn = document.getElementById('userMenuBtn');
   const userDropdown = document.getElementById('userDropdown');
+  // Ensure language dropdown refs exist before any usage
+  const langBtn = document.getElementById('langMenuBtn');
+  const langDropdown = document.getElementById('langDropdown');
   
   if (userBtn && userDropdown) {
     userBtn.addEventListener('click', function(e) {
@@ -245,8 +239,6 @@ $calendar_year = (int)date('Y');
   }
 
   // Language dropdown menu toggle
-  const langBtn = document.getElementById('langMenuBtn');
-  const langDropdown = document.getElementById('langDropdown');
   
   if (langBtn && langDropdown) {
     langBtn.addEventListener('click', function(e) {
@@ -281,46 +273,7 @@ $calendar_year = (int)date('Y');
     });
   }
 
-  // Hamburger + mobile menu
-  const burgerBtn = document.getElementById('burgerBtn');
-  const mobileMenu = document.getElementById('mobileMenu');
-  const mobileCompetitionsToggle = document.getElementById('mobileCompetitionsToggle');
-  const mobileCompetitionsMenu = document.getElementById('mobileCompetitionsMenu');
 
-  if (burgerBtn && mobileMenu){
-    burgerBtn.addEventListener('click', function(e){
-      e.stopPropagation();
-      const open = mobileMenu.classList.toggle('show');
-      burgerBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-      // close other menus
-      if (userDropdown) userDropdown.classList.remove('show');
-      if (langDropdown) langDropdown.classList.remove('show');
-      if (competitionsMenu) competitionsMenu.classList.remove('show');
-    });
-    document.addEventListener('click', function(e){
-      if (!mobileMenu.contains(e.target) && e.target !== burgerBtn){
-        mobileMenu.classList.remove('show');
-        burgerBtn.setAttribute('aria-expanded','false');
-      }
-    });
-  }
-
-  if (mobileCompetitionsToggle && mobileCompetitionsMenu){
-    mobileCompetitionsToggle.addEventListener('click', function(e){
-      e.stopPropagation();
-      mobileCompetitionsMenu.classList.toggle('show');
-    });
-  }
-
-  // Mobile: Account and Language collapsibles
-  const mobileAccountToggle = document.getElementById('mobileAccountToggle');
-  const mobileAccountMenu = document.getElementById('mobileAccountMenu');
-  if (mobileAccountToggle && mobileAccountMenu){
-    mobileAccountToggle.addEventListener('click', function(e){
-      e.stopPropagation();
-      mobileAccountMenu.classList.toggle('show');
-    });
-  }
   // rename handler: prompt and submit hidden form
   function renameCompetition(oldYear) {
     const n = prompt('Enter new year for ' + oldYear + ':', oldYear+1);

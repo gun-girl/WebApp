@@ -19,19 +19,19 @@
       <span class="icon" aria-hidden="true">
         <svg viewBox="0 0 24 24"><path d="M3 10.5L12 3l9 7.5V21a1 1 0 0 1-1 1h-6v-6H10v6H4a1 1 0 0 1-1-1v-10.5Z" /></svg>
       </span>
-      <span class="label">Home</span>
+      <span class="label"><?= e(t('home')) ?></span>
     </a>
     <a class="tab-link<?= $isVote ? ' active' : '' ?>" href="index.php?search=1">
       <span class="icon" aria-hidden="true">
         <svg viewBox="0 0 24 24"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-3.8L6 21l1.5-7.5L2 9h7z" /></svg>
       </span>
-      <span class="label">Vote</span>
+      <span class="label"><?= e(t('vote')) ?></span>
     </a>
     <?php
       // Admin users see full stats, normal users see only their votes
       $isAdmin = function_exists('is_admin') && is_admin();
       $statsUrl = $isAdmin ? 'stats.php' : 'stats.php?mine=1';
-      $statsLabel = $isAdmin ? 'Stats' : t('my_votes');
+      $statsLabel = $isAdmin ? t('stats') : t('my_votes');
     ?>
     <a class="tab-link<?= $isStats ? ' active' : '' ?>" href="<?= $statsUrl ?>">
       <span class="icon" aria-hidden="true">

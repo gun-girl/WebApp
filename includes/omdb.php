@@ -1,35 +1,32 @@
 <?php
 require_once __DIR__.'/../config.php';
-/**
- * Search movies locally; if none found and API key is set, fetch from OMDb,
- * cache into DB, then return associative arrays from DB.
- * @return array<int, array<string, mixed>>
- */
+// get_movie_or_fetch(): Given a text query, returns matching movies from the local DB.
+// If a query has not been attempted today and an OMDb API key is configured,
+// it queries OMDb for movies/series, stores results in the local DB, then returns rows.
 function get_movie_or_fetch($query): array {
   global $mysqli, $OMDB_API_KEY;
-  // Check if this query was already tried today
+  // Check if this query was already attempted today
   $stmt = $mysqli->prepare("SELECT 1 FROM query_cache WHERE query = ? AND DATE(date) = CURDATE() LIMIT 1");
   $stmt->bind_param('s', $query);
   $stmt->execute();
   $triedToday = (bool) $stmt->get_result()->fetch_row();
 
-  // If tried today, return whatever is in DB (if any). If empty, do not call the API again.
+  // If so, check the local cache for matching results
   if ($triedToday) {
     $check = $mysqli->prepare("SELECT * FROM movies WHERE title LIKE CONCAT('%',?,'%') ORDER BY year DESC LIMIT 30");
     $check->bind_param('s', $query);
     $check->execute();
     $rows = $check->get_result()->fetch_all(MYSQLI_ASSOC);
     if ($rows) return $rows;
-    return []; // already tried today and nothing found — skip external API
+    return [];
   }
 
-  // Mark this query as tried today (insert or update timestamp) so we won't retry until tomorrow
   $upsert = $mysqli->prepare("INSERT INTO query_cache (query,date) VALUES (?, NOW()) ON DUPLICATE KEY UPDATE date = NOW()");
   $upsert->bind_param('s', $query);
   $upsert->execute();
   if (!$OMDB_API_KEY) return [];
 
-  // Try broader search (first movie then series) until we get results
+  // If not, interrogate the OMDb REST API and cache the results
   $searchTypes = ['movie','series'];
   $collected = [];
   foreach ($searchTypes as $t) {
@@ -39,14 +36,12 @@ function get_movie_or_fetch($query): array {
       foreach ($json['Search'] as $m) {
         $imdb = $m['imdbID'];
         $title = $m['Title'];
-        // For series year may be "2005–2014" so keep raw then extract first numeric start
         $rawYear = $m['Year'];
         $year = (int)substr($rawYear,0,4);
         $type = $m['Type'] ?? $t;
         $poster = $m['Poster'] ?? null;
         if ($poster === 'N/A' || $poster === '') { $poster = null; }
 
-        // Optional detail fetch to improve poster / metadata for series
         $detailPoster = null;
         if ($type === 'series' || !$poster) {
           $detail = fetch_omdb_detail_by_id($imdb);
@@ -54,7 +49,6 @@ function get_movie_or_fetch($query): array {
               if (!$poster && !empty($detail['Poster']) && $detail['Poster'] !== 'N/A') {
                 $poster = $detail['Poster'];
               }
-              // Could store extended metadata later once migration is in place
             }
         }
 
@@ -73,11 +67,8 @@ function get_movie_or_fetch($query): array {
   $movieData = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
   return $movieData;
 }
-
-/**
- * Fetch detailed OMDb info by IMDb ID.
- * Returns associative array or null on failure.
- */
+// fetch_omdb_detail_by_id(): Given an IMDb ID, fetches detailed metadata from OMDb.
+// Returns the decoded JSON array when OMDb responds with success; otherwise null.
 function fetch_omdb_detail_by_id(string $imdb_id): ?array {
   global $OMDB_API_KEY;
   if (!$OMDB_API_KEY) return null;

@@ -55,6 +55,8 @@ return [
     'search_intro' => 'Cerca un film da votare.',
     'search_no_results' => 'Nessun film trovato per questa ricerca. Prova con un altro titolo.',
     'rate' => 'Vota',
+    'vote' => 'Vota',
+    'stats' => 'Statistiche',
     'my_votes' => 'I miei voti',
     'votes' => 'Voti',
     'my_profile' => 'Il mio profilo',
