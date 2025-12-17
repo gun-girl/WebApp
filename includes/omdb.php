@@ -79,7 +79,7 @@ function fetch_omdb_detail_by_id(string $imdb_id): ?array {
 }
 
 /**
- * fetch_recent_releases(): Fetch popular recent movies from OMDb API for specified year.
+ * fetch_recent_releases(): Fetch popular recent movies/series from OMDb API for specified year.
  * Returns an array of movie data fetched and stored in the database.
  */
 function fetch_recent_releases(int $year = null): array {
@@ -88,40 +88,48 @@ function fetch_recent_releases(int $year = null): array {
   if ($year === null) $year = (int)date('Y');
   
   $collected = [];
-  // Search for popular terms for recent releases
-  $searches = ['action', 'drama', 'thriller', 'comedy'];
+  // Search for diverse terms to get various types of content (movies, series, documentaries)
+  $searches = ['action', 'drama', 'thriller', 'comedy', 'series', 'documentary', 'adventure', 'romance', 'mystery'];
   
   foreach ($searches as $term) {
-    $url = "https://www.omdbapi.com/?apikey={$OMDB_API_KEY}&s={$term}&y={$year}&type=movie";
-    $json = @json_decode(@file_get_contents($url), true);
-    
-    if (!empty($json['Search'])) {
-      foreach ($json['Search'] as $m) {
-        $imdb = $m['imdbID'];
-        if (isset($collected[$imdb])) continue; // Skip duplicates
-        
-        $title = $m['Title'];
-        $rawYear = $m['Year'];
-        $movieYear = (int)substr($rawYear, 0, 4);
-        $type = $m['Type'] ?? 'movie';
-        $poster = $m['Poster'] ?? null;
-        if ($poster === 'N/A' || $poster === '') { $poster = null; }
-        
-        $stmt = $mysqli->prepare(
-          "INSERT INTO movies (imdb_id, title, year, type, poster_url, last_fetched_at)
-           VALUES (?, ?, ?, ?, ?, NOW()) 
-           ON DUPLICATE KEY UPDATE 
-           title=VALUES(title), year=VALUES(year), type=VALUES(type), 
-           poster_url=COALESCE(VALUES(poster_url), poster_url), last_fetched_at=NOW()"
-        );
-        $stmt->bind_param('ssiss', $imdb, $title, $movieYear, $type, $poster);
-        $stmt->execute();
-        
-        $collected[$imdb] = $mysqli->insert_id ?: (int)$mysqli->query("SELECT id FROM movies WHERE imdb_id='$imdb'")->fetch_row()[0];
+    // Search both movies and series types
+    foreach (['movie', 'series'] as $type) {
+      $url = "https://www.omdbapi.com/?apikey={$OMDB_API_KEY}&s={$term}&y={$year}&type={$type}";
+      $json = @json_decode(@file_get_contents($url), true);
+      
+      if (!empty($json['Search'])) {
+        foreach ($json['Search'] as $m) {
+          $imdb = $m['imdbID'];
+          if (isset($collected[$imdb])) continue; // Skip duplicates
+          
+          $title = $m['Title'];
+          $rawYear = $m['Year'];
+          $movieYear = (int)substr($rawYear, 0, 4);
+          $mType = $m['Type'] ?? $type;
+          $poster = $m['Poster'] ?? null;
+          if ($poster === 'N/A' || $poster === '') { $poster = null; }
+          
+          // Only insert movies with valid posters
+          if ($poster) {
+            $stmt = $mysqli->prepare(
+              "INSERT INTO movies (imdb_id, title, year, type, poster_url, last_fetched_at)
+               VALUES (?, ?, ?, ?, ?, NOW()) 
+               ON DUPLICATE KEY UPDATE 
+               title=VALUES(title), year=VALUES(year), type=VALUES(type), 
+               poster_url=COALESCE(VALUES(poster_url), poster_url), last_fetched_at=NOW()"
+            );
+            $stmt->bind_param('ssiss', $imdb, $title, $movieYear, $mType, $poster);
+            $stmt->execute();
+            
+            $collected[$imdb] = $mysqli->insert_id ?: (int)$mysqli->query("SELECT id FROM movies WHERE imdb_id='".addslashes($imdb)."'")->fetch_row()[0];
+          }
+        }
       }
+      
+      if (count($collected) >= 50) break; // Got enough
     }
     
-    if (count($collected) >= 24) break; // Got enough
+    if (count($collected) >= 50) break;
   }
   
   // Return the newly fetched movies

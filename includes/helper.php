@@ -85,3 +85,41 @@ function competition_badge_key(array $movie, ?int $activeYear = null): string
 {
     return is_in_competition($movie, $activeYear) ? 'badge_in_competition' : 'badge_out_of_competition';
 }
+
+/** Read a setting value from the settings table (or return default). */
+function get_setting(string $key, $default = null)
+{
+    global $mysqli;
+    if (!isset($mysqli) || !$mysqli) return $default;
+    try {
+        $stmt = $mysqli->prepare("SELECT setting_value FROM settings WHERE setting_key = ? LIMIT 1");
+        if ($stmt) {
+            $stmt->bind_param('s', $key);
+            $stmt->execute();
+            $res = $stmt->get_result()->fetch_assoc();
+            if ($res !== null && array_key_exists('setting_value', $res)) {
+                return $res['setting_value'];
+            }
+        }
+    } catch (Exception $e) {
+        // ignore
+    }
+    return $default;
+}
+
+/** Upsert a setting value into the settings table. */
+function set_setting(string $key, $value): bool
+{
+    global $mysqli;
+    if (!isset($mysqli) || !$mysqli) return false;
+    try {
+        $stmt = $mysqli->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+        if ($stmt) {
+            $stmt->bind_param('ss', $key, $value);
+            return $stmt->execute();
+        }
+    } catch (Exception $e) {
+        // ignore
+    }
+    return false;
+}

@@ -1,16 +1,21 @@
 </main>
 <?php
-  $script = basename($_SERVER['PHP_SELF']);
+  // Robust path detection for active tab highlighting
+  $parts = parse_url($_SERVER['REQUEST_URI']);
+  $path = $parts['path'] ?? '';
+  $script = basename($path ?: $_SERVER['PHP_SELF']);
   $hideMobileFooter = in_array($script, ['login.php','register.php'], true);
 ?>
 <?php if (!$hideMobileFooter): ?>
 <footer>
   <nav class="mobile-tabbar" aria-label="Primary">
     <?php
-      $isHome = $script === 'index.php';
-      $isVote = $script === 'vote.php';
-      $isStats = $script === 'stats.php';
-      $isProfile = $script === 'profile.php';
+      // Active states: treat index.php?search=1 as Vote flow
+      $isSearch = isset($_GET['search']);
+      $isHome = (($script === 'index.php') && !$isSearch) || (rtrim($path,'/') === '/movie-club-app' && !$isSearch);
+      $isVote = ($script === 'vote.php') || ($script === 'index.php' && $isSearch);
+      $isStats = ($script === 'stats.php');
+      $isProfile = ($script === 'profile.php');
       $currentUser = current_user();
       $profileLink = $currentUser ? 'profile.php' : 'login.php';
       $profileLabel = $currentUser ? t('profile') : t('login');

@@ -23,7 +23,7 @@ if ($searchRequested) {
   // Prepare homepage sections when not searching
   $activeYear = function_exists('get_active_year') ? get_active_year() : (int)date('Y');
   // 1) In Competition carousel: show movies released in the active year only (2025)
-  //    Priority: voted titles (most recent) first, then supplement with unvoted titles, then API
+  //    Priority: voted titles (most recent) first, then supplement with unvoted titles, then API (throttled)
   $inCompetition = [];
   try {
     // First: fetch voted active-year movies (most recent activity first)
@@ -32,26 +32,33 @@ if ($searchRequested) {
        FROM movies m
        JOIN votes v ON v.movie_id = m.id
        WHERE CAST(m.year AS UNSIGNED) = ?
+         AND m.poster_url IS NOT NULL
+         AND m.poster_url != ''
+         AND m.poster_url != 'N/A'
        GROUP BY m.id
        ORDER BY MAX(v.created_at) DESC, votes_count DESC
-       LIMIT 24"
+       LIMIT 50"
     );
     $stmt->bind_param('i', $activeYear);
     $stmt->execute();
     $res = $stmt->get_result();
     if ($res) { $inCompetition = $res->fetch_all(MYSQLI_ASSOC); }
     
-    // Second: if we have fewer than 24, supplement with unvoted active-year movies
-    if (count($inCompetition) < 24) {
+    // Second: if we have fewer than 50, supplement with unvoted active-year movies already in DB
+    if (count($inCompetition) < 50) {
       $votedIds = array_column($inCompetition, 'id');
-      $remaining = 24 - count($inCompetition);
+      $remaining = 50 - count($inCompetition);
       
       if ($votedIds) {
         // Exclude already fetched movies
         $placeholders = implode(',', array_fill(0, count($votedIds), '?'));
         $sql = "SELECT m.*
                 FROM movies m
-                WHERE CAST(m.year AS UNSIGNED) = ? AND m.id NOT IN ($placeholders)
+                WHERE CAST(m.year AS UNSIGNED) = ?
+                  AND m.poster_url IS NOT NULL
+                  AND m.poster_url != ''
+                  AND m.poster_url != 'N/A'
+                  AND m.id NOT IN ($placeholders)
                 ORDER BY m.id DESC
                 LIMIT ?";
         $stmt2 = $mysqli->prepare($sql);
@@ -64,6 +71,9 @@ if ($searchRequested) {
           "SELECT m.*
            FROM movies m
            WHERE CAST(m.year AS UNSIGNED) = ?
+             AND m.poster_url IS NOT NULL
+             AND m.poster_url != ''
+             AND m.poster_url != 'N/A'
            ORDER BY m.id DESC
            LIMIT ?"
         );
@@ -78,11 +88,22 @@ if ($searchRequested) {
       }
     }
     
-    // Third: if still empty, fetch recent releases from OMDb API
-    if (count($inCompetition) === 0) {
-      $apiMovies = fetch_recent_releases($activeYear);
-      if ($apiMovies) {
-        $inCompetition = array_slice($apiMovies, 0, 24);
+    // Third: throttle OMDb API fetch to avoid slowing homepage
+    // Only fetch if we still have fewer than min threshold AND last fetch was >6h ago
+    if (count($inCompetition) < 24) {
+      $fetchKey = 'last_fetch_recent_releases_' . $activeYear;
+      $lastFetch = function_exists('get_setting') ? get_setting($fetchKey, '') : '';
+      $canFetch = (!$lastFetch) || (strtotime($lastFetch) < (time() - 6*3600));
+      if ($canFetch) {
+        $apiMovies = fetch_recent_releases($activeYear);
+        if ($apiMovies) {
+          $existingIds = array_column($inCompetition, 'id');
+          $newMovies = array_filter($apiMovies, function($m) use ($existingIds) {
+            return !in_array($m['id'], $existingIds);
+          });
+          $inCompetition = array_merge($inCompetition, array_slice($newMovies, 0, 50 - count($inCompetition)));
+          if (function_exists('set_setting')) { set_setting($fetchKey, date('Y-m-d H:i:s')); }
+        }
       }
     }
   } catch (Throwable $e) { $inCompetition = []; }
@@ -96,6 +117,9 @@ if ($searchRequested) {
     $q = "SELECT m.*, ROUND(AVG(v.rating),2) AS avg_rating, COUNT(v.id) AS votes_count
           FROM movies m
           JOIN votes v ON v.movie_id = m.id
+          WHERE m.poster_url IS NOT NULL
+            AND m.poster_url != ''
+            AND m.poster_url != 'N/A'
           GROUP BY m.id
           HAVING votes_count > 0
           ORDER BY avg_rating DESC, votes_count DESC
@@ -121,6 +145,9 @@ if ($searchRequested) {
             FROM movies m
             JOIN votes v ON v.movie_id = m.id
             LEFT JOIN vote_details vd ON vd.vote_id = v.id
+            WHERE m.poster_url IS NOT NULL
+              AND m.poster_url != ''
+              AND m.poster_url != 'N/A'
             GROUP BY m.id
             HAVING votes_count > 0
             ORDER BY avg_rating DESC, votes_count DESC
@@ -135,12 +162,15 @@ if ($searchRequested) {
     $q = "SELECT m.*
           FROM movies m
           JOIN votes v ON v.movie_id = m.id
+          WHERE m.poster_url IS NOT NULL
+            AND m.poster_url != ''
+            AND m.poster_url != 'N/A'
           GROUP BY m.id
           ORDER BY MAX(v.created_at) DESC
           LIMIT 24";
     $recent = $mysqli->query($q)->fetch_all(MYSQLI_ASSOC);
   } catch (Throwable $e) {
-    $recent = $mysqli->query("SELECT * FROM movies ORDER BY id DESC LIMIT 24")->fetch_all(MYSQLI_ASSOC);
+    $recent = $mysqli->query("SELECT * FROM movies WHERE poster_url IS NOT NULL AND poster_url != '' AND poster_url != 'N/A' ORDER BY id DESC LIMIT 24")->fetch_all(MYSQLI_ASSOC);
   }
 }
 ?>
