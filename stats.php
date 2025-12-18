@@ -21,10 +21,10 @@ if (!empty($_SESSION['flash'])) {
 }
 
 // Which sheet to show (multi-sheet UI like Excel)
-$sheet = isset($_GET['sheet']) ? $_GET['sheet'] : 'results';
-// Prefer configured active year when available; fallback to current year
-$currentYear = function_exists('get_active_year') ? (int)get_active_year() : (int)date('Y');
-// Selected competition year (filter votes). Default to configured active year or ?year= in URL
+$sheet = isset($_GET['sheet']) ? $_GET['sheet'] : 'votes';
+// Always default to actual current year, ignore stored settings
+$currentYear = (int)date('Y');
+// Selected competition year (filter votes). Default to current year or ?year= in URL
 $selected_year = (int)($_GET['year'] ?? $currentYear);
 // Build list of available years from both `competitions` table (if present) and votes table
 $years = [];
@@ -187,14 +187,14 @@ if ($sheet === 'results') {
   $rows = $mysqli->query($sql)->fetch_all(MYSQLI_ASSOC);
   ?>
   
+  <div class="table-container">
+    <div class="nav-buttons">
+      <?php if (function_exists('is_admin') && is_admin()): ?>
+    <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
+      <?php endif; ?>
+    </div>
 
-  <div class="nav-buttons">
-    <?php if (function_exists('is_admin') && is_admin()): ?>
-  <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
-    <?php endif; ?>
-  </div>
-
-  <table class="table">
+    <table class="table">
     <thead>
       <tr>
         <th><?= t('movie') ?></th>
@@ -225,7 +225,8 @@ if ($sheet === 'results') {
         </tr>
       <?php endforeach; ?>
     </tbody>
-  </table>
+    </table>
+  </div>
 
   <div class="sheet-tabs">
     <?php foreach ($tabs as $code => $label): ?>
@@ -404,13 +405,14 @@ if ($sheet === 'views') {
       </div>
     </div>
 
-    <div class="nav-buttons">
-      <?php if (function_exists('is_admin') && is_admin()): ?>
-          <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
-      <?php endif; ?>
-    </div>
+    <div class="table-container">
+      <div class="nav-buttons">
+        <?php if (function_exists('is_admin') && is_admin()): ?>
+            <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
+        <?php endif; ?>
+      </div>
 
-    <table class="table">
+      <table class="table">
       <thead>
         <tr>
           <th><?= t('platform') ?></th>
@@ -438,7 +440,8 @@ if ($sheet === 'views') {
           </tr>
         <?php endforeach; ?>
       </tbody>
-    </table>
+      </table>
+    </div>
     <div class="sheet-tabs">
       <?php foreach ($tabs as $code => $label): ?>
         <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>&amp;year=<?= $selected_year ?>"><?= e($label) ?></a>
@@ -536,7 +539,8 @@ if ($sheet === 'judges' || $sheet === 'judges_comp') {
     $rows = $mysqli->query($sql)->fetch_all(MYSQLI_ASSOC);
     ?>
     
-    <table class="table">
+    <div class="table-container">
+      <table class="table">
       <thead>
         <tr>
           <th><?= t('judge') ?></th>
@@ -581,7 +585,8 @@ if ($sheet === 'judges' || $sheet === 'judges_comp') {
           </tr>
         <?php endforeach; ?>
       </tbody>
-    </table>
+      </table>
+    </div>
     <div class="sheet-tabs">
       <?php foreach ($tabs as $code => $label): ?>
           <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>&amp;year=<?= $selected_year ?>"><?= e($label) ?></a>
@@ -599,20 +604,22 @@ if ($sheet === 'titles') {
   $rows = $mysqli->query("SELECT DISTINCT m.title FROM votes v JOIN movies m ON m.id=v.movie_id " . $whereYearClause . " ORDER BY m.title ASC")->fetch_all(MYSQLI_ASSOC);
     ?>
     
-    <div class="nav-buttons">
-      <?php if (function_exists('is_admin') && is_admin()): ?>
-  <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
-      <?php endif; ?>
-    </div>
+    <div class="table-container">
+      <div class="nav-buttons">
+        <?php if (function_exists('is_admin') && is_admin()): ?>
+    <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
+        <?php endif; ?>
+      </div>
 
-    <table class="table">
-      <thead><tr><th><?= t('sheet_titles') ?></th></tr></thead>
-      <tbody>
-        <?php foreach ($rows as $r): ?>
-          <tr><td><?= e($r['title']) ?></td></tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
+      <table class="table">
+        <thead><tr><th><?= t('sheet_titles') ?></th></tr></thead>
+        <tbody>
+          <?php foreach ($rows as $r): ?>
+            <tr><td><?= e($r['title']) ?></td></tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
     <div class="sheet-tabs">
       <?php foreach ($tabs as $code => $label): ?>
           <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>&amp;year=<?= $selected_year ?>"><?= e($label) ?></a>
@@ -660,30 +667,24 @@ if ($sheet === 'adjectives') {
         $aggMap = [];
         foreach ($agg as $a) { $aggMap[$a['title']] = $a['adjectives']; }
       ?>
-      <table class="table">
+      <div class="table-container">
+        <table class="table">
         <thead>
           <tr>
             <th><?= t('film') ?></th>
             <th><?= t('adjective') ?></th>
-            <th><?= t('adjectives') ?></th>
-            <?php for ($i=1;$i<=10;$i++): ?>
-              <th><?= t('adjective') . $i ?></th>
-            <?php endfor; ?>
           </tr>
         </thead>
         <tbody>
-          <?php foreach ($rows as $r): $list = $aggMap[$r['title']] ?? ''; $parts = $list? explode(', ',$list):[]; ?>
+          <?php foreach ($rows as $r): ?>
             <tr>
               <td><?= e($r['title']) ?></td>
               <td><?= e($r['adjective']) ?></td>
-              <td><?= e($list) ?></td>
-              <?php for ($i=0;$i<10;$i++): ?>
-                <td><?= isset($parts[$i])? e($parts[$i]) : '' ?></td>
-              <?php endfor; ?>
             </tr>
           <?php endforeach; ?>
         </tbody>
-      </table>
+        </table>
+      </div>
     <?php endif; ?>
     <div class="sheet-tabs">
       <?php foreach ($tabs as $code => $label): ?>
@@ -708,20 +709,22 @@ if ($sheet === 'finalists') {
                ORDER BY m.title")->fetch_all(MYSQLI_ASSOC);
     ?>
     
-    <div class="nav-buttons">
-      <?php if (function_exists('is_admin') && is_admin()): ?>
-  <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
-      <?php endif; ?>
-    </div>
+    <div class="table-container">
+      <div class="nav-buttons">
+        <?php if (function_exists('is_admin') && is_admin()): ?>
+    <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
+        <?php endif; ?>
+      </div>
 
-    <table class="table">
-      <thead><tr><th><?= e(t('finalists')) . ' ' . (int)$selected_year ?></th><th><?= t('category') ?></th></tr></thead>
-      <tbody>
-        <?php foreach ($rows as $r): ?>
-          <tr><td><?= e($r['title']) ?></td><td><?= e($r['category']) ?></td></tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
+      <table class="table">
+        <thead><tr><th><?= e(t('finalists')) . ' ' . (int)$selected_year ?></th><th><?= t('category') ?></th></tr></thead>
+        <tbody>
+          <?php foreach ($rows as $r): ?>
+            <tr><td><?= e($r['title']) ?></td><td><?= e($r['category']) ?></td></tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
     <div class="sheet-tabs">
       <?php foreach ($tabs as $code => $label): ?>
         <a class="sheet-tab <?= $sheet === $code ? 'active' : '' ?>" href="?sheet=<?= urlencode($code) ?>&amp;year=<?= $selected_year ?>"><?= e($label) ?></a>

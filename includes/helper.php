@@ -35,10 +35,9 @@ if (!function_exists('verify_csrf')) {
 function get_active_year(): int
 {
     global $mysqli;
-    // default to 2025 until the calendar reaches 2026, then use the actual current year
+    // Default to current actual year
     $nowYear = (int)date('Y');
-    $default = ($nowYear < 2026) ? 2025 : $nowYear;
-    if (!isset($mysqli) || !$mysqli) return $default;
+    if (!isset($mysqli) || !$mysqli) return $nowYear;
     // attempt to read from settings table
     try {
         $stmt = $mysqli->prepare("SELECT setting_value FROM settings WHERE setting_key = 'active_year' LIMIT 1");
@@ -52,7 +51,7 @@ function get_active_year(): int
     } catch (Exception $e) {
         // ignore and fall back
     }
-    return $default;
+    return $nowYear;
 }
 
 /**
