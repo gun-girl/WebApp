@@ -224,7 +224,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <div class="form-group">
         <label><?= t('competition_status') ?></label>
         <?php $comp_status = $existing_vote['competition_status'] ?? $auto_competition_status; ?>
-        <div style="background:#1a1a1a;border:1px solid #333;border-radius:.3rem;padding:.8rem;color:#f6c90e;font-weight:600;">
+        <div class="comp-status-display">
           <?php
             if ($comp_status === 'In Competition') {
               echo t('in_competition');
@@ -282,7 +282,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <label for="writing"><?= t('writing') ?> <span class="required"><?= t('required') ?></span></label>
         <div class="rating-input">
           <input type="number" name="writing" id="writing" min="1" max="10" step="0.5" placeholder="1-10" value="<?= htmlspecialchars($existing_vote['writing'] ?? '') ?>" required>
-          <span class="rating-hint"><?= t('rate_1_to_10') ?></span>
         </div>
       </div>
 
@@ -290,7 +289,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <label for="direction"><?= t('direction') ?> <span class="required"><?= t('required') ?></span></label>
         <div class="rating-input">
           <input type="number" name="direction" id="direction" min="1" max="10" step="0.5" placeholder="1-10" value="<?= htmlspecialchars($existing_vote['direction'] ?? '') ?>" required>
-          <span class="rating-hint"><?= t('rate_1_to_10') ?></span>
         </div>
       </div>
 
@@ -298,7 +296,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <label for="acting_or_theme"><?= t('acting_theme') ?> <span class="required"><?= t('required') ?></span></label>
         <div class="rating-input">
           <input type="number" name="acting_or_theme" id="acting_or_theme" min="1" max="10" step="0.5" placeholder="1-10" value="<?= htmlspecialchars($existing_vote['acting_or_doc_theme'] ?? '') ?>" required>
-          <span class="rating-hint"><?= t('rate_1_to_10') ?></span>
         </div>
       </div>
 
@@ -306,7 +303,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <label for="emotional_involvement"><?= t('emotional_involvement') ?> <span class="required"><?= t('required') ?></span></label>
         <div class="rating-input">
           <input type="number" name="emotional_involvement" id="emotional_involvement" min="1" max="10" step="0.5" placeholder="1-10" value="<?= htmlspecialchars($existing_vote['emotional_involvement'] ?? '') ?>" required>
-          <span class="rating-hint"><?= t('rate_1_to_10') ?></span>
         </div>
       </div>
 
@@ -314,7 +310,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <label for="novelty"><?= t('novelty') ?> <span class="required"><?= t('required') ?></span></label>
         <div class="rating-input">
           <input type="number" name="novelty" id="novelty" min="1" max="10" step="0.5" placeholder="1-10" value="<?= htmlspecialchars($existing_vote['novelty'] ?? '') ?>" required>
-          <span class="rating-hint"><?= t('rate_1_to_10') ?></span>
         </div>
       </div>
 
@@ -322,7 +317,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <label for="casting_research"><?= t('casting_research') ?> <span class="required"><?= t('required') ?></span></label>
         <div class="rating-input">
           <input type="number" name="casting_research" id="casting_research" min="1" max="10" step="0.5" placeholder="1-10" value="<?= htmlspecialchars($existing_vote['casting_research_art'] ?? '') ?>" required>
-          <span class="rating-hint"><?= t('rate_1_to_10') ?></span>
         </div>
       </div>
 
@@ -330,14 +324,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <label for="sound"><?= t('sound') ?> <span class="required"><?= t('required') ?></span></label>
         <div class="rating-input">
           <input type="number" name="sound" id="sound" min="1" max="10" step="0.5" placeholder="1-10" value="<?= htmlspecialchars($existing_vote['sound'] ?? '') ?>" required>
-          <span class="rating-hint"><?= t('rate_1_to_10') ?></span>
         </div>
       </div>
 
       <div class="form-group">
         <label for="adjective"><?= t('adjective') ?></label>
         <input type="text" name="adjective" id="adjective" placeholder="<?= t('adjective_placeholder') ?>" value="<?= htmlspecialchars($existing_vote['adjective'] ?? '') ?>">
-        <p class="helper-text"><?= t('adjective_helper') ?></p>
       </div>
 
       <div class="submit-section">

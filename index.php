@@ -181,10 +181,14 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
 
   <?php if ($searchRequested): ?>
     <section class="search-screen">
-      <form class="search-screen__form" method="get" action="/movie-club-app/index.php">
+      <form class="search-screen__form" method="get" action="/movie-club-app/index.php" id="searchForm">
         <input id="search-page-field" type="text" name="search" placeholder="<?= e(t('search_movies')) ?>" value="<?= htmlspecialchars($searchTerm) ?>"<?= $searchTerm === '' ? ' autofocus' : '' ?>>
         <button type="submit"><?= e(t('search')) ?></button>
       </form>
+      <div id="searchLoading" class="search-loading" style="display:none;">
+        <div class="spinner"></div>
+        <p><?= e(t('searching')) ?>...</p>
+      </div>
       <?php if ($searchTerm === ''): ?>
         <p class="search-screen__hint"><?= e(t('search_intro')) ?></p>
       <?php else: ?>
@@ -363,5 +367,21 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
       });
     </script>
   <?php endif; ?>
+  
+  <script>
+    // Show loading indicator when searching
+    (function() {
+      var searchForm = document.getElementById('searchForm');
+      var loading = document.getElementById('searchLoading');
+      if (searchForm && loading) {
+        searchForm.addEventListener('submit', function(e) {
+          var searchInput = document.getElementById('search-page-field');
+          if (searchInput && searchInput.value.trim() !== '' && searchInput.value !== '1') {
+            loading.style.display = 'block';
+          }
+        });
+      }
+    })();
+  </script>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>

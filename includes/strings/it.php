@@ -52,6 +52,7 @@ return [
     'username_email_exists' => 'Nome utente o email già esistente',
     'search_movies' => 'Cerca film...',
     'search' => 'Cerca',
+    'searching' => 'Ricerca in corso',
     'search_intro' => 'Cerca un film da votare.',
     'search_no_results' => 'Nessun film trovato per questa ricerca. Prova con un altro titolo.',
     'rate' => 'Vota',

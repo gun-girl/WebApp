@@ -52,6 +52,7 @@ return [
     'username_email_exists' => 'Username or email already exists',
     'search_movies' => 'Search movies...',
     'search' => 'Search',
+    'searching' => 'Searching',
     'search_intro' => 'Find a movie you want to rate.',
     'search_no_results' => 'No movies matched your search. Try a different title.',
     'rate' => 'Rate',
