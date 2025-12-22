@@ -65,7 +65,7 @@ $tabs = [
 ?>
 <!-- Inline year selector (centered) -->
 <div class="year-selector-wrap">
-  <form id="yearForm" method="get" action="/movie-club-app/stats.php" class="year-selector-form">
+  <form id="yearForm" method="get" action="<?= ADDRESS ?>/stats.php" class="year-selector-form">
     <label for="yearSelect" class="year-selector-label">Select year:</label>
     <select id="yearSelect" name="year" class="year-selector-select">
       <?php foreach ($years as $y): ?>

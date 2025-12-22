@@ -191,7 +191,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (session_status() !== PHP_SESSION_ACTIVE) session_start();
             $_SESSION['flash'] = $edit_vote_id > 0 ? 'Vote updated successfully!' : 'Vote submitted successfully!';
             $_SESSION['flash_edit_vote_id'] = $vote_id;
-            redirect('/movie-club-app/stats.php?mine=1');
+            redirect(ADDRESS.'/stats.php?mine=1');
             
         } catch (Exception $e) {
             $mysqli->rollback();
@@ -203,8 +203,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <?php include __DIR__.'/includes/header.php'; ?>
 <div class="vote-container">
   <div class="movie-header">
-    <?php $poster = $movie['poster_url']; if(!$poster || $poster==='N/A'){ $poster='/movie-club-app/assets/img/no-poster.svg'; } ?>
-    <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src='/movie-club-app/assets/img/no-poster.svg';">
+    <?php $poster = $movie['poster_url']; if(!$poster || $poster==='N/A'){ $poster=ADDRESS.'/assets/img/no-poster.svg'; } ?>
+    <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src=ADDRESS.'/assets/img/no-poster.svg';">
     <div class="movie-info">
       <h2><?= htmlspecialchars($movie['title']) ?></h2>
       <p class="year"><?= htmlspecialchars($movie['year']) ?></p>

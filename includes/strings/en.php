@@ -22,6 +22,7 @@ return [
     'password_placeholder' => '••••••••',
     'create_account' => 'Create account',
     'invalid_credentials' => 'Invalid email or password',
+    'forgot_password' => 'Forgot Password?',
     'footer_text' => '© IL DIVANO D\'ORO 2025 — All rights reserved.',
     'username' => 'Username',
     'username_placeholder' => 'Choose a username',

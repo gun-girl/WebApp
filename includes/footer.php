@@ -12,7 +12,7 @@
     <?php
       // Active states: treat index.php?search=1 as Vote flow
       $isSearch = isset($_GET['search']);
-      $isHome = (($script === 'index.php') && !$isSearch) || (rtrim($path,'/') === '/movie-club-app' && !$isSearch);
+      $isHome = (($script === 'index.php') && !$isSearch) || (rtrim($path,'/') === ADDRESS.'' && !$isSearch);
       $isVote = ($script === 'vote.php') || ($script === 'index.php' && $isSearch);
       $isStats = ($script === 'stats.php');
       $isProfile = ($script === 'profile.php');

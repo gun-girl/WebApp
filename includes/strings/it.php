@@ -44,6 +44,7 @@ return [
     'password_placeholder' => '••••••••',
     'create_account' => 'Crea account',
     'invalid_credentials' => 'Email o password non validi',
+    'forgot_password' => 'Password dimenticata?',
     'footer_text' => '© IL DIVANO D\'ORO 2025 — Tutti i diritti riservati.',
     'username' => 'Nome utente',
     'username_placeholder' => 'Scegli un nome utente',

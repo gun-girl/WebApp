@@ -11,7 +11,7 @@ $calendar_year = (int)date('Y');
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title><?= e(t('site_title')) ?></title>
 <?php $cssPath = __DIR__ . '/../assets/css/style.css'; $cssVer = @filemtime($cssPath) ?: time(); ?>
-<link rel="stylesheet" href="/movie-club-app/assets/css/style.css?v=<?= $cssVer ?>">
+<link rel="stylesheet" href="<?= ADDRESS ?>/assets/css/style.css?v=<?= $cssVer ?>">
 </head>
 <?php
   $bodyClasses = [];
@@ -23,12 +23,12 @@ $calendar_year = (int)date('Y');
 <header>
   <!-- Global header -->
   <div class="header-logo">
-    <img src="/movie-club-app/assets/img/logo.png" alt="<?= e(t('site_title')) ?>" onerror="this.onerror=null;this.src='/movie-club-app/assets/img/no-poster.svg';">
+    <img src="<?= ADDRESS ?>/assets/img/logo.png" alt="<?= e(t('site_title')) ?>" onerror="this.onerror=null;this.src=ADDRESS.'/assets/img/no-poster.svg';">
     <span class="logo-text">DIVANO D'ORO</span>
   </div>
   <?php if ($show_search): ?>
     <div class="header-center">
-      <form class="global-search" method="get" action="/movie-club-app/index.php">
+      <form class="global-search" method="get" action="<?= ADDRESS ?>/index.php">
         <input id="search-field" type="text" name="search" placeholder="<?= e(t('search_movies')) ?>" value="<?= htmlspecialchars($_GET['search'] ?? '') ?>" aria-label="<?= e(t('search_movies')) ?>">
         <button type="submit"><?= e(t('search')) ?></button>
       </form>
@@ -39,7 +39,7 @@ $calendar_year = (int)date('Y');
       // Show a standalone "Hello" only on the home page
       $__parts = parse_url($_SERVER['REQUEST_URI']);
       $__path = $__parts['path'] ?? '/';
-      $__is_home = ($__path === '/movie-club-app/index.php' || rtrim($__path,'/') === '/movie-club-app');
+      $__is_home = ($__path === ADDRESS.'/index.php' || rtrim($__path,'/') === ADDRESS.'');
       if ($__is_home): ?>
         <span class="hello-only"><?= e(t('hello')) ?></span>
     <?php endif; ?>
@@ -65,12 +65,12 @@ $calendar_year = (int)date('Y');
           <span class="dropdown-arrow">▼</span>
         </button>
           <div class="dropdown-menu" id="userDropdown">
-          <a href="/movie-club-app/profile.php" class="dropdown-item">👤 <?= e(t('your_profile')) ?></a>
+          <a href="<?= ADDRESS ?>/profile.php" class="dropdown-item">👤 <?= e(t('your_profile')) ?></a>
           
-          <a href="/movie-club-app/stats.php?mine=1" class="dropdown-item">⭐ <?= e(t('your_ratings')) ?></a>
-          <a href="/movie-club-app/profile.php?settings=1" class="dropdown-item">⚙️ <?= e(t('account_settings')) ?></a>
+          <a href="<?= ADDRESS ?>/stats.php?mine=1" class="dropdown-item">⭐ <?= e(t('your_ratings')) ?></a>
+          <a href="<?= ADDRESS ?>/profile.php?settings=1" class="dropdown-item">⚙️ <?= e(t('account_settings')) ?></a>
           <div class="dropdown-divider"></div>
-          <a href="/movie-club-app/logout.php" class="dropdown-item">🚪 <?= e(t('sign_out')) ?></a>
+          <a href="<?= ADDRESS ?>/logout.php" class="dropdown-item">🚪 <?= e(t('sign_out')) ?></a>
         </div>
       </div>
       <div class="nav-primary">
@@ -78,7 +78,7 @@ $calendar_year = (int)date('Y');
       <div class="competitions-dropdown-wrap">
         <button id="competitionsBtn" class="lang-button competitions-btn"><?= e(t('all_competitions')) ?> ▾</button>
         <div id="competitionsMenu" class="dropdown-menu competitions-menu">
-          <a class="dropdown-item" href="/movie-club-app/stats.php?sheet=votes&year=<?= $calendar_year ?>"><?= e(t('all_competitions')) ?></a>
+          <a class="dropdown-item" href="<?= ADDRESS ?>/stats.php?sheet=votes&year=<?= $calendar_year ?>"><?= e(t('all_competitions')) ?></a>
           <?php
             // Build list of competition years from both `competitions` table AND distinct years seen in `votes`.
             // This ensures the dropdown shows every year created on the site (either explicitly created or inferred from votes).
@@ -112,17 +112,17 @@ $calendar_year = (int)date('Y');
           <?php foreach ($competitions as $cy): ?>
             <div class="competition-year-row">
               <!-- Primary action: navigate to stats for the selected year -->
-              <a class="dropdown-item competition-year-link" href="/movie-club-app/stats.php?year=<?= (int)$cy ?>"><?= (int)$cy ?><?= $cy === $act ? ' (active)' : '' ?></a>
+              <a class="dropdown-item competition-year-link" href="<?= ADDRESS ?>/stats.php?year=<?= (int)$cy ?>"><?= (int)$cy ?><?= $cy === $act ? ' (active)' : '' ?></a>
               <?php if (function_exists('is_admin') && is_admin()): ?>
                 <!-- Admin controls: quick set-active, rename, delete -->
-                <form method="post" action="/movie-club-app/admin_competitions.php" class="admin-form-inline">
+                <form method="post" action="<?= ADDRESS ?>/admin_competitions.php" class="admin-form-inline">
                   <?= csrf_field() ?>
                   <input type="hidden" name="action" value="set_active">
                   <input type="hidden" name="year" value="<?= (int)$cy ?>">
                   <button type="submit" class="dropdown-item admin-btn admin-btn-star" title="Set active year">⭐</button>
                 </form>
                 <button type="button" class="dropdown-item admin-btn admin-btn-edit" onclick="renameCompetition(<?= (int)$cy ?>)">✏️</button>
-                <form method="post" action="/movie-club-app/admin_competitions.php" class="admin-form-inline inline-block">
+                <form method="post" action="<?= ADDRESS ?>/admin_competitions.php" class="admin-form-inline inline-block">
                   <?= csrf_field() ?>
                   <input type="hidden" name="action" value="delete">
                   <input type="hidden" name="year" value="<?= (int)$cy ?>">
@@ -133,7 +133,7 @@ $calendar_year = (int)date('Y');
           <?php endforeach; ?>
           <?php if (function_exists('is_admin') && is_admin()): ?>
             <div class="dropdown-divider"></div>
-            <form method="post" action="/movie-club-app/admin_competitions.php" class="admin-form-flex">
+            <form method="post" action="<?= ADDRESS ?>/admin_competitions.php" class="admin-form-flex">
               <?= csrf_field() ?>
               <input type="hidden" name="action" value="create">
               <button type="submit" class="dropdown-item admin-btn-create">🎉 Create & set next year</button>
@@ -142,15 +142,15 @@ $calendar_year = (int)date('Y');
         </div>
       </div>
       <?php endif; ?>
-      | <a href="/movie-club-app/index.php"> <?= e(t('home')) ?></a>
+      | <a href="<?= ADDRESS ?>/index.php"> <?= e(t('home')) ?></a>
       </div>
 
       <?php $printed_links = true; ?>
     <?php else: ?>
       <?php if (!$is_auth_page): ?>
-        <a href="/movie-club-app/register.php"><?= e(t('register')) ?></a> |
-        <a href="/movie-club-app/login.php"><?= e(t('login')) ?></a>
-        | <a href="/movie-club-app/index.php"> <?= e(t('home')) ?></a>
+        <a href="<?= ADDRESS ?>/register.php"><?= e(t('register')) ?></a> |
+        <a href="<?= ADDRESS ?>/login.php"><?= e(t('login')) ?></a>
+        | <a href="<?= ADDRESS ?>/index.php"> <?= e(t('home')) ?></a>
         <?php $printed_links = true; ?>
       <?php endif; ?>
     <?php endif; ?>
@@ -179,7 +179,7 @@ $calendar_year = (int)date('Y');
     </div>
   </nav>
 </header>
-    <a class="mobile-item" href="/movie-club-app/stats.php?sheet=votes&year=<?= $calendar_year ?>"><?= e(t('all_competitions')) ?></a>
+    <a class="mobile-item" href="<?= ADDRESS ?>/stats.php?sheet=votes&year=<?= $calendar_year ?>"><?= e(t('all_competitions')) ?></a>
     <?php
       $m_competitions = [];
       $m_hasCompetitionsTable = $mysqli->query("SHOW TABLES LIKE 'competitions'")->fetch_all(MYSQLI_NUM);
@@ -200,19 +200,19 @@ $calendar_year = (int)date('Y');
       rsort($m_competitions, SORT_NUMERIC);
     ?>
     <?php foreach ($m_competitions as $cy): ?>
-      <a class="mobile-item" href="/movie-club-app/stats.php?year=<?= (int)$cy ?>"><?= (int)$cy ?><?= $cy === $m_act ? ' (active)' : '' ?></a>
+      <a class="mobile-item" href="<?= ADDRESS ?>/stats.php?year=<?= (int)$cy ?>"><?= (int)$cy ?><?= $cy === $m_act ? ' (active)' : '' ?></a>
     <?php endforeach; ?>
   </div>
   <hr class="mobile-sep" />
 
   <div class="mobile-heading">Account</div>
   <?php if (current_user()): ?>
-    <a class="mobile-item" href="/movie-club-app/profile.php">👤 <?= e(t('your_profile')) ?></a>
-    <a class="mobile-item" href="/movie-club-app/stats.php?mine=1">⭐ <?= e(t('your_ratings')) ?></a>
-    <a class="mobile-item mobile-signout" href="/movie-club-app/logout.php">🚪 <?= e(t('sign_out')) ?></a>
+    <a class="mobile-item" href="<?= ADDRESS ?>/profile.php">👤 <?= e(t('your_profile')) ?></a>
+    <a class="mobile-item" href="<?= ADDRESS ?>/stats.php?mine=1">⭐ <?= e(t('your_ratings')) ?></a>
+    <a class="mobile-item mobile-signout" href="<?= ADDRESS ?>/logout.php">🚪 <?= e(t('sign_out')) ?></a>
   <?php else: ?>
-    <a class="mobile-item" href="/movie-club-app/register.php"><?= e(t('register')) ?></a>
-    <a class="mobile-item" href="/movie-club-app/login.php"><?= e(t('login')) ?></a>
+    <a class="mobile-item" href="<?= ADDRESS ?>/register.php"><?= e(t('register')) ?></a>
+    <a class="mobile-item" href="<?= ADDRESS ?>/login.php"><?= e(t('login')) ?></a>
   <?php endif; ?>
 <script>
   // User dropdown menu toggle
@@ -283,7 +283,7 @@ $calendar_year = (int)date('Y');
     if (!confirm('Rename ' + oldYear + ' to ' + newYear + '?')) return;
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = '/movie-club-app/admin_competitions.php';
+    form.action = '<?= ADDRESS ?>/admin_competitions.php';
     form.style.display = 'none';
     const csrf = document.createElement('input'); csrf.type='hidden'; csrf.name='csrf_token'; csrf.value='<?= $_SESSION['csrf_token'] ?? '' ?>'; form.appendChild(csrf);
     const a = document.createElement('input'); a.type='hidden'; a.name='action'; a.value='rename'; form.appendChild(a);

@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['movie_id'])) {
     
     if (session_status() !== PHP_SESSION_ACTIVE) session_start();
     $_SESSION['flash'] = $message;
-    redirect('/movie-club-app/watchlist.php');
+    redirect(ADDRESS.'/watchlist.php');
 }
 
 // Get user's watchlist
@@ -64,21 +64,21 @@ include __DIR__.'/includes/header.php';
     <div class="empty-state">
       <h2><?= e(t('watchlist_empty')) ?></h2>
       <p><?= e(t('watchlist_empty_desc')) ?></p>
-      <a href="/movie-club-app/index.php" class="btn"><?= e(t('browse_movies')) ?></a>
+      <a href="<?= ADDRESS ?>/index.php" class="btn"><?= e(t('browse_movies')) ?></a>
     </div>
   <?php else: ?>
     <div class="watchlist-grid">
       <?php foreach ($watchlist_items as $item): ?>
         <div class="watchlist-card">
-          <?php $poster = $item['poster_url']; if(!$poster || $poster==='N/A'){ $poster='/movie-club-app/assets/img/no-poster.svg'; } ?>
-          <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($item['title']) ?>" onerror="this.onerror=null;this.src='/movie-club-app/assets/img/no-poster.svg';">
+          <?php $poster = $item['poster_url']; if(!$poster || $poster==='N/A'){ $poster=ADDRESS.'/assets/img/no-poster.svg'; } ?>
+          <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($item['title']) ?>" onerror="this.onerror=null;this.src=ADDRESS.'/assets/img/no-poster.svg';">
           <div class="watchlist-card-content">
             <h3><?= htmlspecialchars($item['title']) ?></h3>
             <p><?= htmlspecialchars($item['year']) ?></p>
             <p class="watchlist-date">Added: <?= date('M d, Y', strtotime($item['added_at'])) ?></p>
             
             <div class="watchlist-actions">
-              <a href="/movie-club-app/vote.php?movie_id=<?= $item['movie_id'] ?>" class="btn"><?= e(t('rate')) ?></a>
+              <a href="<?= ADDRESS ?>/vote.php?movie_id=<?= $item['movie_id'] ?>" class="btn"><?= e(t('rate')) ?></a>
               <form method="post" class="watchlist-form-inline">
                 <?= csrf_field() ?>
                 <input type="hidden" name="movie_id" value="<?= $item['movie_id'] ?>">

@@ -5,7 +5,7 @@ require_once __DIR__ . '/includes/helper.php';
 
 // Must be POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    redirect('/movie-club-app/index.php');
+    redirect(ADDRESS.'/index.php');
 }
 
 require_admin(); // ensures logged-in admin and redirects otherwise
@@ -20,7 +20,7 @@ global $mysqli;
 if (!isset($mysqli) || !$mysqli) {
     if (session_status() !== PHP_SESSION_ACTIVE) session_start();
     $_SESSION['flash'] = 'Database connection not available';
-    redirect('/movie-club-app/settings.php');
+    redirect(ADDRESS.'/settings.php');
 }
 
 // Ensure settings table exists. If not, create it (safe, idempotent).
@@ -49,7 +49,7 @@ try {
 }
 
 // redirect back to referer or settings
-$back = $_SERVER['HTTP_REFERER'] ?? '/movie-club-app/settings.php';
+$back = $_SERVER['HTTP_REFERER'] ?? ADDRESS.'/settings.php';
 redirect($back);
 
 ?>

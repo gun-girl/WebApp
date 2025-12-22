@@ -20,7 +20,7 @@ function login_user(array $user): void {
 function logout_user(): void { session_destroy(); }
 
 function require_login(): void {
-    if (!current_user()) { redirect('/movie-club-app/login.php'); }
+    if (!current_user()) { redirect(ADDRESS.'/login.php'); }
 }
 
 function is_admin(): bool {
@@ -30,7 +30,7 @@ function is_admin(): bool {
 
 function require_admin(): void {
     require_login();
-    if (!is_admin()) { redirect('/movie-club-app/index.php'); }
+    if (!is_admin()) { redirect(ADDRESS.'/index.php'); }
 }
 function csrf_field() {
     if (session_status() !== PHP_SESSION_ACTIVE) {

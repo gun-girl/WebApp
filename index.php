@@ -181,7 +181,7 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
 
   <?php if ($searchRequested): ?>
     <section class="search-screen">
-      <form class="search-screen__form" method="get" action="/movie-club-app/index.php" id="searchForm">
+      <form class="search-screen__form" method="get" action="<?= ADDRESS ?>/index.php" id="searchForm">
         <input id="search-page-field" type="text" name="search" placeholder="<?= e(t('search_movies')) ?>" value="<?= htmlspecialchars($searchTerm) ?>"<?= $searchTerm === '' ? ' autofocus' : '' ?>>
         <button type="submit"><?= e(t('search')) ?></button>
       </form>
@@ -216,7 +216,7 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
             <?php $badgeKey = competition_badge_key($movie); $in = ($badgeKey === 'badge_in_competition'); ?>
             <div class="comp-badge <?= $in ? 'in' : 'out' ?>"><?= e(t($badgeKey)) ?></div>
             <?php $poster = $movie['poster_url']; ?>
-            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src='/movie-club-app/assets/img/no-poster.svg';">
+            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src=ADDRESS.'/assets/img/no-poster.svg';">
             <div class="movie-info">
               <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
               <div class="movie-year"><?= htmlspecialchars($movie['year']) ?></div>
@@ -235,7 +235,7 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
             <div class="movie-card">
               <?php $badgeKey = competition_badge_key($movie); $in = ($badgeKey === 'badge_in_competition'); ?>
               <div class="comp-badge <?= $in ? 'in' : 'out' ?>"><?= e(t($badgeKey)) ?></div>
-              <img src="/movie-club-app/assets/img/no-poster.svg" alt="<?= htmlspecialchars($movie['title']) ?>">
+              <img src="<?= ADDRESS ?>/assets/img/no-poster.svg" alt="<?= htmlspecialchars($movie['title']) ?>">
               <div class="movie-info">
                 <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
                 <div class="movie-year"><?= htmlspecialchars($movie['year']) ?></div>
@@ -265,8 +265,8 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
         <div id="rowIn" class="movie-row">
         <?php foreach ($inCompetition as $movie): ?>
           <div class="movie-card">
-            <?php $poster = ($movie['poster_url'] ?? null); if (!$poster || $poster==='N/A') $poster='/movie-club-app/assets/img/no-poster.svg'; ?>
-            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src='/movie-club-app/assets/img/no-poster.svg';">
+            <?php $poster = ($movie['poster_url'] ?? null); if (!$poster || $poster==='N/A') $poster=ADDRESS.'/assets/img/no-poster.svg'; ?>
+            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src=ADDRESS.'/assets/img/no-poster.svg';">
             <div class="movie-info">
               <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
               <div class="movie-year"><?= htmlspecialchars($movie['year']) ?></div>
@@ -288,8 +288,8 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
         <div id="rowTop" class="movie-row">
         <?php foreach ($topRated as $movie): ?>
           <div class="movie-card">
-            <?php $poster = ($movie['poster_url'] ?? null); if (!$poster || $poster==='N/A') $poster='/movie-club-app/assets/img/no-poster.svg'; ?>
-            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src='/movie-club-app/assets/img/no-poster.svg';">
+            <?php $poster = ($movie['poster_url'] ?? null); if (!$poster || $poster==='N/A') $poster=ADDRESS.'/assets/img/no-poster.svg'; ?>
+            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src=ADDRESS.'/assets/img/no-poster.svg';">
             <div class="movie-info">
               <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
               <div class="movie-year"><?= htmlspecialchars($movie['year']) ?></div>
@@ -311,8 +311,8 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
         <div id="rowRec" class="movie-row">
         <?php foreach ($recent as $movie): ?>
           <div class="movie-card">
-            <?php $poster = ($movie['poster_url'] ?? null); if (!$poster || $poster==='N/A') $poster='/movie-club-app/assets/img/no-poster.svg'; ?>
-            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src='/movie-club-app/assets/img/no-poster.svg';">
+            <?php $poster = ($movie['poster_url'] ?? null); if (!$poster || $poster==='N/A') $poster=ADDRESS.'/assets/img/no-poster.svg'; ?>
+            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src=ADDRESS.'/assets/img/no-poster.svg';">
             <div class="movie-info">
               <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
               <div class="movie-year"><?= htmlspecialchars($movie['year']) ?></div>

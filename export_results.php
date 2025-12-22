@@ -29,7 +29,7 @@ if (PHP_SAPI === 'cli') {
     }
 }
 if (!$bypass_admin && !is_admin()) {
-    redirect('/movie-club-app/index.php');
+    redirect(ADDRESS.'/index.php');
 }
 // Prepare year filtering and detect available columns
 $voteCols = $mysqli->query("SHOW COLUMNS FROM votes")->fetch_all(MYSQLI_ASSOC);

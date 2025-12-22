@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $stmt->execute();
       $id = $stmt->insert_id;
       login_user(['id' => $id, 'username' => $username, 'email' => $email, 'role' => $role]);
-      redirect('/movie-club-app/index.php');
+      redirect(ADDRESS.'/index.php');
     } catch (mysqli_sql_exception $e) {
       $errors[] = str_contains($e->getMessage(), 'Duplicate') ? t('username_email_exists') : 'DB error';
     }
@@ -60,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <input type="password" name="password" placeholder="<?= t('password_placeholder') ?>" required>
         </label>
         <button type="submit"><?= t('create_account') ?></button>
-        <a href="/movie-club-app/login.php" class="btn secondary"><?= t('already_have_account') ?></a>
+        <a href="<?= ADDRESS ?>/login.php" class="btn secondary"><?= t('already_have_account') ?></a>
       </form>
     </div>
   </div>

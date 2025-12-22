@@ -6,23 +6,38 @@ $errors=[];
 if ($_SERVER['REQUEST_METHOD']==='POST') {
   verify_csrf();
   $email=trim($_POST['email']??''); $pass=$_POST['password']??'';
-  // Be backward-compatible if the 'role' column hasn't been added yet
-  $hasRole = false;
-  try {
-    $resCols = $mysqli->query("SHOW COLUMNS FROM users LIKE 'role'");
-    $hasRole = $resCols && $resCols->num_rows > 0;
-  } catch (Throwable $e) { /* ignore */ }
+  
+  // Check database connection
+  if (!$mysqli->ping()) {
+    $errors[] = 'Database connection failed. Please try again later.';
+  } else {
+    // Be backward-compatible if the 'role' column hasn't been added yet
+    $hasRole = false;
+    try {
+      $resCols = $mysqli->query("SHOW COLUMNS FROM users LIKE 'role'");
+      $hasRole = $resCols && $resCols->num_rows > 0;
+    } catch (Throwable $e) { /* ignore */ }
 
-  $sql = $hasRole
-    ? "SELECT id,username,email,password_hash,role FROM users WHERE email=?"
-    : "SELECT id,username,email,password_hash FROM users WHERE email=?";
-  $stmt=$mysqli->prepare($sql);
-  $stmt->bind_param('s',$email); $stmt->execute();
-  $res=$stmt->get_result()->fetch_assoc();
-  if ($res && !$hasRole) { $res['role'] = 'user'; }
-  if ($res && password_verify($pass,$res['password_hash'])) {
-  login_user($res); redirect('/movie-club-app/index.php');
-  } else $errors[]=t('invalid_credentials');
+    $sql = $hasRole
+      ? "SELECT id,username,email,password_hash,role FROM users WHERE LOWER(email)=LOWER(?)"
+      : "SELECT id,username,email,password_hash FROM users WHERE LOWER(email)=LOWER(?)";
+    $stmt=$mysqli->prepare($sql);
+    $stmt->bind_param('s',$email); 
+    $stmt->execute();
+    $res=$stmt->get_result()->fetch_assoc();
+    
+    if (!$res) {
+      $errors[] = 'No account found with that email address.';
+    } elseif (!$hasRole) {
+      $res['role'] = 'user';
+    }
+    
+    if ($res && password_verify($pass,$res['password_hash'])) {
+      login_user($res); redirect(ADDRESS.'/index.php');
+    } elseif ($res) {
+      $errors[] = 'Incorrect password.';
+    }
+  }
 }
 ?>
 <?php include __DIR__.'/includes/header.php'; ?>
@@ -43,7 +58,10 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
           <input type="password" name="password" placeholder="<?= t('password_placeholder') ?>" required>
         </label>
         <button type="submit"><?= t('login') ?></button>
-        <a href="/movie-club-app/register.php" class="btn secondary"><?= t('create_account') ?></a>
+        <div style="margin-top: 1rem; text-align: center;">
+          <a href="<?= ADDRESS ?>/reset_password.php" style="font-size: 0.9rem; color: #666;"><?= t('forgot_password') ?? 'Forgot Password?' ?></a>
+        </div>
+        <a href="<?= ADDRESS ?>/register.php" class="btn secondary"><?= t('create_account') ?></a>
       </form>
     </div>
   </div>

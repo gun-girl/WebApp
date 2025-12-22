@@ -4,7 +4,7 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/helper.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    redirect('/movie-club-app/index.php');
+    redirect(ADDRESS.'/index.php');
 }
 
 require_admin();
@@ -14,7 +14,7 @@ global $mysqli;
 if (!isset($mysqli) || !$mysqli) {
     if (session_status() !== PHP_SESSION_ACTIVE) session_start();
     $_SESSION['flash'] = 'Database connection not available';
-    redirect('/movie-club-app/index.php');
+    redirect(ADDRESS.'/index.php');
 }
 
 $action = $_POST['action'] ?? '';
@@ -121,7 +121,7 @@ try {
     $_SESSION['flash'] = 'DB error: ' . $e->getMessage();
 }
 
-$back = $_SERVER['HTTP_REFERER'] ?? '/movie-club-app/stats.php';
+$back = $_SERVER['HTTP_REFERER'] ?? ADDRESS.'/stats.php';
 redirect($back);
 
 ?>

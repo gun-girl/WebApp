@@ -3,7 +3,7 @@ require_once __DIR__.'/includes/auth.php';
 require_once __DIR__.'/includes/lang.php';
 
 if (!function_exists('is_admin') || !is_admin()) {
-    redirect('/movie-club-app/index.php');
+    redirect(ADDRESS.'/index.php');
 }
 
 $errors = [];
