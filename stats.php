@@ -257,8 +257,8 @@ if (($sheet === 'votes') || ($sheet === 'raw' && function_exists('is_admin') && 
     $numExpr = implode('+',$numParts);
     $denExpr = implode('+',$denParts);
   }
-  $sqlRaw = "SELECT v.id as vote_id, v.created_at, u.username, m.title, m.year,
-        vd.competition_status, vd.category, vd.where_watched, vd.season_number, vd.episode_number,
+  $sqlRaw = "SELECT v.id as vote_id, v.user_id, v.created_at, u.username, m.id AS movie_id, m.title, m.year,
+        vd.competition_status, vd.category, vd.where_watched, vd.season_number,
         vd.acting_or_doc_theme, vd.casting_research_art, vd.writing, vd.direction, vd.emotional_involvement, vd.novelty, vd.sound,
         " . ($scoreCols ? "($numExpr) AS total_score, ($denExpr) AS non_empty_count, (($numExpr)/NULLIF($denExpr,0)) AS calc_rating" : "NULL AS total_score, NULL AS non_empty_count, NULL AS calc_rating") . "
     FROM votes v
@@ -280,16 +280,14 @@ if (($sheet === 'votes') || ($sheet === 'raw' && function_exists('is_admin') && 
       <table class="raw-table">
       <thead>
         <tr>
-          <th>ID</th>
-          <th><?= t('when') ?></th>
+          <th><?= t('edit') ?></th>
           <th><?= t('username') ?></th>
-          <th><?= t('movie') ?></th>
           <th><?= t('year') ?></th>
           <th><?= t('competition_status') ?></th>
           <th><?= t('category') ?></th>
           <th><?= t('where_watched') ?></th>
           <th><?= t('season') ?></th>
-          <th><?= t('episode') ?></th>
+          <?php /* episode removed for series voting */ ?>
           <?php foreach($scoreCols as $col): ?>
             <th><?= t($col) ?: ucfirst(str_replace('_',' ', e($col))) ?></th>
           <?php endforeach; ?>
@@ -300,16 +298,19 @@ if (($sheet === 'votes') || ($sheet === 'raw' && function_exists('is_admin') && 
       <tbody>
       <?php foreach($rawRows as $r): ?>
         <tr>
-          <td><?= (int)$r['vote_id'] ?></td>
-          <td><?= e($r['created_at']) ?></td>
+          <td>
+            <?php if (isset($user) && (int)$user['id'] === (int)($r['user_id'] ?? 0)): ?>
+              <a href="<?= ADDRESS ?>/vote.php?edit=<?= (int)$r['vote_id'] ?>" style="color:#f6c90e;text-decoration:none;font-weight:600;"><?= t('edit') ?></a>
+            <?php else: ?>
+              
+            <?php endif; ?>
+          </td>
           <td><?= e($r['username']) ?></td>
-          <td><?= e($r['title']) ?></td>
           <td><?= e($r['year']) ?></td>
           <td><?= e($r['competition_status']) ?></td>
           <td><?= e($r['category']) ?></td>
           <td><?= e($r['where_watched']) ?></td>
           <td><?= e($r['season_number']) ?></td>
-          <td><?= e($r['episode_number']) ?></td>
           <?php foreach($scoreCols as $col): ?>
             <td><?= isset($r[$col]) && $r[$col] !== null ? number_format($r[$col],1) : '' ?></td>
           <?php endforeach; ?>

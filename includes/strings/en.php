@@ -49,6 +49,7 @@ return [
     'percent_10s' => '% of 10s',
     'adjectives' => 'Adjectives',
     'views' => 'Views',
+    'view' => 'View',
     'all_fields_required' => 'All fields are required',
     'username_email_exists' => 'Username or email already exists',
     'search_movies' => 'Search movies...',
@@ -142,10 +143,15 @@ return [
     , 'episode_number' => 'Episode'
     , 'season_placeholder' => 'Season #'
     , 'episode_placeholder' => 'Episode #'
-    , 'season_episode' => 'Season / Episode'
-    , 'season_episode_helper' => 'If voting for a specific episode of a series or miniseries, fill these fields.'
+    , 'season_episode' => 'Season'
+    , 'season_episode_helper' => 'For series/miniseries, enter the season you are rating (episodes not needed).'
     , 'movie_results' => 'Movie Results'
     , 'raw_votes' => 'All Votes (raw)'
     , 'sheet_movies' => 'Results 2024'
     , 'sheet_raw' => 'Votes 2024'
+    , 'already_voted_title' => "You've Already Voted"
+    , 'already_voted_message' => 'You have already submitted a vote for %s in this competition.'
+    , 'already_voted_hint' => 'You can edit your vote until the competition ends.'
+    , 'edit_vote' => 'Edit Vote'
+    , 'back' => 'Back'
 ];

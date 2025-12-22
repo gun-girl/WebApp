@@ -131,7 +131,7 @@ include __DIR__.'/includes/header.php';
     </div>
 
     <div class="profile-box">
-      <h2>✏️ <?= t('edit_profile') ?></h2>
+      <h2> <?= t('edit_profile') ?></h2>
       <form method="post">
         <?= csrf_field() ?>
         <label><?= t('username') ?>

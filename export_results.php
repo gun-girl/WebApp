@@ -48,7 +48,7 @@ if ($hasCompetitionYear) {
 
 // Inspect vote_details to find extra columns to include in exports
 $vdColsAll = $mysqli->query("SHOW COLUMNS FROM vote_details")->fetch_all(MYSQLI_ASSOC);
-$standardVd = ['id','vote_id','adjective','category','where_watched','competition_status','writing','direction','acting_or_doc_theme','emotional_involvement','novelty','casting_research_art','sound','season_number','episode_number','year'];
+$standardVd = ['id','vote_id','adjective','category','where_watched','competition_status','writing','direction','acting_or_doc_theme','emotional_involvement','novelty','casting_research_art','sound','season_number','year'];
 $extraVd = [];
 foreach ($vdColsAll as $c) {
     if (!in_array($c['Field'], $standardVd)) {
@@ -200,7 +200,7 @@ foreach ($votes as $vote) {
         if (isset($vote[$col]) && $vote[$col] !== '') { $total += (float)$vote[$col]; $countNonNull++; }
     }
     emit_cell($total,'Number'); emit_cell($countNonNull ? number_format($total/($countNonNull?:1),2,'.','') : '','Number');
-    emit_cell($vote['adjective'] ?? ''); emit_cell($vote['username'] ?? ''); emit_cell($vote['year'] ?? '','Number'); emit_cell($vote['season_number'] ?? ''); emit_cell($vote['episode_number'] ?? '');
+    emit_cell($vote['adjective'] ?? ''); emit_cell($vote['username'] ?? ''); emit_cell($vote['year'] ?? '','Number'); emit_cell($vote['season_number'] ?? '');
     // extra columns
     foreach ($extraVd as $excol) { emit_cell($vote[$excol] ?? ''); }
     echo '</Row>';

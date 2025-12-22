@@ -30,6 +30,7 @@ return [
     'percent_10s' => '% di 10',
     'adjectives' => 'Aggettivi',
     'views' => 'Visioni',
+    'view' => 'Vedi',
     'download_excel' => 'Scarica Excel',
     'view_my_votes' => 'Vedi i miei voti',
     'profile' => 'Profilo',
@@ -132,8 +133,8 @@ return [
     , 'episode_number' => 'Episodio'
     , 'season_placeholder' => 'Stagione #'
     , 'episode_placeholder' => 'Episodio #'
-    , 'season_episode' => 'Stagione / Episodio'
-    , 'season_episode_helper' => 'Se stai votando per un episodio specifico di una serie o miniserie, compila questi campi.'
+    , 'season_episode' => 'Stagione'
+    , 'season_episode_helper' => 'Per serie/miniserie indica solo la stagione che stai valutando (episodi non necessari).'
     , 'movie_results' => 'Risultati Film'
     , 'raw_votes' => 'Tutti i voti (grezzi)'
     , 'sheet_movies' => 'Risultati 2024'
@@ -146,4 +147,9 @@ return [
     , 'sheet_titles' => 'Elenco Titoli'
     , 'sheet_adjectives' => 'Elenco Aggettivi'
     , 'sheet_finalists_2023' => 'Finalisti 2023'
+    , 'already_voted_title' => 'Hai già votato'
+    , 'already_voted_message' => 'Hai già inviato un voto per %s in questa competizione.'
+    , 'already_voted_hint' => 'Puoi modificare il tuo voto finché la competizione non termina.'
+    , 'edit_vote' => 'Modifica voto'
+    , 'back' => 'Indietro'
 ];
