@@ -1,81 +1,172 @@
 <?php
 require_once __DIR__.'/../config.php';
-// get_movie_or_fetch(): Given a text query, returns matching movies from the local DB.
-// If a query has not been attempted today and an OMDb API key is configured,
-// it queries OMDb for movies/series, stores results in the local DB, then returns rows.
-function get_movie_or_fetch($query): array {
-  global $mysqli, $OMDB_API_KEY;
-  // Check if this query was already attempted today
-  $stmt = $mysqli->prepare("SELECT 1 FROM query_cache WHERE query = ? AND DATE(date) = CURDATE() LIMIT 1");
-  $stmt->bind_param('s', $query);
-  $stmt->execute();
-  $triedToday = (bool) $stmt->get_result()->fetch_row();
 
-  // If attemted today, check the local cache for matching results
-  if ($triedToday) {
-    $check = $mysqli->prepare("SELECT * FROM movies WHERE title LIKE CONCAT('%',?,'%') ORDER BY year DESC LIMIT 30");
+class OmdbApiClient {
+  private $apiKey;
+  private $mysqli;
+  
+  public function __construct($apiKey, $mysqli) {
+    $this->apiKey = $apiKey;
+    $this->mysqli = $mysqli;
+  }
+  
+  public function getKey() {
+    return $this->apiKey;
+  }
+  
+  public function isConfigured() {
+    return !empty($this->apiKey);
+  }
+  
+  public function search($query): array {
+    error_log("[OmdbApiClient] Starting search for: '$query'");
+    
+    // STEP 1: Check if we already have this movie/series in database
+    $check = $this->mysqli->prepare("SELECT * FROM movies WHERE title LIKE CONCAT('%',?,'%') ORDER BY year DESC LIMIT 30");
     $check->bind_param('s', $query);
     $check->execute();
-    $rows = $check->get_result()->fetch_all(MYSQLI_ASSOC);
-    if ($rows) return $rows;
-    return [];
-  }
+    $localResults = $check->get_result()->fetch_all(MYSQLI_ASSOC);
+    
+    // If we have results in database, return them immediately (cached from previous API call)
+    if (!empty($localResults)) {
+      error_log("[OmdbApiClient] Found " . count($localResults) . " cached results in database for '$query'");
+      return $localResults;
+    }
+    
+    error_log("[OmdbApiClient] No results in database for '$query'. Calling API...");
+    
+    // STEP 2: Check API configuration
+    if (!$this->isConfigured()) {
+      error_log("[OmdbApiClient] ERROR: API key not configured!");
+      return [];
+    }
 
-  $upsert = $mysqli->prepare("INSERT INTO query_cache (query,date) VALUES (?, NOW()) ON DUPLICATE KEY UPDATE date = NOW()");
-  $upsert->bind_param('s', $query);
-  $upsert->execute();
-  if (!$OMDB_API_KEY) return [];
-
-  // If not, interrogate the OMDb REST API and cache the results
-  $searchTypes = ['movie','series'];
-  $collected = [];
-  foreach ($searchTypes as $t) {
-    $url = "https://www.omdbapi.com/?apikey={$OMDB_API_KEY}&type={$t}&s=".urlencode($query);
-    $json = json_decode(@file_get_contents($url), true);
-    if (!empty($json['Search'])) {
+    // STEP 3: Fetch from OMDb API
+    $searchTypes = ['movie','series','episode'];
+    $found_any = false;
+    
+    foreach ($searchTypes as $t) {
+      $url = "https://www.omdbapi.com/?apikey={$this->apiKey}&type={$t}&s=".urlencode($query);
+      error_log("[OmdbApiClient] API URL: $url");
+      
+      // Use cURL instead of file_get_contents (works on most hosting)
+      $ch = curl_init();
+      curl_setopt($ch, CURLOPT_URL, $url);
+      curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+      curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+      curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+      $response = curl_exec($ch);
+      $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+      $curlError = curl_error($ch);
+      curl_close($ch);
+      
+      error_log("[OmdbApiClient] HTTP Code: $httpCode, cURL Error: $curlError");
+      error_log("[OmdbApiClient] Response: " . substr($response, 0, 500));
+      
+      if ($response === false || $httpCode !== 200) {
+        error_log("[OmdbApiClient] Failed to connect to API for type=$t (HTTP $httpCode, Error: $curlError)");
+        continue;
+      }
+      
+      $json = json_decode($response, true);
+      
+      if (empty($json['Search'])) {
+        error_log("[OmdbApiClient] No results for type=$t. Full response: " . $response);
+        continue;
+      }
+      
+      $found_any = true;
+      error_log("[OmdbApiClient] Found " . count($json['Search']) . " results for type=$t");
+      
+      // Process and save results
       foreach ($json['Search'] as $m) {
-        $imdb = $m['imdbID'];
-        $title = $m['Title'];
-        $rawYear = $m['Year'];
-        $year = (int)substr($rawYear,0,4);
+        $imdb = $m['imdbID'] ?? null;
+        if (!$imdb) continue;
+        
+        $title = $m['Title'] ?? '';
+        $rawYear = $m['Year'] ?? '0000';
+        $year = (int)substr($rawYear, 0, 4);
         $type = $m['Type'] ?? $t;
         $poster = $m['Poster'] ?? null;
-        if ($poster === 'N/A' || $poster === '') { $poster = null; }
-
-        $detailPoster = null;
-        if ($type === 'series' || !$poster) {
-          $detail = fetch_omdb_detail_by_id($imdb);
-            if ($detail) {
-              if (!$poster && !empty($detail['Poster']) && $detail['Poster'] !== 'N/A') {
-                $poster = $detail['Poster'];
-              }
-            }
+        
+        if ($poster === 'N/A' || $poster === '') {
+          $poster = null;
         }
 
-        $stmt = $mysqli->prepare("INSERT INTO movies (imdb_id,title,year,type,poster_url,last_fetched_at)
-        VALUES (?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE title=VALUES(title),year=VALUES(year),type=VALUES(type),poster_url=COALESCE(VALUES(poster_url),poster_url), last_fetched_at=NOW()");
-        $stmt->bind_param('ssiss',$imdb,$title,$year,$type,$poster);
+        // Try to get better poster for series
+        if ($type === 'series' && !$poster) {
+          $detail = $this->getDetail($imdb);
+          if ($detail && !empty($detail['Poster']) && $detail['Poster'] !== 'N/A') {
+            $poster = $detail['Poster'];
+          }
+        }
+
+        // Insert into database
+        $stmt = $this->mysqli->prepare("INSERT INTO movies (imdb_id,title,year,type,poster_url,last_fetched_at)
+          VALUES (?,?,?,?,?,NOW()) 
+          ON DUPLICATE KEY UPDATE 
+          title=VALUES(title),year=VALUES(year),type=VALUES(type),
+          poster_url=COALESCE(VALUES(poster_url),poster_url),last_fetched_at=NOW()");
+        $stmt->bind_param('ssiss', $imdb, $title, $year, $type, $poster);
         $stmt->execute();
-        $collected[$imdb] = true;
+        error_log("[OmdbApiClient] Inserted: $title ($year)");
       }
     }
-  }
 
-  // Return cached after insertion
-  $stmt = $mysqli->prepare("SELECT * FROM movies WHERE title LIKE CONCAT('%',?,'%') ORDER BY year DESC LIMIT 30");
-  $stmt->bind_param('s',$query); $stmt->execute();
-  $movieData = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-  return $movieData;
+    // STEP 4: Only cache if we found results
+    if ($found_any) {
+      // Mark this query as successfully cached today (so we don't re-query the API)
+      $upsert = $this->mysqli->prepare("INSERT INTO query_cache (query,date) VALUES (?, NOW()) ON DUPLICATE KEY UPDATE date = NOW()");
+      $upsert->bind_param('s', $query);
+      $upsert->execute();
+      error_log("[OmdbApiClient] Cached successful search for '$query'");
+    } else {
+      error_log("[OmdbApiClient] No results found from API for '$query' - NOT caching (will retry next time)");
+    }
+
+    // STEP 5: Return results from database after API insert
+    $check = $this->mysqli->prepare("SELECT * FROM movies WHERE title LIKE CONCAT('%',?,'%') ORDER BY year DESC LIMIT 30");
+    $check->bind_param('s', $query);
+    $check->execute();
+    $results = $check->get_result()->fetch_all(MYSQLI_ASSOC);
+    error_log("[OmdbApiClient] Returning " . count($results) . " results");
+    return $results;
+  }
+  
+  public function getDetail($imdbId): ?array {
+    if (!$this->isConfigured()) return null;
+    $url = "https://www.omdbapi.com/?apikey={$this->apiKey}&i=".urlencode($imdbId);
+    
+    // Use cURL instead of file_get_contents
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    $response = curl_exec($ch);
+    curl_close($ch);
+    
+    if ($response === false) return null;
+    
+    $json = json_decode($response, true);
+    if (!empty($json['Response']) && $json['Response'] === 'True') return $json;
+    return null;
+  }
 }
-// fetch_omdb_detail_by_id(): Given an IMDb ID, fetches detailed metadata from OMDb.
-// Returns the decoded JSON array when OMDb responds with success; otherwise null.
+
+// Global instance for OMDb API interactions
+$omdbClient = new OmdbApiClient($OMDB_API_KEY, $mysqli);
+
+// get_movie_or_fetch(): Backward compatible wrapper
+function get_movie_or_fetch($query): array {
+  global $omdbClient;
+  return $omdbClient->search($query);
+}
+
+// fetch_omdb_detail_by_id(): Backward compatible wrapper
 function fetch_omdb_detail_by_id(string $imdb_id): ?array {
-  global $OMDB_API_KEY;
-  if (!$OMDB_API_KEY) return null;
-  $url = "https://www.omdbapi.com/?apikey={$OMDB_API_KEY}&i=".urlencode($imdb_id);
-  $json = json_decode(@file_get_contents($url), true);
-  if (!empty($json['Response']) && $json['Response'] === 'True') return $json;
-  return null;
+  global $omdbClient;
+  return $omdbClient->getDetail($imdb_id);
 }
 
 /**
@@ -83,8 +174,8 @@ function fetch_omdb_detail_by_id(string $imdb_id): ?array {
  * Returns an array of movie data fetched and stored in the database.
  */
 function fetch_recent_releases(int $year = null): array {
-  global $mysqli, $OMDB_API_KEY;
-  if (!$OMDB_API_KEY) return [];
+  global $mysqli, $omdbClient;
+  if (!$omdbClient->isConfigured()) return [];
   if ($year === null) $year = (int)date('Y');
   
   $collected = [];
@@ -94,8 +185,18 @@ function fetch_recent_releases(int $year = null): array {
   foreach ($searches as $term) {
     // Search both movies and series types
     foreach (['movie', 'series'] as $type) {
-      $url = "https://www.omdbapi.com/?apikey={$OMDB_API_KEY}&s={$term}&y={$year}&type={$type}";
-      $json = @json_decode(@file_get_contents($url), true);
+      $url = "https://www.omdbapi.com/?apikey=".$omdbClient->getKey()."&s={$term}&y={$year}&type={$type}";
+      
+      // Use cURL instead of file_get_contents
+      $ch = curl_init();
+      curl_setopt($ch, CURLOPT_URL, $url);
+      curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+      curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+      curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+      $response = curl_exec($ch);
+      curl_close($ch);
+      
+      $json = ($response !== false) ? json_decode($response, true) : null;
       
       if (!empty($json['Search'])) {
         foreach ($json['Search'] as $m) {
