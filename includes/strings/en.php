@@ -87,7 +87,7 @@ return [
     'year' => 'Year',
     'your_rating' => 'Your Rating',
     'when' => 'When',
-    'computed_rating' => 'Computed Rating',
+    'computed_rating' => 'Average',
     'actions' => 'Actions',
     'edit' => 'Edit',
     'celebrating_cinema' => 'Celebrating Cinema Together',

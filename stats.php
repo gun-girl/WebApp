@@ -269,6 +269,21 @@ if (($sheet === 'votes') || ($sheet === 'raw' && function_exists('is_admin') && 
   ORDER BY v.created_at DESC";
     $rawRows = $mysqli->query($sqlRaw)->fetch_all(MYSQLI_ASSOC);
     ?>
+
+    <style>
+      @media (max-width: 768px) {
+        .raw-table th.col-hide,
+        .raw-table td.col-hide { display: none; }
+        .raw-table th.col-total,
+        .raw-table td.col-total { display: none; }
+        .raw-table th.col-computed,
+        .raw-table td.col-computed { display: table-cell; }
+      }
+      @media (min-width: 769px) {
+        .raw-table th.col-computed:last-child,
+        .raw-table td.col-computed:last-child { display: table-cell; }
+      }
+    </style>
     
     <div class="raw-wrapper">
       <h2 class="text-center"><?= t('raw_votes') ?></h2>
@@ -280,46 +295,67 @@ if (($sheet === 'votes') || ($sheet === 'raw' && function_exists('is_admin') && 
       <table class="raw-table">
       <thead>
         <tr>
-          <th><?= t('edit') ?></th>
-          <th><?= t('username') ?></th>
-          <th><?= t('year') ?></th>
-          <th><?= t('competition_status') ?></th>
-          <th><?= t('category') ?></th>
-          <th><?= t('where_watched') ?></th>
-          <th><?= t('season') ?></th>
+          <th class="col-edit"><?= t('edit') ?></th>
+          <th class="col-username"><?= t('username') ?></th>
+          <th class="col-title"><?= t('movie') ?></th>
+          <th class="col-hide"><?= t('year') ?></th>
+          <th class="col-hide"><?= t('competition_status') ?></th>
+          <th class="col-hide"><?= t('category') ?></th>
+          <th class="col-hide"><?= t('where_watched') ?></th>
+          <th class="col-hide"><?= t('season') ?></th>
           <?php /* episode removed for series voting */ ?>
           <?php foreach($scoreCols as $col): ?>
-            <th><?= t($col) ?: ucfirst(str_replace('_',' ', e($col))) ?></th>
+            <th class="col-hide"><?= t($col) ?: ucfirst(str_replace('_',' ', e($col))) ?></th>
           <?php endforeach; ?>
-          <th><?= t('total') ?></th>
-          <th><?= t('computed_rating') ?></th>
+          <th class="col-hide"><?= t('total') ?></th>
+          <th class="col-computed"><?= t('computed_rating') ?></th>
         </tr>
       </thead>
       <tbody>
       <?php foreach($rawRows as $r): ?>
         <tr>
-          <td>
+          <td class="col-edit">
             <?php if (isset($user) && (int)$user['id'] === (int)($r['user_id'] ?? 0)): ?>
               <a href="<?= ADDRESS ?>/vote.php?edit=<?= (int)$r['vote_id'] ?>" style="color:#f6c90e;text-decoration:none;font-weight:600;"><?= t('edit') ?></a>
             <?php else: ?>
               
             <?php endif; ?>
           </td>
-          <td><?= e($r['username']) ?></td>
-          <td><?= e($r['year']) ?></td>
-          <td><?= e($r['competition_status']) ?></td>
-          <td><?= e($r['category']) ?></td>
-          <td><?= e($r['where_watched']) ?></td>
-          <td><?= e($r['season_number']) ?></td>
+          <td class="col-username"><?= e($r['username']) ?></td>
+          <td class="col-title text-left"><?= e($r['title']) ?></td>
+          <td class="col-hide"><?= e($r['year']) ?></td>
+          <td class="col-hide"><?= e($r['competition_status']) ?></td>
+          <td class="col-hide"><?= e($r['category']) ?></td>
+          <td class="col-hide"><?= e($r['where_watched']) ?></td>
+          <td class="col-hide"><?= e($r['season_number']) ?></td>
           <?php foreach($scoreCols as $col): ?>
-            <td><?= isset($r[$col]) && $r[$col] !== null ? number_format($r[$col],1) : '' ?></td>
+            <td class="col-hide"><?= isset($r[$col]) && $r[$col] !== null ? number_format($r[$col],1) : '' ?></td>
           <?php endforeach; ?>
-          <td class="raw-highlight"><?= $r['total_score'] !== null ? number_format($r['total_score'],2) : '' ?></td>
-          <td class="raw-highlight"><?= $r['calc_rating'] !== null ? number_format($r['calc_rating'],2) : '' ?></td>
+          <td class="raw-highlight col-hide"><?= $r['total_score'] !== null ? number_format($r['total_score'],2) : '' ?></td>
+          <td class="raw-highlight col-computed"><?= $r['calc_rating'] !== null ? number_format($r['calc_rating'],2) : '' ?></td>
         </tr>
       <?php endforeach; ?>
       </tbody>
       </table>
+      <script>
+        // On small screens, truncate long titles to 3 words with ellipsis
+        (function(){
+          try {
+            if (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) {
+              var cells = document.querySelectorAll('.raw-table td.col-title');
+              cells.forEach(function(td){
+                var txt = (td.textContent || '').trim();
+                if (!txt) return;
+                td.setAttribute('title', txt); // keep full title as tooltip
+                var words = txt.split(/\s+/);
+                if (words.length > 3) {
+                  td.textContent = words.slice(0,3).join(' ') + '...';
+                }
+              });
+            }
+          } catch(e) {}
+        })();
+      </script>
     </div>
     <div class="sheet-tabs">
       <?php foreach ($tabs as $code => $label): ?>

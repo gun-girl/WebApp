@@ -87,7 +87,7 @@ return [
     'year' => 'Anno',
     'your_rating' => 'Il tuo voto',
     'when' => 'Quando',
-    'computed_rating' => 'Voto calcolato',
+    'computed_rating' => 'Media',
     'actions' => 'Azioni',
     'edit' => 'Modifica',
     'celebrating_cinema' => 'Celebrando il Cinema Insieme',
