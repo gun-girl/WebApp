@@ -24,8 +24,9 @@ $calendar_year = (int)date('Y');
   <!-- Global header -->
   <div class="header-logo">
     <img src="<?= ADDRESS ?>/assets/img/logo.png" alt="<?= e(t('site_title')) ?>" onerror="this.onerror=null;this.src=ADDRESS.'/assets/img/no-poster.svg';">
-    <span class="logo-text">DIVANO D'ORO</span>
+    <span class="logo-text logo-text-desktop">DIVANO D'ORO</span>
   </div>
+  <span class="logo-text logo-text-mobile">DIVANO D'ORO</span>
   <?php if ($show_search): ?>
     <div class="header-center">
       <form class="global-search" method="get" action="<?= ADDRESS ?>/index.php">
@@ -69,6 +70,20 @@ $calendar_year = (int)date('Y');
           
           <a href="<?= ADDRESS ?>/stats.php?mine=1" class="dropdown-item">⭐ <?= e(t('your_ratings')) ?></a>
           <a href="<?= ADDRESS ?>/profile.php?settings=1" class="dropdown-item">⚙️ <?= e(t('account_settings')) ?></a>
+          <div class="dropdown-divider mobile-lang-section"></div>
+          <?php
+            $query_lang = $_GET;
+            $query_en_menu = $query_lang;
+            $query_it_menu = $query_lang;
+            $query_en_menu['lang'] = 'en';
+            $query_it_menu['lang'] = 'it';
+            $parts_lang = parse_url($_SERVER['REQUEST_URI']);
+            $path_lang = $parts_lang['path'] ?? '/';
+            $url_en_menu = $path_lang . '?' . http_build_query($query_en_menu);
+            $url_it_menu = $path_lang . '?' . http_build_query($query_it_menu);
+          ?>
+          <a href="<?= htmlspecialchars($url_en_menu) ?>" class="dropdown-item mobile-lang-item <?= current_lang() === 'en' ? 'active-lang' : '' ?>">🌐 English</a>
+          <a href="<?= htmlspecialchars($url_it_menu) ?>" class="dropdown-item mobile-lang-item <?= current_lang() === 'it' ? 'active-lang' : '' ?>">🌐 Italiano</a>
           <div class="dropdown-divider"></div>
           <a href="<?= ADDRESS ?>/logout.php" class="dropdown-item">🚪 <?= e(t('sign_out')) ?></a>
         </div>

@@ -128,6 +128,22 @@ include __DIR__.'/includes/header.php';
         <a href="stats.php?mine=1&year=<?= (int)$active_year ?>" class="btn"><?= t('view_my_votes') ?></a>
         <a href="logout.php" class="btn btn-logout"><?= t('sign_out') ?></a>
       </div>
+      
+      <div class="profile-lang-section">
+        <h3>🌐 <?= t('language') ?></h3>
+        <div class="lang-buttons">
+          <?php
+            $current = current_lang();
+            $q = $_GET;
+            unset($q['lang']);
+            $qs = http_build_query($q);
+            $url_en = $_SERVER['PHP_SELF'] . '?lang=en' . ($qs ? '&'.$qs : '');
+            $url_it = $_SERVER['PHP_SELF'] . '?lang=it' . ($qs ? '&'.$qs : '');
+          ?>
+          <a href="<?= e($url_en) ?>" class="lang-btn <?= $current === 'en' ? 'active' : '' ?>">English</a>
+          <a href="<?= e($url_it) ?>" class="lang-btn <?= $current === 'it' ? 'active' : '' ?>">Italiano</a>
+        </div>
+      </div>
     </div>
 
     <div class="profile-box">
