@@ -9,7 +9,12 @@ $calendar_year = (int)date('Y');
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#000000">
+<meta name="description" content="A collaborative movie voting and watchlist application">
 <title><?= e(t('site_title')) ?></title>
+<link rel="manifest" href="<?= ADDRESS ?>/manifest.json">
+<link rel="icon" type="image/png" href="<?= ADDRESS ?>/assets/img/logo.png">
+<link rel="apple-touch-icon" href="<?= ADDRESS ?>/assets/img/logo.png">
 <?php $cssPath = __DIR__ . '/../assets/css/style.css'; $cssVer = @filemtime($cssPath) ?: time(); ?>
 <link rel="stylesheet" href="<?= ADDRESS ?>/assets/css/style.css?v=<?= $cssVer ?>">
 </head>
