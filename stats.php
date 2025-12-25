@@ -12,7 +12,7 @@ if (!empty($_SESSION['flash'])) {
   $msg = e($_SESSION['flash']);
   if (!empty($_SESSION['flash_edit_vote_id'])) {
     $editId = (int)$_SESSION['flash_edit_vote_id'];
-    echo "<p class=\"flash\">{$msg} <a class=\"btn\" href=\"vote.php?edit={$editId}\">Edit vote</a></p>";
+    echo "<p class=\"flash\">{$msg} <a class=\"btn\" href=\"vote.php?edit={$editId}\">" . e(t('edit_vote')) . "</a></p>";
     unset($_SESSION['flash_edit_vote_id']);
   } else {
     echo '<p class="flash">' . $msg . '</p>';
@@ -66,7 +66,7 @@ $tabs = [
 <!-- Inline year selector (centered) -->
 <div class="year-selector-wrap">
   <form id="yearForm" method="get" action="<?= ADDRESS ?>/stats.php" class="year-selector-form">
-    <label for="yearSelect" class="year-selector-label">Select year:</label>
+    <label for="yearSelect" class="year-selector-label"><?= e(t('select_year')) ?>:</label>
     <select id="yearSelect" name="year" class="year-selector-select">
       <?php foreach ($years as $y): ?>
         <option value="<?= (int)$y ?>" <?= ((int)$y === (int)$selected_year) ? 'selected' : '' ?>><?= (int)$y ?></option>

@@ -1,6 +1,6 @@
 :root{--gap:1rem;--bg:#111;--fg:#f5f5f5;--card:#1b1b1b;--accent:#ffc107;--accent-hover:#e0a800}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,Roboto,Arial}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:'Futura LT BT','Futura','Trebuchet MS',system-ui,sans-serif}
 header{max-width:none;width:100%;margin:0;padding:1rem 6rem 1rem 2rem;box-sizing:border-box}
 main,footer{max-width:1200px;margin:auto;padding:1rem}
 nav a{color:#9ad;margin-right:.5rem;text-decoration:none}
@@ -60,8 +60,8 @@ button:hover{background:var(--accent-hover)}
 
 /* === Moved from header.php inline styles (2025-11-16) === */
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-	font-family: 'Poppins', system-ui, sans-serif;
+	body {
+	font-family: 'Futura LT BT','Futura','Trebuchet MS',system-ui,sans-serif;
 	background: radial-gradient(circle at top, #0c0c0c, #000);
 	color: #eee;
 	min-height: 100vh;
