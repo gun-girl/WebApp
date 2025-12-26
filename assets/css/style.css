@@ -278,6 +278,32 @@ main{padding-bottom:140px}
 @media (max-width: 640px){ .summary-grid{ grid-template-columns: repeat(2,1fr); } }
 @media (max-width: 420px){ .summary-grid{ grid-template-columns: 1fr; } }
 
+/* Compact stats view (dropdown lists) */
+.stats-dashboard{max-width:900px;margin:0 auto;padding:0 .5rem 5rem}
+.stats-header{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
+.stats-title{margin:0;font-size:1.4rem;color:#f6c90e}
+.stats-sub{margin:.1rem 0 0;color:#aaa;font-size:.95rem}
+.stats-accordion{display:flex;flex-direction:column;gap:.75rem}
+.stat-card{background:#111;border:1px solid #2a2a2a;border-radius:.75rem;overflow:hidden;box-shadow:0 12px 24px rgba(0,0,0,.35)}
+.stat-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.9rem 1rem;background:#181818;color:#f6c90e;border:none;font-weight:700;text-align:left;cursor:pointer}
+.stat-toggle .chevron{transition:transform .2s ease}
+.stat-toggle[aria-expanded="true"] .chevron{transform:rotate(180deg)}
+.stat-content{display:none;padding:.25rem 1rem 1rem;background:#0f0f0f;border-top:1px solid #242424}
+.stat-content.open{display:block}
+.ranked-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.45rem}
+.stat-line{display:flex;align-items:flex-start;gap:.65rem}
+.rank{background:#f6c90e;color:#000;font-weight:800;min-width:34px;text-align:center;border-radius:.45rem;padding:.3rem .45rem;font-size:.9rem}
+.stat-main{flex:1;min-width:0}
+.stat-title{font-weight:700;margin-bottom:.2rem}
+.stat-title .muted{color:#888;font-weight:400}
+.stat-meta{color:#bdbdbd;font-size:.9rem}
+.stat-empty{margin:.6rem 0;color:#888}
+@media (max-width: 640px){
+	.stats-dashboard{padding:0 .25rem 4rem}
+	.stat-toggle{padding:.8rem .85rem;font-size:1rem}
+	.rank{min-width:30px}
+}
+
 /* Home page carousels (moved from index.php) */
 .home-section{max-width:1200px;margin:1rem auto 2rem;padding:0 1rem}
 .home-section h2{color:#f6c90e;margin:.5rem 0 1rem;font-size:1.3rem}
@@ -334,6 +360,16 @@ main{padding-bottom:140px}
 .search-screen__meta{margin-top:1.2rem;color:#f6c90e;font-size:.95rem;font-weight:600;letter-spacing:.03em}
 .search-screen__meta span{display:inline-block;margin-left:.35rem;color:#fff}
 .search-empty{text-align:center;color:#b3b3b3;margin:0 auto 3rem;max-width:520px;font-size:.95rem}
+
+/* Tighten layout on narrow screens so the search bar and button stack cleanly */
+@media (max-width: 540px){
+	.search-screen{margin:1.2rem .7rem 1rem;padding:1.25rem 1.05rem 1.5rem;border-radius:1.1rem}
+	.search-screen__form{flex-direction:column;align-items:stretch;gap:.6rem}
+	.search-screen__form input,
+	.search-screen__form button{width:100%;font-size:.98rem}
+	.search-screen__form button{padding:.72rem 1rem}
+	.search-screen__hint{font-size:.9rem}
+}
 
 /* Search loading indicator */
 .search-loading{margin-top:2rem;text-align:center;color:#f6c90e}
@@ -436,6 +472,19 @@ main{padding-bottom:140px}
 .success{background:#1a5;color:#efe;padding:.8rem;border-radius:.3rem;margin-bottom:1rem}
 .grid-2{display:grid;grid-template-columns:1fr;gap:1rem}
 @media(min-width:720px){.grid-2{grid-template-columns:1fr 1fr}}
+
+/* Profile page: tighter mobile layout & full-width buttons/cards */
+@media (max-width: 640px){
+	.profile-container{padding:1.1rem .85rem;max-width:520px}
+	.profile-box{padding:1.3rem 1.1rem;border-radius:.65rem}
+	.profile-box h2{font-size:1.4rem;margin-bottom:1rem}
+	.profile-info{gap:1rem}
+	.info-card{padding:1.05rem;border-radius:.45rem}
+	.profile-spacing{flex-direction:column;align-items:stretch}
+	.profile-spacing .btn{width:100%;text-align:center}
+	.lang-buttons{flex-direction:column}
+	.lang-btn{width:100%}
+}
 
 /* Watchlist */
 .watchlist-container{max-width:1400px;margin:2rem auto;padding:0 2rem}

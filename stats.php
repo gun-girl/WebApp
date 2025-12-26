@@ -20,8 +20,8 @@ if (!empty($_SESSION['flash'])) {
   unset($_SESSION['flash']);
 }
 
-// Which sheet to show (multi-sheet UI like Excel)
-$sheet = isset($_GET['sheet']) ? $_GET['sheet'] : 'votes';
+// Which sheet to show (multi-sheet UI like Excel). Default to compact lists view.
+$sheet = isset($_GET['sheet']) ? $_GET['sheet'] : 'lists';
 // Always default to actual current year, ignore stored settings
 $currentYear = (int)date('Y');
 // Selected competition year (filter votes). Default to current year or ?year= in URL
@@ -127,7 +127,179 @@ if ($hasCompetitionYear) {
   $subYearV5 = " AND YEAR(v5.created_at) = " . $viewYearInt;
 }
 
+// Reusable rating expression for compact stats (fallback to average of detail columns when rating is absent)
+$vdColsGlobal = $mysqli->query("SHOW COLUMNS FROM vote_details")->fetch_all(MYSQLI_ASSOC);
+$scoreCandidatesGlobal = ['writing','direction','acting_or_doc_theme','emotional_involvement','novelty','casting_research_art','sound'];
+$haveGlobal = array_map(function($c){ return $c['Field']; }, $vdColsGlobal);
+$scoreColsGlobal = array_values(array_filter($scoreCandidatesGlobal, function($c) use ($haveGlobal){ return in_array($c,$haveGlobal); }));
+$numExprGlobal = $denExprGlobal = null;
+if ($scoreColsGlobal) {
+  $numParts = array_map(function($col){ return "COALESCE(vd.`$col`,0)"; }, $scoreColsGlobal);
+  $denParts = array_map(function($col){ return "(vd.`$col` IS NOT NULL)"; }, $scoreColsGlobal);
+  $numExprGlobal = implode('+', $numParts);
+  $denExprGlobal = implode('+', $denParts);
+}
+$ratingExprGlobal = $hasRating ? 'v.rating' : ($numExprGlobal ? "(($numExprGlobal)/NULLIF($denExprGlobal,0))" : 'NULL');
+
 // All users can view voting results (no mine parameter filtering)
+
+// COMPACT LISTS sheet (mobile-friendly dropdown lists)
+if ($sheet === 'lists') {
+  // Best of: ordered by average rating then vote count
+  $bestSql = "SELECT m.id, m.title, m.year, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
+              FROM movies m
+              JOIN votes v ON v.movie_id = m.id
+              LEFT JOIN vote_details vd ON vd.vote_id = v.id
+              " . $whereYearClause . "
+              GROUP BY m.id
+              HAVING votes_count > 0
+              ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
+              LIMIT 25";
+  $bestRows = $mysqli->query($bestSql)->fetch_all(MYSQLI_ASSOC);
+
+  // Most viewed: ordered by view count
+  $viewsSql = "SELECT m.id, m.title, m.year, COUNT(v.id) AS views
+               FROM movies m
+               JOIN votes v ON v.movie_id = m.id
+               LEFT JOIN vote_details vd ON vd.vote_id = v.id
+               " . $whereYearClause . "
+               GROUP BY m.id
+               ORDER BY views DESC, m.title ASC
+               LIMIT 25";
+  $viewsRows = $mysqli->query($viewsSql)->fetch_all(MYSQLI_ASSOC);
+
+  // Jurors: ordered by activity (votes submitted)
+  $judgesSql = "SELECT u.username AS judge, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
+                FROM votes v
+                JOIN users u ON u.id = v.user_id
+                LEFT JOIN vote_details vd ON vd.vote_id = v.id
+                " . $whereYearClause . "
+                GROUP BY u.id, u.username
+                ORDER BY votes_count DESC, u.username ASC
+                LIMIT 25";
+  $judgesRows = $mysqli->query($judgesSql)->fetch_all(MYSQLI_ASSOC);
+  ?>
+
+  <div class="stats-dashboard">
+    <div class="stats-header">
+      <div>
+        <h2 class="stats-title"><?= e(t('stats_compact_title')) ?></h2>
+        <p class="stats-sub"><?= e(str_replace('{year}', $viewYearInt, t('sheet_results'))) ?></p>
+      </div>
+      <div class="nav-buttons">
+        <?php if (function_exists('is_admin') && is_admin()): ?>
+          <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
+        <?php endif; ?>
+      </div>
+    </div>
+
+    <div class="stats-accordion">
+      <div class="stat-card">
+        <button class="stat-toggle" data-target="stat-best" aria-expanded="true">
+          <span><?= t('best_of') ?></span>
+          <span class="chevron">▾</span>
+        </button>
+        <div id="stat-best" class="stat-content open">
+          <?php if ($bestRows): ?>
+            <ol class="ranked-list">
+              <?php foreach ($bestRows as $idx => $row): ?>
+                <li>
+                  <div class="stat-line">
+                    <span class="rank">#<?= $idx + 1 ?></span>
+                    <div class="stat-main">
+                      <div class="stat-title"><?= e($row['title']) ?> <span class="muted">(<?= e($row['year']) ?>)</span></div>
+                      <div class="stat-meta"><?= t('average_rating') ?>: <strong><?= $row['avg_rating'] !== null ? number_format($row['avg_rating'],2) : '' ?></strong> · <?= (int)$row['votes_count'] ?> <?= t('votes') ?></div>
+                    </div>
+                  </div>
+                </li>
+              <?php endforeach; ?>
+            </ol>
+          <?php else: ?>
+            <p class="stat-empty"><?= e(t('no_data_yet')) ?></p>
+          <?php endif; ?>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <button class="stat-toggle" data-target="stat-views" aria-expanded="false">
+          <span><?= t('most_viewed') ?></span>
+          <span class="chevron">▾</span>
+        </button>
+        <div id="stat-views" class="stat-content">
+          <?php if ($viewsRows): ?>
+            <ol class="ranked-list">
+              <?php foreach ($viewsRows as $idx => $row): ?>
+                <li>
+                  <div class="stat-line">
+                    <span class="rank">#<?= $idx + 1 ?></span>
+                    <div class="stat-main">
+                      <div class="stat-title"><?= e($row['title']) ?> <span class="muted">(<?= e($row['year']) ?>)</span></div>
+                      <div class="stat-meta"><?= t('views') ?>: <strong><?= (int)$row['views'] ?></strong></div>
+                    </div>
+                  </div>
+                </li>
+              <?php endforeach; ?>
+            </ol>
+          <?php else: ?>
+            <p class="stat-empty"><?= e(t('no_data_yet')) ?></p>
+          <?php endif; ?>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <button class="stat-toggle" data-target="stat-judges" aria-expanded="false">
+          <span><?= t('jurors') ?></span>
+          <span class="chevron">▾</span>
+        </button>
+        <div id="stat-judges" class="stat-content">
+          <?php if ($judgesRows): ?>
+            <ol class="ranked-list">
+              <?php foreach ($judgesRows as $idx => $row): ?>
+                <li>
+                  <div class="stat-line">
+                    <span class="rank">#<?= $idx + 1 ?></span>
+                    <div class="stat-main">
+                      <div class="stat-title"><?= e($row['judge']) ?></div>
+                      <div class="stat-meta"><?= t('votes') ?>: <strong><?= (int)$row['votes_count'] ?></strong><?php if ($row['avg_rating'] !== null): ?> · <?= t('avg_total') ?>: <strong><?= number_format($row['avg_rating'],2) ?></strong><?php endif; ?></div>
+                    </div>
+                  </div>
+                </li>
+              <?php endforeach; ?>
+            </ol>
+          <?php else: ?>
+            <p class="stat-empty"><?= e(t('no_data_yet')) ?></p>
+          <?php endif; ?>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      var toggles = document.querySelectorAll('.stat-toggle');
+      toggles.forEach(function(btn){
+        btn.addEventListener('click', function(){
+          var targetId = btn.getAttribute('data-target');
+          var target = document.getElementById(targetId);
+          var isOpen = btn.getAttribute('aria-expanded') === 'true';
+          toggles.forEach(function(other){
+            var otherTarget = document.getElementById(other.getAttribute('data-target'));
+            if (other === btn) {
+              other.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+              if (otherTarget) otherTarget.classList.toggle('open', !isOpen);
+            } else {
+              other.setAttribute('aria-expanded', 'false');
+              if (otherTarget) otherTarget.classList.remove('open');
+            }
+          });
+        });
+      });
+    })();
+  </script>
+
+  <?php include __DIR__.'/includes/footer.php';
+  exit;
+}
 
 // RESULTS sheet (aggregated movie results)
 if ($sheet === 'results') {

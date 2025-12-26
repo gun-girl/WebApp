@@ -24,7 +24,10 @@ if (!function_exists('verify_csrf')) {
         global $errors;
         $posted = $_POST['csrf_token'] ?? '';
         if (empty($posted) || !hash_equals($_SESSION['csrf_token'] ?? '', (string)$posted)) {
+            if (!is_array($errors ?? null)) { $errors = []; }
             $errors[] = 'Invalid CSRF token';
+            // Refresh token so the next attempt is guaranteed to have a fresh value
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         }
     }
 }
