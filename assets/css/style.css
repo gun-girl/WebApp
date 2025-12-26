@@ -292,16 +292,47 @@ main{padding-bottom:140px}
 .stat-content.open{display:block}
 .ranked-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.45rem}
 .stat-line{display:flex;align-items:flex-start;gap:.65rem}
+.stat-line-with-poster{align-items:center}
+.stat-poster{width:60px;height:90px;object-fit:cover;border-radius:.4rem;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+.stat-poster-empty{width:60px;height:90px;display:flex;align-items:center;justify-content:center;background:#222;border-radius:.4rem;font-size:1.8rem;flex-shrink:0}
 .rank{background:#f6c90e;color:#000;font-weight:800;min-width:34px;text-align:center;border-radius:.45rem;padding:.3rem .45rem;font-size:.9rem}
 .stat-main{flex:1;min-width:0}
 .stat-title{font-weight:700;margin-bottom:.2rem}
 .stat-title .muted{color:#888;font-weight:400}
 .stat-meta{color:#bdbdbd;font-size:.9rem}
 .stat-empty{margin:.6rem 0;color:#888}
+.stat-nested-card{border-top:1px solid #1a1a1a;margin-top:.5rem}
+.stat-nested-card:first-child{border-top:none;margin-top:0}
+.stat-nested-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.7rem .8rem;background:#141414;color:#d4af37;border:none;font-weight:600;text-align:left;cursor:pointer;transition:background .2s}
+.stat-nested-toggle:hover{background:#1a1a1a}
+.stat-nested-toggle .chevron{transition:transform .2s ease;font-size:.85rem}
+.stat-nested-toggle[aria-expanded="true"] .chevron{transform:rotate(180deg)}
+.stat-nested-content{display:none;padding:.5rem .8rem .8rem;background:#0a0a0a}
+.stat-nested-content.open{display:block}
+.juror-header{display:flex;align-items:center;gap:.5rem}
+.juror-rank{background:#d4af37;color:#000;font-weight:800;min-width:28px;text-align:center;border-radius:.3rem;padding:.2rem .35rem;font-size:.85rem}
+.juror-name{font-weight:700}
+.juror-stats-inline{color:#999;font-size:.85rem;font-weight:400}
+.juror-details{padding:.5rem 0}
+.juror-stats{display:flex;gap:1.5rem;margin-bottom:1rem;padding:.7rem;background:#111;border-radius:.4rem}
+.juror-stat-item{display:flex;flex-direction:column;gap:.2rem}
+.juror-stat-item .stat-label{color:#888;font-size:.85rem}
+.juror-stat-item .stat-value{color:#d4af37;font-weight:700;font-size:1.1rem}
+.juror-titles h4{color:#d4af37;margin:1rem 0 .5rem;font-size:1rem}
+.titles-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.4rem}
+.titles-list li{display:flex;justify-content:space-between;align-items:center;padding:.5rem .6rem;background:#111;border-radius:.3rem;gap:.5rem}
+.title-name{flex:1;min-width:0;color:#fff}
+.title-name .muted{color:#888;font-size:.9rem}
+.title-rating{color:#f6c90e;font-weight:600;font-size:.9rem;white-space:nowrap}
 @media (max-width: 640px){
 	.stats-dashboard{padding:0 .25rem 4rem}
 	.stat-toggle{padding:.8rem .85rem;font-size:1rem}
 	.rank{min-width:30px}
+	.stat-nested-toggle{padding:.65rem .7rem;font-size:.95rem}
+	.juror-stats{flex-direction:column;gap:.8rem}
+	.titles-list li{flex-direction:column;align-items:flex-start;gap:.3rem}
+	.stat-poster{width:50px;height:75px}
+	.stat-poster-empty{width:50px;height:75px;font-size:1.5rem}
 }
 
 /* Home page carousels (moved from index.php) */

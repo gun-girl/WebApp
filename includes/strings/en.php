@@ -160,4 +160,12 @@ return [
     , 'already_voted_hint' => 'You can edit your vote until the competition ends.'
     , 'edit_vote' => 'Edit Vote'
     , 'back' => 'Back'
+    , 'back_to_list' => 'Back to list'
+    , 'vote_details' => 'Vote Details'
+    , 'juror' => 'Juror'
+    , 'overall_rating' => 'Overall Rating'
+    , 'no_votes_yet' => 'No votes yet'
+    , 'no_results_found' => 'No results found for this category'
+    , 'documentaries' => 'Documentaries'
+    , 'voted_titles' => 'Voted Titles'
 ];

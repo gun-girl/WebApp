@@ -158,4 +158,12 @@ return [
     , 'already_voted_hint' => 'Puoi modificare il tuo voto finché la competizione non termina.'
     , 'edit_vote' => 'Modifica voto'
     , 'back' => 'Indietro'
+    , 'back_to_list' => 'Torna alla lista'
+    , 'vote_details' => 'Dettagli Voti'
+    , 'juror' => 'Giurato'
+    , 'overall_rating' => 'Voto Complessivo'
+    , 'no_votes_yet' => 'Nessun voto ancora'
+    , 'no_results_found' => 'Nessun risultato trovato per questa categoria'
+    , 'documentaries' => 'Documentari'
+    , 'voted_titles' => 'Titoli Votati'
 ];

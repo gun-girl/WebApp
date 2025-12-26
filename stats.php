@@ -145,17 +145,40 @@ $ratingExprGlobal = $hasRating ? 'v.rating' : ($numExprGlobal ? "(($numExprGloba
 
 // COMPACT LISTS sheet (mobile-friendly dropdown lists)
 if ($sheet === 'lists') {
-  // Best of: ordered by average rating then vote count
-  $bestSql = "SELECT m.id, m.title, m.year, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
+  // Best of by category: Movies, Series, Documentaries
+  $bestMoviesSql = "SELECT m.id, m.title, m.year, m.type, m.poster_url, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
               FROM movies m
               JOIN votes v ON v.movie_id = m.id
               LEFT JOIN vote_details vd ON vd.vote_id = v.id
-              " . $whereYearClause . "
+              " . $whereYearClause . " AND m.type = 'movie'
               GROUP BY m.id
               HAVING votes_count > 0
               ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
               LIMIT 25";
-  $bestRows = $mysqli->query($bestSql)->fetch_all(MYSQLI_ASSOC);
+  $bestMoviesRows = $mysqli->query($bestMoviesSql)->fetch_all(MYSQLI_ASSOC);
+
+  $bestSeriesSql = "SELECT m.id, m.title, m.year, m.type, m.poster_url, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
+              FROM movies m
+              JOIN votes v ON v.movie_id = m.id
+              LEFT JOIN vote_details vd ON vd.vote_id = v.id
+              " . $whereYearClause . " AND m.type = 'series'
+              GROUP BY m.id
+              HAVING votes_count > 0
+              ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
+              LIMIT 25";
+  $bestSeriesRows = $mysqli->query($bestSeriesSql)->fetch_all(MYSQLI_ASSOC);
+
+  // For documentaries, we'll check for 'movie' type but could add a category field check later
+  $bestDocsSql = "SELECT m.id, m.title, m.year, m.type, m.poster_url, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
+              FROM movies m
+              JOIN votes v ON v.movie_id = m.id
+              LEFT JOIN vote_details vd ON vd.vote_id = v.id
+              " . $whereYearClause . " AND (m.type = 'documentary' OR m.title LIKE '%document%')
+              GROUP BY m.id
+              HAVING votes_count > 0
+              ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
+              LIMIT 25";
+  $bestDocsRows = $mysqli->query($bestDocsSql)->fetch_all(MYSQLI_ASSOC);
 
   // Most viewed: ordered by view count
   $viewsSql = "SELECT m.id, m.title, m.year, COUNT(v.id) AS views
@@ -168,16 +191,31 @@ if ($sheet === 'lists') {
                LIMIT 25";
   $viewsRows = $mysqli->query($viewsSql)->fetch_all(MYSQLI_ASSOC);
 
-  // Jurors: ordered by activity (votes submitted)
-  $judgesSql = "SELECT u.username AS judge, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
+  // Jurors: Get all jurors with their stats
+  $judgesSql = "SELECT u.id AS user_id, u.username AS judge, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
                 FROM votes v
                 JOIN users u ON u.id = v.user_id
                 LEFT JOIN vote_details vd ON vd.vote_id = v.id
                 " . $whereYearClause . "
                 GROUP BY u.id, u.username
-                ORDER BY votes_count DESC, u.username ASC
-                LIMIT 25";
+                ORDER BY votes_count DESC, u.username ASC";
   $judgesRows = $mysqli->query($judgesSql)->fetch_all(MYSQLI_ASSOC);
+
+  // For each juror, get their voted titles
+  $jurorTitles = [];
+  foreach ($judgesRows as $juror) {
+    $jurorId = $juror['user_id'];
+    $titlesSql = "SELECT m.id, m.title, m.year, ROUND($ratingExprGlobal,2) AS rating
+                  FROM votes v
+                  JOIN movies m ON m.id = v.movie_id
+                  LEFT JOIN vote_details vd ON vd.vote_id = v.id
+                  WHERE v.user_id = ? " . str_replace('WHERE', 'AND', $whereYearClause) . "
+                  ORDER BY rating DESC, m.title ASC";
+    $stmt = $mysqli->prepare($titlesSql);
+    $stmt->bind_param('i', $jurorId);
+    $stmt->execute();
+    $jurorTitles[$jurorId] = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+  }
   ?>
 
   <div class="stats-dashboard">
@@ -200,23 +238,101 @@ if ($sheet === 'lists') {
           <span class="chevron">▾</span>
         </button>
         <div id="stat-best" class="stat-content open">
-          <?php if ($bestRows): ?>
-            <ol class="ranked-list">
-              <?php foreach ($bestRows as $idx => $row): ?>
-                <li>
-                  <div class="stat-line">
-                    <span class="rank">#<?= $idx + 1 ?></span>
-                    <div class="stat-main">
-                      <div class="stat-title"><?= e($row['title']) ?> <span class="muted">(<?= e($row['year']) ?>)</span></div>
-                      <div class="stat-meta"><?= t('average_rating') ?>: <strong><?= $row['avg_rating'] !== null ? number_format($row['avg_rating'],2) : '' ?></strong> · <?= (int)$row['votes_count'] ?> <?= t('votes') ?></div>
-                    </div>
-                  </div>
-                </li>
-              <?php endforeach; ?>
-            </ol>
-          <?php else: ?>
-            <p class="stat-empty"><?= e(t('no_data_yet')) ?></p>
-          <?php endif; ?>
+          <!-- Nested: Movies -->
+          <div class="stat-nested-card">
+            <button class="stat-nested-toggle" data-target="stat-best-movies" aria-expanded="false">
+              <span>🎬 <?= t('movies') ?></span>
+              <span class="chevron">▾</span>
+            </button>
+            <div id="stat-best-movies" class="stat-nested-content">
+              <?php if ($bestMoviesRows): ?>
+                <ol class="ranked-list">
+                  <?php foreach ($bestMoviesRows as $idx => $row): ?>
+                    <li>
+                      <div class="stat-line stat-line-with-poster">
+                        <span class="rank">#<?= $idx + 1 ?></span>
+                        <?php if ($row['poster_url'] && $row['poster_url'] !== 'N/A'): ?>
+                          <img src="<?= htmlspecialchars($row['poster_url']) ?>" alt="<?= e($row['title']) ?>" class="stat-poster" loading="lazy">
+                        <?php else: ?>
+                          <div class="stat-poster stat-poster-empty">📽️</div>
+                        <?php endif; ?>
+                        <div class="stat-main">
+                          <div class="stat-title"><?= e($row['title']) ?> <span class="muted">(<?= e($row['year']) ?>)</span></div>
+                          <div class="stat-meta"><?= t('average_rating') ?>: <strong><?= $row['avg_rating'] !== null ? number_format($row['avg_rating'],2) : '' ?></strong> · <?= (int)$row['votes_count'] ?> <?= t('votes') ?></div>
+                        </div>
+                      </div>
+                    </li>
+                  <?php endforeach; ?>
+                </ol>
+              <?php else: ?>
+                <p class="stat-empty"><?= e(t('no_data_yet')) ?></p>
+              <?php endif; ?>
+            </div>
+          </div>
+
+          <!-- Nested: TV Series -->
+          <div class="stat-nested-card">
+            <button class="stat-nested-toggle" data-target="stat-best-series" aria-expanded="false">
+              <span>📺 <?= t('series') ?></span>
+              <span class="chevron">▾</span>
+            </button>
+            <div id="stat-best-series" class="stat-nested-content">
+              <?php if ($bestSeriesRows): ?>
+                <ol class="ranked-list">
+                  <?php foreach ($bestSeriesRows as $idx => $row): ?>
+                    <li>
+                      <div class="stat-line stat-line-with-poster">
+                        <span class="rank">#<?= $idx + 1 ?></span>
+                        <?php if ($row['poster_url'] && $row['poster_url'] !== 'N/A'): ?>
+                          <img src="<?= htmlspecialchars($row['poster_url']) ?>" alt="<?= e($row['title']) ?>" class="stat-poster" loading="lazy">
+                        <?php else: ?>
+                          <div class="stat-poster stat-poster-empty">📺</div>
+                        <?php endif; ?>
+                        <div class="stat-main">
+                          <div class="stat-title"><?= e($row['title']) ?> <span class="muted">(<?= e($row['year']) ?>)</span></div>
+                          <div class="stat-meta"><?= t('average_rating') ?>: <strong><?= $row['avg_rating'] !== null ? number_format($row['avg_rating'],2) : '' ?></strong> · <?= (int)$row['votes_count'] ?> <?= t('votes') ?></div>
+                        </div>
+                      </div>
+                    </li>
+                  <?php endforeach; ?>
+                </ol>
+              <?php else: ?>
+                <p class="stat-empty"><?= e(t('no_data_yet')) ?></p>
+              <?php endif; ?>
+            </div>
+          </div>
+
+          <!-- Nested: Documentaries -->
+          <div class="stat-nested-card">
+            <button class="stat-nested-toggle" data-target="stat-best-docs" aria-expanded="false">
+              <span>🎥 <?= t('documentaries') ?></span>
+              <span class="chevron">▾</span>
+            </button>
+            <div id="stat-best-docs" class="stat-nested-content">
+              <?php if ($bestDocsRows): ?>
+                <ol class="ranked-list">
+                  <?php foreach ($bestDocsRows as $idx => $row): ?>
+                    <li>
+                      <div class="stat-line stat-line-with-poster">
+                        <span class="rank">#<?= $idx + 1 ?></span>
+                        <?php if ($row['poster_url'] && $row['poster_url'] !== 'N/A'): ?>
+                          <img src="<?= htmlspecialchars($row['poster_url']) ?>" alt="<?= e($row['title']) ?>" class="stat-poster" loading="lazy">
+                        <?php else: ?>
+                          <div class="stat-poster stat-poster-empty">🎥</div>
+                        <?php endif; ?>
+                        <div class="stat-main">
+                          <div class="stat-title"><?= e($row['title']) ?> <span class="muted">(<?= e($row['year']) ?>)</span></div>
+                          <div class="stat-meta"><?= t('average_rating') ?>: <strong><?= $row['avg_rating'] !== null ? number_format($row['avg_rating'],2) : '' ?></strong> · <?= (int)$row['votes_count'] ?> <?= t('votes') ?></div>
+                        </div>
+                      </div>
+                    </li>
+                  <?php endforeach; ?>
+                </ol>
+              <?php else: ?>
+                <p class="stat-empty"><?= e(t('no_data_yet')) ?></p>
+              <?php endif; ?>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -253,19 +369,57 @@ if ($sheet === 'lists') {
         </button>
         <div id="stat-judges" class="stat-content">
           <?php if ($judgesRows): ?>
-            <ol class="ranked-list">
-              <?php foreach ($judgesRows as $idx => $row): ?>
-                <li>
-                  <div class="stat-line">
-                    <span class="rank">#<?= $idx + 1 ?></span>
-                    <div class="stat-main">
-                      <div class="stat-title"><?= e($row['judge']) ?></div>
-                      <div class="stat-meta"><?= t('votes') ?>: <strong><?= (int)$row['votes_count'] ?></strong><?php if ($row['avg_rating'] !== null): ?> · <?= t('avg_total') ?>: <strong><?= number_format($row['avg_rating'],2) ?></strong><?php endif; ?></div>
+            <?php foreach ($judgesRows as $idx => $juror): ?>
+              <div class="stat-nested-card">
+                <button class="stat-nested-toggle" data-target="stat-judge-<?= $juror['user_id'] ?>" aria-expanded="false">
+                  <span class="juror-header">
+                    <span class="juror-rank">#<?= $idx + 1 ?></span>
+                    <span class="juror-name"><?= e($juror['judge']) ?></span>
+                  </span>
+                  <span class="juror-stats-inline">
+                    <?= (int)$juror['votes_count'] ?> <?= t('votes') ?>
+                    <?php if ($juror['avg_rating'] !== null): ?>
+                      · <?= number_format($juror['avg_rating'],2) ?> avg
+                    <?php endif; ?>
+                  </span>
+                  <span class="chevron">▾</span>
+                </button>
+                <div id="stat-judge-<?= $juror['user_id'] ?>" class="stat-nested-content">
+                  <div class="juror-details">
+                    <div class="juror-stats">
+                      <div class="juror-stat-item">
+                        <span class="stat-label"><?= t('total_votes') ?>:</span>
+                        <span class="stat-value"><?= (int)$juror['votes_count'] ?></span>
+                      </div>
+                      <?php if ($juror['avg_rating'] !== null): ?>
+                        <div class="juror-stat-item">
+                          <span class="stat-label"><?= t('average_rating') ?>:</span>
+                          <span class="stat-value"><?= number_format($juror['avg_rating'],2) ?></span>
+                        </div>
+                      <?php endif; ?>
+                    </div>
+                    
+                    <div class="juror-titles">
+                      <h4><?= t('voted_titles') ?></h4>
+                      <?php if (isset($jurorTitles[$juror['user_id']]) && $jurorTitles[$juror['user_id']]): ?>
+                        <ol class="titles-list">
+                          <?php foreach ($jurorTitles[$juror['user_id']] as $title): ?>
+                            <li>
+                              <span class="title-name"><?= e($title['title']) ?> <span class="muted">(<?= e($title['year']) ?>)</span></span>
+                              <?php if ($title['rating'] !== null): ?>
+                                <span class="title-rating">⭐ <?= number_format($title['rating'],2) ?></span>
+                              <?php endif; ?>
+                            </li>
+                          <?php endforeach; ?>
+                        </ol>
+                      <?php else: ?>
+                        <p class="stat-empty"><?= e(t('no_votes_yet')) ?></p>
+                      <?php endif; ?>
                     </div>
                   </div>
-                </li>
-              <?php endforeach; ?>
-            </ol>
+                </div>
+              </div>
+            <?php endforeach; ?>
           <?php else: ?>
             <p class="stat-empty"><?= e(t('no_data_yet')) ?></p>
           <?php endif; ?>
@@ -276,12 +430,14 @@ if ($sheet === 'lists') {
 
   <script>
     (function(){
+      // Main toggles (Best Of, Most Viewed, Jurors)
       var toggles = document.querySelectorAll('.stat-toggle');
       toggles.forEach(function(btn){
         btn.addEventListener('click', function(){
           var targetId = btn.getAttribute('data-target');
           var target = document.getElementById(targetId);
           var isOpen = btn.getAttribute('aria-expanded') === 'true';
+          // Close all other main sections
           toggles.forEach(function(other){
             var otherTarget = document.getElementById(other.getAttribute('data-target'));
             if (other === btn) {
@@ -292,6 +448,21 @@ if ($sheet === 'lists') {
               if (otherTarget) otherTarget.classList.remove('open');
             }
           });
+        });
+      });
+
+      // Nested toggles (Movies, Series, Documentaries, Individual Jurors)
+      var nestedToggles = document.querySelectorAll('.stat-nested-toggle');
+      nestedToggles.forEach(function(btn){
+        btn.addEventListener('click', function(e){
+          e.stopPropagation(); // Prevent triggering parent toggle
+          var targetId = btn.getAttribute('data-target');
+          var target = document.getElementById(targetId);
+          var isOpen = btn.getAttribute('aria-expanded') === 'true';
+          
+          // Toggle this nested item
+          btn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+          if (target) target.classList.toggle('open', !isOpen);
         });
       });
     })();
