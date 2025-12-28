@@ -91,13 +91,16 @@ class OmdbApiClient {
         
         if ($poster === 'N/A' || $poster === '') {
           $poster = null;
+        } elseif ($poster) {
+          // Force HTTPS for poster URLs to prevent mixed content issues on mobile
+          $poster = str_replace('http://', 'https://', $poster);
         }
 
         // Try to get better poster for series
         if ($type === 'series' && !$poster) {
           $detail = $this->getDetail($imdb);
           if ($detail && !empty($detail['Poster']) && $detail['Poster'] !== 'N/A') {
-            $poster = $detail['Poster'];
+            $poster = str_replace('http://', 'https://', $detail['Poster']);
           }
         }
 
@@ -157,6 +160,11 @@ class OmdbApiClient {
 // Global instance for OMDb API interactions
 $omdbClient = new OmdbApiClient($OMDB_API_KEY, $mysqli);
 
+// Auto-fix: Convert HTTP poster URLs to HTTPS (prevents mixed content blocking on mobile)
+try {
+  $mysqli->query("UPDATE movies SET poster_url = REPLACE(poster_url, 'http://', 'https://') WHERE poster_url LIKE 'http://%' LIMIT 100");
+} catch (Throwable $e) { /* silent fail */ }
+
 // get_movie_or_fetch(): Backward compatible wrapper
 function get_movie_or_fetch($query): array {
   global $omdbClient;
@@ -208,7 +216,12 @@ function fetch_recent_releases(int $year = null): array {
           $movieYear = (int)substr($rawYear, 0, 4);
           $mType = $m['Type'] ?? $type;
           $poster = $m['Poster'] ?? null;
-          if ($poster === 'N/A' || $poster === '') { $poster = null; }
+          if ($poster === 'N/A' || $poster === '') { 
+            $poster = null; 
+          } elseif ($poster) {
+            // Force HTTPS for poster URLs to prevent mixed content issues
+            $poster = str_replace('http://', 'https://', $poster);
+          }
           
           // Only insert movies with valid posters
           if ($poster) {
