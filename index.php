@@ -216,7 +216,7 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
             <?php $badgeKey = competition_badge_key($movie); $in = ($badgeKey === 'badge_in_competition'); ?>
             <div class="comp-badge <?= $in ? 'in' : 'out' ?>"><?= e(t($badgeKey)) ?></div>
             <?php $poster = $movie['poster_url']; ?>
-            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src=ADDRESS.'/assets/img/no-poster.svg';">
+            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src='<?= ADDRESS ?>/assets/img/no-poster.svg';">
             <div class="movie-info">
               <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
               <div class="movie-year"><?= htmlspecialchars($movie['year']) ?></div>
@@ -263,10 +263,13 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
         <button class="row-nav prev" aria-label="Previous" data-target="rowIn" data-dir="-1">‹</button>
         <div class="row-fade left"></div>
         <div id="rowIn" class="movie-row">
-        <?php foreach ($inCompetition as $movie): ?>
+        <?php 
+        $inWithPoster = array_filter($inCompetition, fn($m) => !empty($m['poster_url']) && $m['poster_url'] !== 'N/A');
+        $inWithoutPoster = array_diff_key($inCompetition, $inWithPoster);
+        foreach ($inWithPoster as $movie): ?>
           <div class="movie-card">
-            <?php $poster = ($movie['poster_url'] ?? null); if (!$poster || $poster==='N/A') $poster=ADDRESS.'/assets/img/no-poster.svg'; ?>
-            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src=ADDRESS.'/assets/img/no-poster.svg';">
+            <?php $poster = $movie['poster_url']; ?>
+            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src='<?= ADDRESS ?>/assets/img/no-poster.svg';">
             <div class="movie-info">
               <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
               <div class="movie-year"><?= htmlspecialchars($movie['year']) ?></div>
@@ -278,6 +281,23 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
         <div class="row-fade right"></div>
         <button class="row-nav next" aria-label="Next" data-target="rowIn" data-dir="1">›</button>
       </div>
+      <?php if (!empty($inWithoutPoster)): ?>
+      <div style="text-align:center;margin:1rem 0;">
+        <button class="showMoreHidden" data-target="inWithoutPosterMovies" style="background:#f6c90e;color:#000;padding:0.75rem 1.5rem;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">Show more (<?= count($inWithoutPoster) ?>)</button>
+      </div>
+      <div id="inWithoutPosterMovies" class="movie-row" style="display:none;gap:1.5rem;padding:2rem;max-width:1200px;margin:auto;grid-template-columns:repeat(auto-fill,240px);justify-content:center;">
+        <?php foreach ($inWithoutPoster as $movie): ?>
+          <div class="movie-card">
+            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 300'%3E%3Cdefs%3E%3ClinearGradient id='grad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23f6c90e;stop-opacity:1' /%3E%3Cstop offset='50%25' style='stop-color:%23ffa500;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%23ff6b6b;stop-opacity:1' /%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='200' height='300' fill='url(%23grad)'/%3E%3Ctext x='100' y='150' font-size='80' text-anchor='middle' dominant-baseline='middle' fill='rgba(0,0,0,0.1)'%3E🎬%3C/text%3E%3C/svg%3E" alt="<?= htmlspecialchars($movie['title']) ?>" style="width:100%;height:240px;object-fit:cover;">
+            <div class="movie-info">
+              <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
+              <div class="movie-year"><?= htmlspecialchars($movie['year']) ?></div>
+              <a class="rate-btn" href="vote.php?movie_id=<?= $movie['id'] ?>"><?= t('rate') ?> ⭐</a>
+            </div>
+          </div>
+        <?php endforeach; ?>
+      </div>
+      <?php endif; ?>
     </section>
 
     <section class="home-section">
@@ -286,10 +306,13 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
         <button class="row-nav prev" aria-label="Previous" data-target="rowTop" data-dir="-1">‹</button>
         <div class="row-fade left"></div>
         <div id="rowTop" class="movie-row">
-        <?php foreach ($topRated as $movie): ?>
+        <?php 
+        $topWithPoster = array_filter($topRated, fn($m) => !empty($m['poster_url']) && $m['poster_url'] !== 'N/A');
+        $topWithoutPoster = array_diff_key($topRated, $topWithPoster);
+        foreach ($topWithPoster as $movie): ?>
           <div class="movie-card">
-            <?php $poster = ($movie['poster_url'] ?? null); if (!$poster || $poster==='N/A') $poster=ADDRESS.'/assets/img/no-poster.svg'; ?>
-            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src=ADDRESS.'/assets/img/no-poster.svg';">
+            <?php $poster = $movie['poster_url']; ?>
+            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src='<?= ADDRESS ?>/assets/img/no-poster.svg';">
             <div class="movie-info">
               <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
               <div class="movie-year"><?= htmlspecialchars($movie['year']) ?></div>
@@ -301,6 +324,23 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
         <div class="row-fade right"></div>
         <button class="row-nav next" aria-label="Next" data-target="rowTop" data-dir="1">›</button>
       </div>
+      <?php if (!empty($topWithoutPoster)): ?>
+      <div style="text-align:center;margin:1rem 0;">
+        <button class="showMoreHidden" data-target="topWithoutPosterMovies" style="background:#f6c90e;color:#000;padding:0.75rem 1.5rem;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">Show more (<?= count($topWithoutPoster) ?>)</button>
+      </div>
+      <div id="topWithoutPosterMovies" class="movie-row" style="display:none;gap:1.5rem;padding:2rem;max-width:1200px;margin:auto;grid-template-columns:repeat(auto-fill,240px);justify-content:center;">
+        <?php foreach ($topWithoutPoster as $movie): ?>
+          <div class="movie-card">
+            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 300'%3E%3Cdefs%3E%3ClinearGradient id='grad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23f6c90e;stop-opacity:1' /%3E%3Cstop offset='50%25' style='stop-color:%23ffa500;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%23ff6b6b;stop-opacity:1' /%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='200' height='300' fill='url(%23grad)'/%3E%3Ctext x='100' y='150' font-size='80' text-anchor='middle' dominant-baseline='middle' fill='rgba(0,0,0,0.1)'%3E🎬%3C/text%3E%3C/svg%3E" alt="<?= htmlspecialchars($movie['title']) ?>" style="width:100%;height:240px;object-fit:cover;">
+            <div class="movie-info">
+              <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
+              <div class="movie-year"><?= htmlspecialchars($movie['year']) ?></div>
+              <a class="rate-btn" href="vote.php?movie_id=<?= $movie['id'] ?>"><?= t('rate') ?> ⭐</a>
+            </div>
+          </div>
+        <?php endforeach; ?>
+      </div>
+      <?php endif; ?>
     </section>
 
     <section class="home-section">
@@ -309,10 +349,13 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
         <button class="row-nav prev" aria-label="Previous" data-target="rowRec" data-dir="-1">‹</button>
         <div class="row-fade left"></div>
         <div id="rowRec" class="movie-row">
-        <?php foreach ($recent as $movie): ?>
+        <?php 
+        $recWithPoster = array_filter($recent, fn($m) => !empty($m['poster_url']) && $m['poster_url'] !== 'N/A');
+        $recWithoutPoster = array_diff_key($recent, $recWithPoster);
+        foreach ($recWithPoster as $movie): ?>
           <div class="movie-card">
-            <?php $poster = ($movie['poster_url'] ?? null); if (!$poster || $poster==='N/A') $poster=ADDRESS.'/assets/img/no-poster.svg'; ?>
-            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src=ADDRESS.'/assets/img/no-poster.svg';">
+            <?php $poster = $movie['poster_url']; ?>
+            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src='<?= ADDRESS ?>/assets/img/no-poster.svg';">
             <div class="movie-info">
               <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
               <div class="movie-year"><?= htmlspecialchars($movie['year']) ?></div>
@@ -324,8 +367,36 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
         <div class="row-fade right"></div>
         <button class="row-nav next" aria-label="Next" data-target="rowRec" data-dir="1">›</button>
       </div>
+      <?php if (!empty($recWithoutPoster)): ?>
+      <div style="text-align:center;margin:1rem 0;">
+        <button class="showMoreHidden" data-target="recWithoutPosterMovies" style="background:#f6c90e;color:#000;padding:0.75rem 1.5rem;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">Show more (<?= count($recWithoutPoster) ?>)</button>
+      </div>
+      <div id="recWithoutPosterMovies" class="movie-row" style="display:none;gap:1.5rem;padding:2rem;max-width:1200px;margin:auto;grid-template-columns:repeat(auto-fill,240px);justify-content:center;">
+        <?php foreach ($recWithoutPoster as $movie): ?>
+          <div class="movie-card">
+            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 300'%3E%3Cdefs%3E%3ClinearGradient id='grad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23f6c90e;stop-opacity:1' /%3E%3Cstop offset='50%25' style='stop-color:%23ffa500;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%23ff6b6b;stop-opacity:1' /%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='200' height='300' fill='url(%23grad)'/%3E%3Ctext x='100' y='150' font-size='80' text-anchor='middle' dominant-baseline='middle' fill='rgba(0,0,0,0.1)'%3E🎬%3C/text%3E%3C/svg%3E" alt="<?= htmlspecialchars($movie['title']) ?>" style="width:100%;height:240px;object-fit:cover;">
+            <div class="movie-info">
+              <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
+              <div class="movie-year"><?= htmlspecialchars($movie['year']) ?></div>
+              <a class="rate-btn" href="vote.php?movie_id=<?= $movie['id'] ?>"><?= t('rate') ?> ⭐</a>
+            </div>
+          </div>
+        <?php endforeach; ?>
+      </div>
+      <?php endif; ?>
     </section>
     <script>
+      // Handle show more buttons
+      document.querySelectorAll('.showMoreHidden').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var target = document.getElementById(this.getAttribute('data-target'));
+          if (target) {
+            target.style.display = 'grid';
+            this.style.display = 'none';
+          }
+        });
+      });
+      
       (function(){
         function updateButtons(row){
           var prevBtn = document.querySelector('.row-nav.prev[data-target="'+row.id+'"]');

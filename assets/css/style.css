@@ -459,7 +459,8 @@ main{padding-bottom:140px}
 }
 .movie-card{background:#111;border-radius:.75rem;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,.4);transition:transform .3s ease, box-shadow .3s ease;position:relative;display:flex;flex-direction:column;height:100%;cursor:pointer}
 .movie-card:hover{transform:translateY(-6px);box-shadow:0 6px 25px rgba(246,201,14,.4)}
-.movie-card img{width:100%;height:240px;object-fit:cover;display:block;flex-shrink:0}
+.movie-card img{width:100%;height:240px;object-fit:cover;display:block;flex-shrink:0;background:linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%)}
+.movie-card img[src*="no-poster"],.movie-card img[src*="svg"]{background:linear-gradient(135deg, #f6c90e 0%, #ffa500 50%, #ff6b6b 100%);display:flex;align-items:center;justify-content:center;font-size:3rem;color:rgba(0,0,0,.1);content:"📽️"}
 @media (max-width:1100px){
   .movie-card img{height:200px}
   .movie-info{padding:.5rem}
@@ -478,11 +479,11 @@ main{padding-bottom:140px}
 .comp-badge{position:absolute;top:8px;left:8px;padding:.2rem .45rem;border-radius:.35rem;font-size:.68rem;font-weight:700;letter-spacing:.02em;z-index:2;user-select:none}
 .comp-badge.in{background:rgba(40,167,69,.9);color:#fff;border:1px solid rgba(255,255,255,.15)}
 .comp-badge.out{background:rgba(108,117,125,.85);color:#fff;border:1px solid rgba(255,255,255,.12)}
-.movie-info{padding:.7rem;display:flex;flex-direction:column;gap:.3rem;flex:1}
-.movie-title{font-size:1rem;font-weight:600;margin-bottom:.15rem;color:#fff;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.movie-year{color:#999;font-size:.8rem;margin-bottom:.3rem}
-.rate-btn{display:inline-block;padding:.3rem .7rem;background:#f6c90e;color:#000;border-radius:.3rem;font-weight:600;text-decoration:none;transition:background .2s;margin-top:auto;font-size:.85rem;align-self:center}
-.rate-btn:hover{background:#ffde50}
+.movie-info{padding:.7rem;display:flex;flex-direction:column;gap:.3rem;flex:1;background:linear-gradient(180deg, rgba(17,17,17,.7) 0%, #111 50%, #0a0a0a 100%)}
+.movie-title{font-size:1rem;font-weight:600;margin-bottom:.15rem;color:#fff;line-height:1.2;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
+.movie-year{color:#f6c90e;font-size:.8rem;margin-bottom:.3rem;font-weight:500}
+.rate-btn{display:inline-block;padding:.3rem .7rem;background:#f6c90e;color:#000;border-radius:.3rem;font-weight:600;text-decoration:none;transition:background .2s;margin-top:auto;font-size:.85rem;align-self:center;box-shadow:0 4px 12px rgba(246,201,14,.25)}
+.rate-btn:hover{background:#ffde50;box-shadow:0 6px 18px rgba(246,201,14,.35)}
 
 /* Vote page (moved from vote.php) */
 .vote-container{max-width:1100px;margin:1.25rem auto;padding:0 0.75rem;width:100%}
