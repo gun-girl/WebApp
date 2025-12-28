@@ -25,7 +25,28 @@ function require_login(): void {
 
 function is_admin(): bool {
     $u = current_user();
-    return $u && (($u['role'] ?? 'user') === 'admin');
+    if (!$u) return false;
+    
+    // Check if user's email is in the admins table
+    global $mysqli;
+    try {
+        // Check if admins table exists
+        $tableCheck = $mysqli->query("SHOW TABLES LIKE 'admins'");
+        if ($tableCheck && $tableCheck->num_rows > 0) {
+            $stmt = $mysqli->prepare("SELECT id FROM admins WHERE LOWER(email) = LOWER(?)");
+            $stmt->bind_param('s', $u['email']);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if ($result && $result->num_rows > 0) {
+                return true;
+            }
+        }
+    } catch (Throwable $e) {
+        // Fallback to role column if admins table query fails
+    }
+    
+    // Fallback to role column if it exists
+    return ($u['role'] ?? 'user') === 'admin';
 }
 
 function require_admin(): void {

@@ -181,7 +181,7 @@ if ($sheet === 'lists') {
   $bestDocsRows = $mysqli->query($bestDocsSql)->fetch_all(MYSQLI_ASSOC);
 
   // Most viewed: ordered by view count
-  $viewsSql = "SELECT m.id, m.title, m.year, COUNT(v.id) AS views
+  $viewsSql = "SELECT m.id, m.title, m.year, m.poster_url, COUNT(v.id) AS views
                FROM movies m
                JOIN votes v ON v.movie_id = m.id
                LEFT JOIN vote_details vd ON vd.vote_id = v.id
@@ -201,11 +201,13 @@ if ($sheet === 'lists') {
                 ORDER BY votes_count DESC, u.username ASC";
   $judgesRows = $mysqli->query($judgesSql)->fetch_all(MYSQLI_ASSOC);
 
-  // For each juror, get their voted titles
+  // For each juror, get their voted titles with detail scores
   $jurorTitles = [];
   foreach ($judgesRows as $juror) {
     $jurorId = $juror['user_id'];
-    $titlesSql = "SELECT m.id, m.title, m.year, ROUND($ratingExprGlobal,2) AS rating
+    $titlesSql = "SELECT m.id, m.title, m.year, ROUND($ratingExprGlobal,2) AS rating, 
+                  vd.writing, vd.direction, vd.acting_or_doc_theme, vd.emotional_involvement, 
+                  vd.novelty, vd.casting_research_art, vd.sound
                   FROM votes v
                   JOIN movies m ON m.id = v.movie_id
                   LEFT JOIN vote_details vd ON vd.vote_id = v.id
@@ -215,6 +217,38 @@ if ($sheet === 'lists') {
     $stmt->bind_param('i', $jurorId);
     $stmt->execute();
     $jurorTitles[$jurorId] = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+  }
+
+  // Handle movie details modal for Best Of section
+  $movieModalData = null;
+  if (isset($_GET['view_movie']) && $_GET['view_movie']) {
+    $movieId = (int)$_GET['view_movie'];
+    // Get movie basic info
+    $movieStmt = $mysqli->prepare("SELECT * FROM movies WHERE id = ?");
+    $movieStmt->bind_param('i', $movieId);
+    $movieStmt->execute();
+    $movieInfo = $movieStmt->get_result()->fetch_assoc();
+    
+    if ($movieInfo) {
+      // Get all votes for this movie
+      $votesSql = "SELECT u.username, v.id as vote_id, ROUND($ratingExprGlobal,2) AS overall_rating,
+                   vd.writing, vd.direction, vd.acting_or_doc_theme, vd.emotional_involvement, 
+                   vd.novelty, vd.casting_research_art, vd.sound
+                   FROM votes v
+                   JOIN users u ON u.id = v.user_id
+                   LEFT JOIN vote_details vd ON vd.vote_id = v.id
+                   WHERE v.movie_id = ? " . str_replace('WHERE', 'AND', $whereYearClause) . "
+                   ORDER BY overall_rating DESC, u.username ASC";
+      $votesStmt = $mysqli->prepare($votesSql);
+      $votesStmt->bind_param('i', $movieId);
+      $votesStmt->execute();
+      $votes = $votesStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+      
+      $movieModalData = [
+        'info' => $movieInfo,
+        'votes' => $votes
+      ];
+    }
   }
   ?>
 
@@ -249,7 +283,7 @@ if ($sheet === 'lists') {
                 <ol class="ranked-list">
                   <?php foreach ($bestMoviesRows as $idx => $row): ?>
                     <li>
-                      <div class="stat-line stat-line-with-poster">
+                      <a href="?sheet=lists&year=<?= $viewYearInt ?>&view_movie=<?= $row['id'] ?>" class="stat-line stat-line-with-poster movie-link" data-movie-id="<?= $row['id'] ?>">
                         <span class="rank">#<?= $idx + 1 ?></span>
                         <?php if ($row['poster_url'] && $row['poster_url'] !== 'N/A'): ?>
                           <img src="<?= htmlspecialchars($row['poster_url']) ?>" alt="<?= e($row['title']) ?>" class="stat-poster" loading="lazy">
@@ -260,7 +294,7 @@ if ($sheet === 'lists') {
                           <div class="stat-title"><?= e($row['title']) ?> <span class="muted">(<?= e($row['year']) ?>)</span></div>
                           <div class="stat-meta"><?= t('average_rating') ?>: <strong><?= $row['avg_rating'] !== null ? number_format($row['avg_rating'],2) : '' ?></strong> · <?= (int)$row['votes_count'] ?> <?= t('votes') ?></div>
                         </div>
-                      </div>
+                      </a>
                     </li>
                   <?php endforeach; ?>
                 </ol>
@@ -281,7 +315,7 @@ if ($sheet === 'lists') {
                 <ol class="ranked-list">
                   <?php foreach ($bestSeriesRows as $idx => $row): ?>
                     <li>
-                      <div class="stat-line stat-line-with-poster">
+                      <a href="?sheet=lists&year=<?= $viewYearInt ?>&view_movie=<?= $row['id'] ?>" class="stat-line stat-line-with-poster movie-link" data-movie-id="<?= $row['id'] ?>">
                         <span class="rank">#<?= $idx + 1 ?></span>
                         <?php if ($row['poster_url'] && $row['poster_url'] !== 'N/A'): ?>
                           <img src="<?= htmlspecialchars($row['poster_url']) ?>" alt="<?= e($row['title']) ?>" class="stat-poster" loading="lazy">
@@ -292,7 +326,7 @@ if ($sheet === 'lists') {
                           <div class="stat-title"><?= e($row['title']) ?> <span class="muted">(<?= e($row['year']) ?>)</span></div>
                           <div class="stat-meta"><?= t('average_rating') ?>: <strong><?= $row['avg_rating'] !== null ? number_format($row['avg_rating'],2) : '' ?></strong> · <?= (int)$row['votes_count'] ?> <?= t('votes') ?></div>
                         </div>
-                      </div>
+                      </a>
                     </li>
                   <?php endforeach; ?>
                 </ol>
@@ -313,7 +347,7 @@ if ($sheet === 'lists') {
                 <ol class="ranked-list">
                   <?php foreach ($bestDocsRows as $idx => $row): ?>
                     <li>
-                      <div class="stat-line stat-line-with-poster">
+                      <a href="?sheet=lists&year=<?= $viewYearInt ?>&view_movie=<?= $row['id'] ?>" class="stat-line stat-line-with-poster movie-link" data-movie-id="<?= $row['id'] ?>">
                         <span class="rank">#<?= $idx + 1 ?></span>
                         <?php if ($row['poster_url'] && $row['poster_url'] !== 'N/A'): ?>
                           <img src="<?= htmlspecialchars($row['poster_url']) ?>" alt="<?= e($row['title']) ?>" class="stat-poster" loading="lazy">
@@ -324,7 +358,7 @@ if ($sheet === 'lists') {
                           <div class="stat-title"><?= e($row['title']) ?> <span class="muted">(<?= e($row['year']) ?>)</span></div>
                           <div class="stat-meta"><?= t('average_rating') ?>: <strong><?= $row['avg_rating'] !== null ? number_format($row['avg_rating'],2) : '' ?></strong> · <?= (int)$row['votes_count'] ?> <?= t('votes') ?></div>
                         </div>
-                      </div>
+                      </a>
                     </li>
                   <?php endforeach; ?>
                 </ol>
@@ -346,8 +380,13 @@ if ($sheet === 'lists') {
             <ol class="ranked-list">
               <?php foreach ($viewsRows as $idx => $row): ?>
                 <li>
-                  <div class="stat-line">
+                  <div class="stat-line stat-line-with-poster">
                     <span class="rank">#<?= $idx + 1 ?></span>
+                    <?php if ($row['poster_url'] && $row['poster_url'] !== 'N/A'): ?>
+                      <img src="<?= htmlspecialchars($row['poster_url']) ?>" alt="<?= e($row['title']) ?>" class="stat-poster" loading="lazy">
+                    <?php else: ?>
+                      <div class="stat-poster stat-poster-empty">📽️</div>
+                    <?php endif; ?>
                     <div class="stat-main">
                       <div class="stat-title"><?= e($row['title']) ?> <span class="muted">(<?= e($row['year']) ?>)</span></div>
                       <div class="stat-meta"><?= t('views') ?>: <strong><?= (int)$row['views'] ?></strong></div>
@@ -405,9 +444,29 @@ if ($sheet === 'lists') {
                         <ol class="titles-list">
                           <?php foreach ($jurorTitles[$juror['user_id']] as $title): ?>
                             <li>
-                              <span class="title-name"><?= e($title['title']) ?> <span class="muted">(<?= e($title['year']) ?>)</span></span>
-                              <?php if ($title['rating'] !== null): ?>
-                                <span class="title-rating">⭐ <?= number_format($title['rating'],2) ?></span>
+                              <div class="title-header">
+                                <span class="title-name"><?= e($title['title']) ?> <span class="muted">(<?= e($title['year']) ?>)</span></span>
+                                <?php if ($title['rating'] !== null): ?>
+                                  <span class="title-rating">⭐ <?= number_format($title['rating'],2) ?></span>
+                                <?php endif; ?>
+                              </div>
+                              <?php 
+                                // Check which detail columns have values
+                                $details = [];
+                                if (!empty($title['writing'])) $details[] = 'Writing: ' . $title['writing'];
+                                if (!empty($title['direction'])) $details[] = 'Direction: ' . $title['direction'];
+                                if (!empty($title['acting_or_doc_theme'])) $details[] = 'Acting/Theme: ' . $title['acting_or_doc_theme'];
+                                if (!empty($title['emotional_involvement'])) $details[] = 'Emotional: ' . $title['emotional_involvement'];
+                                if (!empty($title['novelty'])) $details[] = 'Novelty: ' . $title['novelty'];
+                                if (!empty($title['casting_research_art'])) $details[] = 'Casting/Art: ' . $title['casting_research_art'];
+                                if (!empty($title['sound'])) $details[] = 'Sound: ' . $title['sound'];
+                                if ($details): 
+                              ?>
+                                <div class="title-details">
+                                  <?php foreach ($details as $detail): ?>
+                                    <span class="detail-badge"><?= e($detail) ?></span>
+                                  <?php endforeach; ?>
+                                </div>
                               <?php endif; ?>
                             </li>
                           <?php endforeach; ?>
@@ -428,7 +487,96 @@ if ($sheet === 'lists') {
     </div>
   </div>
 
+  <!-- Movie Details Modal -->
+  <?php if ($movieModalData): ?>
+  <div id="movieModal" class="movie-modal open">
+    <div class="movie-modal-overlay" onclick="closeMovieModal()"></div>
+    <div class="movie-modal-content">
+      <button class="movie-modal-close" onclick="closeMovieModal()">✕</button>
+      
+      <div class="modal-header">
+        <?php if ($movieModalData['info']['poster_url'] && $movieModalData['info']['poster_url'] !== 'N/A'): ?>
+          <img src="<?= htmlspecialchars($movieModalData['info']['poster_url']) ?>" alt="<?= e($movieModalData['info']['title']) ?>" class="modal-poster">
+        <?php else: ?>
+          <div class="modal-poster modal-poster-empty">📽️</div>
+        <?php endif; ?>
+        
+        <div class="modal-info">
+          <h2><?= e($movieModalData['info']['title']) ?></h2>
+          <p class="modal-year"><?= e($movieModalData['info']['year']) ?></p>
+          <div class="modal-stats">
+            <div class="modal-stat">
+              <span class="label"><?= t('total_votes') ?>:</span>
+              <span class="value"><?= count($movieModalData['votes']) ?></span>
+            </div>
+            <?php 
+              $avgRating = 0;
+              foreach ($movieModalData['votes'] as $v) {
+                $avgRating += floatval($v['overall_rating'] ?? 0);
+              }
+              if (count($movieModalData['votes']) > 0) {
+                $avgRating = $avgRating / count($movieModalData['votes']);
+              }
+            ?>
+            <div class="modal-stat">
+              <span class="label"><?= t('average_rating') ?>:</span>
+              <span class="value"><?= number_format($avgRating, 2) ?></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-votes">
+        <h3><?= t('vote_details') ?></h3>
+        <?php if ($movieModalData['votes']): ?>
+          <table class="votes-detail-table">
+            <thead>
+              <tr>
+                <th><?= t('juror') ?></th>
+                <th><?= t('overall_rating') ?></th>
+                <th>Writing</th>
+                <th>Direction</th>
+                <th>Acting/Theme</th>
+                <th>Emotional</th>
+                <th>Novelty</th>
+                <th>Casting/Art</th>
+                <th>Sound</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php foreach ($movieModalData['votes'] as $vote): ?>
+                <tr>
+                  <td class="juror-name"><?= e($vote['username']) ?></td>
+                  <td class="overall-rating"><?= $vote['overall_rating'] !== null ? number_format($vote['overall_rating'], 2) : '-' ?></td>
+                  <td><?= $vote['writing'] !== null && $vote['writing'] !== '' ? $vote['writing'] : '-' ?></td>
+                  <td><?= $vote['direction'] !== null && $vote['direction'] !== '' ? $vote['direction'] : '-' ?></td>
+                  <td><?= $vote['acting_or_doc_theme'] !== null && $vote['acting_or_doc_theme'] !== '' ? $vote['acting_or_doc_theme'] : '-' ?></td>
+                  <td><?= $vote['emotional_involvement'] !== null && $vote['emotional_involvement'] !== '' ? $vote['emotional_involvement'] : '-' ?></td>
+                  <td><?= $vote['novelty'] !== null && $vote['novelty'] !== '' ? $vote['novelty'] : '-' ?></td>
+                  <td><?= $vote['casting_research_art'] !== null && $vote['casting_research_art'] !== '' ? $vote['casting_research_art'] : '-' ?></td>
+                  <td><?= $vote['sound'] !== null && $vote['sound'] !== '' ? $vote['sound'] : '-' ?></td>
+                </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        <?php else: ?>
+          <p class="stat-empty"><?= e(t('no_votes_yet')) ?></p>
+        <?php endif; ?>
+      </div>
+    </div>
+  </div>
+  <?php endif; ?>
+
   <script>
+    function closeMovieModal() {
+      var modal = document.getElementById('movieModal');
+      if (modal) {
+        modal.classList.remove('open');
+        // Remove the view_movie parameter from URL
+        window.history.replaceState({}, document.title, '?sheet=lists&year=<?= $viewYearInt ?>');
+      }
+    }
+
     (function(){
       // Main toggles (Best Of, Most Viewed, Jurors)
       var toggles = document.querySelectorAll('.stat-toggle');
