@@ -132,6 +132,7 @@ return [
     'release_year' => 'Anno di uscita'
     , 'in_competition_section' => 'In Competizione'
     , 'top_rated' => 'Più votati'
+    , 'in_theatres' => 'Al Cinema'
     , 'recently_added' => 'Aggiunti di recente'
     , 'season' => 'Stagione'
     , 'episode' => 'Episodio'

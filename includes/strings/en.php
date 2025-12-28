@@ -142,6 +142,7 @@ return [
     'sheet_finalists_2023' => 'Finalists 2023',
     'raw_votes' => 'Raw Votes',
     'top_rated' => 'Top Rated'
+    , 'in_theatres' => 'In Theatres'
     , 'recently_added' => 'Recently Added'
     , 'season' => 'Season'
     , 'episode' => 'Episode'

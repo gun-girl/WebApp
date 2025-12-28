@@ -156,23 +156,8 @@ if ($searchRequested) {
     }
   }
 
-  // 3) Recently Added: by latest vote timestamp when available
-  $recent = [];
-  try {
-    $q = "SELECT m.*
-          FROM movies m
-          JOIN votes v ON v.movie_id = m.id
-          WHERE m.poster_url IS NOT NULL
-            AND m.poster_url != ''
-            AND m.poster_url != 'N/A'
-          GROUP BY m.id
-          ORDER BY MAX(v.created_at) DESC
-          LIMIT 24";
-    $recent = $mysqli->query($q)->fetch_all(MYSQLI_ASSOC);
-  } catch (Throwable $e) {
-    $recent = $mysqli->query("SELECT * FROM movies WHERE poster_url IS NOT NULL AND poster_url != '' AND poster_url != 'N/A' ORDER BY id DESC LIMIT 24")->fetch_all(MYSQLI_ASSOC);
-  }
 }
+
 ?>
 <?php // Add body class to signal active search state (for hiding duplicate header search on wide screens)
 $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
@@ -342,49 +327,6 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
       </div>
       <?php endif; ?>
     </section>
-
-    <section class="home-section">
-      <h2><?= t('recently_added') ?></h2>
-      <div class="movie-row-wrap">
-        <button class="row-nav prev" aria-label="Previous" data-target="rowRec" data-dir="-1">‹</button>
-        <div class="row-fade left"></div>
-        <div id="rowRec" class="movie-row">
-        <?php 
-        $recWithPoster = array_filter($recent, fn($m) => !empty($m['poster_url']) && $m['poster_url'] !== 'N/A');
-        $recWithoutPoster = array_diff_key($recent, $recWithPoster);
-        foreach ($recWithPoster as $movie): ?>
-          <div class="movie-card">
-            <?php $poster = $movie['poster_url']; ?>
-            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src='<?= ADDRESS ?>/assets/img/no-poster.svg';">
-            <div class="movie-info">
-              <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
-              <div class="movie-year"><?= htmlspecialchars($movie['year']) ?></div>
-              <a class="rate-btn" href="vote.php?movie_id=<?= $movie['id'] ?>"><?= t('rate') ?> ⭐</a>
-            </div>
-          </div>
-        <?php endforeach; ?>
-        </div>
-        <div class="row-fade right"></div>
-        <button class="row-nav next" aria-label="Next" data-target="rowRec" data-dir="1">›</button>
-      </div>
-      <?php if (!empty($recWithoutPoster)): ?>
-      <div style="text-align:center;margin:1rem 0;">
-        <button class="showMoreHidden" data-target="recWithoutPosterMovies" style="background:#f6c90e;color:#000;padding:0.75rem 1.5rem;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">Show more (<?= count($recWithoutPoster) ?>)</button>
-      </div>
-      <div id="recWithoutPosterMovies" class="movie-row" style="display:none;gap:1.5rem;padding:2rem;max-width:1200px;margin:auto;grid-template-columns:repeat(auto-fill,240px);justify-content:center;">
-        <?php foreach ($recWithoutPoster as $movie): ?>
-          <div class="movie-card">
-            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 300'%3E%3Cdefs%3E%3ClinearGradient id='grad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23f6c90e;stop-opacity:1' /%3E%3Cstop offset='50%25' style='stop-color:%23ffa500;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%23ff6b6b;stop-opacity:1' /%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='200' height='300' fill='url(%23grad)'/%3E%3Ctext x='100' y='150' font-size='80' text-anchor='middle' dominant-baseline='middle' fill='rgba(0,0,0,0.1)'%3E🎬%3C/text%3E%3C/svg%3E" alt="<?= htmlspecialchars($movie['title']) ?>" style="width:100%;height:240px;object-fit:cover;">
-            <div class="movie-info">
-              <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
-              <div class="movie-year"><?= htmlspecialchars($movie['year']) ?></div>
-              <a class="rate-btn" href="vote.php?movie_id=<?= $movie['id'] ?>"><?= t('rate') ?> ⭐</a>
-            </div>
-          </div>
-        <?php endforeach; ?>
-      </div>
-      <?php endif; ?>
-    </section>
     <script>
       // Handle show more buttons
       document.querySelectorAll('.showMoreHidden').forEach(function(btn) {
@@ -414,14 +356,14 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
           row.scrollBy({left: dir * amt, behavior: 'smooth'});
           setTimeout(function(){ updateButtons(row); }, 350);
         }
-        ['rowIn','rowTop','rowRec'].forEach(function(id){
+        ['rowIn','rowTop'].forEach(function(id){
           var row = document.getElementById(id);
           if (!row) return;
           updateButtons(row);
           row.addEventListener('scroll', function(){ updateButtons(row); }, {passive:true});
         });
         document.querySelectorAll('.row-nav').forEach(function(btn){ btn.addEventListener('click', scrollRow); });
-        window.addEventListener('resize', function(){ ['rowIn','rowTop','rowRec'].forEach(function(id){ var r=document.getElementById(id); if(r) updateButtons(r); }); });
+        window.addEventListener('resize', function(){ ['rowIn','rowTop'].forEach(function(id){ var r=document.getElementById(id); if(r) updateButtons(r); }); });
       })();
     </script>
   <?php endif; ?>
