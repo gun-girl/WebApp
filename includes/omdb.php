@@ -205,19 +205,31 @@ class OmdbApiClient {
   }
 }
 
-// Global instance for OMDb API interactions
-$omdbClient = new OmdbApiClient($OMDB_API_KEY, $mysqli);
+    // Global instance for OMDb API interactions
+    $omdbClient = new OmdbApiClient($OMDB_API_KEY, $mysqli);
 
-// Auto-fix: Convert HTTP poster URLs to HTTPS (prevents mixed content blocking on mobile)
-try {
-  $mysqli->query("UPDATE movies SET poster_url = REPLACE(poster_url, 'http://', 'https://') WHERE poster_url LIKE 'http://%' LIMIT 100");
-  // Clean up invalid poster URLs (broken Amazon links, etc)
-  $mysqli->query("UPDATE movies SET poster_url = NULL WHERE poster_url IS NOT NULL AND (poster_url = '' OR poster_url = 'N/A' OR poster_url NOT LIKE 'https://%') LIMIT 100");
-  // Auto-fetch missing posters in background (runs once per page load, max 10 movies)
-  if (function_exists('auto_fetch_missing_posters')) {
-    auto_fetch_missing_posters();
-  }
-} catch (Throwable $e) { /* silent fail */ }
+    // Trigger async background tasks without blocking page load
+    try {
+      // Use non-blocking async trigger via AJAX/cURL background call
+      if (PHP_SAPI !== 'cli') { // Only trigger if not CLI
+        trigger_async_maintenance();
+      }
+    } catch (Throwable $e) { /* silent fail */ }
+
+// Trigger async maintenance tasks without blocking page load
+function trigger_async_maintenance(): void {
+  // Use non-blocking HTTP request to background worker
+  $url = $_SERVER['REQUEST_SCHEME'] . '://' . $_SERVER['HTTP_HOST'] . '/includes/async-worker.php';
+  
+  $ch = curl_init();
+  curl_setopt($ch, CURLOPT_URL, $url);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
+  curl_setopt($ch, CURLOPT_TIMEOUT_MS, 100); // Ultra-short timeout
+  curl_setopt($ch, CURLOPT_CONNECTTIMEOUT_MS, 50);
+  curl_setopt($ch, CURLOPT_NOSIGNAL, 1);
+  @curl_exec($ch); // Suppress errors
+  curl_close($ch);
+} 
 
 // get_movie_or_fetch(): Backward compatible wrapper
 function get_movie_or_fetch($query): array {

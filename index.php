@@ -2,9 +2,10 @@
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/lang.php';
+require_login();
 require_once __DIR__ . '/includes/omdb.php';
 require_once __DIR__ . '/includes/helper.php';
-require_login();
+
 
 $user = current_user();
 $searchRequested = array_key_exists('search', $_GET);
@@ -177,7 +178,7 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
             <?php $badgeKey = competition_badge_key($movie); $in = ($badgeKey === 'badge_in_competition'); ?>
             <div class="comp-badge <?= $in ? 'in' : 'out' ?>"><?= e(t($badgeKey)) ?></div>
             <?php $poster = $movie['poster_url']; ?>
-            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src='<?= ADDRESS ?>/assets/img/no-poster.svg';">
+            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" loading="lazy" onerror="this.onerror=null;this.src='<?= ADDRESS ?>/assets/img/no-poster.svg';">
             <div class="movie-info">
               <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
               <div class="movie-year"><?= htmlspecialchars($movie['year']) ?></div>
@@ -230,7 +231,7 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
         foreach ($inWithPoster as $movie): ?>
           <div class="movie-card">
             <?php $poster = $movie['poster_url']; ?>
-            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src='<?= ADDRESS ?>/assets/img/no-poster.svg';">
+            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" loading="lazy" onerror="this.onerror=null;this.src='<?= ADDRESS ?>/assets/img/no-poster.svg';">
             <div class="movie-info">
               <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
               <div class="movie-year"><?= htmlspecialchars($movie['year']) ?></div>
@@ -273,7 +274,7 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
         foreach ($topWithPoster as $movie): ?>
           <div class="movie-card">
             <?php $poster = $movie['poster_url']; ?>
-            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src='<?= ADDRESS ?>/assets/img/no-poster.svg';">
+            <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" loading="lazy" onerror="this.onerror=null;this.src='<?= ADDRESS ?>/assets/img/no-poster.svg';">
             <div class="movie-info">
               <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
               <div class="movie-year"><?= htmlspecialchars($movie['year']) ?></div>
