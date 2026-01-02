@@ -82,7 +82,7 @@ return [
     'account_settings' => 'Impostazioni Account',
     'sign_out' => 'Esci',
     'your_saved_movies' => 'I tuoi film salvati da guardare',
-    'movies' => 'film',
+    'movies' => 'Film',
     'watchlist_empty' => 'La tua lista è vuota',
     'watchlist_empty_desc' => 'Inizia ad aggiungere film che vuoi guardare più tardi',
     'browse_movies' => 'Sfoglia Film',

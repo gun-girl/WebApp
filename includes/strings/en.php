@@ -82,7 +82,7 @@ return [
     'account_settings' => 'Account Settings',
     'sign_out' => 'Sign Out',
     'your_saved_movies' => 'Your saved movies to watch',
-    'movies' => 'movies',
+    'movies' => 'Movies',
     'watchlist_empty' => 'Your watchlist is empty',
     'watchlist_empty_desc' => 'Start adding movies you want to watch later',
     'browse_movies' => 'Browse Movies',
