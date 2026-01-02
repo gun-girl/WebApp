@@ -108,52 +108,28 @@ if ($searchRequested) {
     }
   } catch (Throwable $e) { $inCompetition = []; }
 
-  // 2) Top Rated: detect schema and compute avg
-  $cols = $mysqli->query("SHOW COLUMNS FROM votes")->fetch_all(MYSQLI_ASSOC);
-  $fields = array_column($cols, 'Field');
-  $hasRating = in_array('rating', $fields);
+  // 2) Top Rated: compute average of per-vote totals (sum of category scores)
+  $vdCols = $mysqli->query("SHOW COLUMNS FROM vote_details")->fetch_all(MYSQLI_ASSOC);
+  $scoreCandidates = ['writing','direction','acting_or_doc_theme','emotional_involvement','novelty','casting_research_art','sound'];
+  $haveCols = array_map(function($c){ return $c['Field']; }, $vdCols);
+  $scoreCols = array_values(array_filter($scoreCandidates, function($c) use ($haveCols){ return in_array($c, $haveCols); }));
   $topRated = [];
-  if ($hasRating) {
-    $q = "SELECT m.*, ROUND(AVG(v.rating),2) AS avg_rating, COUNT(v.id) AS votes_count
+  if ($scoreCols) {
+    $numParts = array_map(function($col){ return "COALESCE(vd.`$col`,0)"; }, $scoreCols);
+    $scoreExpr = '('.implode('+', $numParts).')';
+    $q = "SELECT m.*, COUNT(v.id) AS votes_count,
+                 ROUND(AVG($scoreExpr),2) AS avg_rating
           FROM movies m
           JOIN votes v ON v.movie_id = m.id
+          LEFT JOIN vote_details vd ON vd.vote_id = v.id
           WHERE m.poster_url IS NOT NULL
             AND m.poster_url != ''
             AND m.poster_url != 'N/A'
           GROUP BY m.id
-          HAVING votes_count > 0
+          HAVING votes_count > 0 AND avg_rating IS NOT NULL
           ORDER BY avg_rating DESC, votes_count DESC
           LIMIT 24";
     $topRated = $mysqli->query($q)->fetch_all(MYSQLI_ASSOC);
-  } else {
-    // build numeric average from vote_details like stats.php
-    $vdCols = $mysqli->query("SHOW COLUMNS FROM vote_details")->fetch_all(MYSQLI_ASSOC);
-    $numericCols = [];
-    foreach ($vdCols as $c) {
-      $t = strtolower($c['Type']);
-      if (strpos($t, 'tinyint') !== false || strpos($t, 'smallint') !== false || strpos($t, 'int(') !== false || strpos($t, 'int ') !== false || strpos($t, 'decimal') !== false || strpos($t, 'float') !== false || strpos($t, 'double') !== false) {
-        $numericCols[] = $c['Field'];
-      }
-    }
-    if ($numericCols) {
-      $numParts = array_map(function($col){ return "COALESCE(vd.`$col`,0)"; }, $numericCols);
-      $denParts = array_map(function($col){ return "(vd.`$col` IS NOT NULL)"; }, $numericCols);
-      $numExpr = implode('+', $numParts);
-      $denExpr = implode('+', $denParts);
-      $q = "SELECT m.*, COUNT(v.id) AS votes_count,
-                   ROUND(AVG( ( ($numExpr) / NULLIF($denExpr,0) ) ),2) AS avg_rating
-            FROM movies m
-            JOIN votes v ON v.movie_id = m.id
-            LEFT JOIN vote_details vd ON vd.vote_id = v.id
-            WHERE m.poster_url IS NOT NULL
-              AND m.poster_url != ''
-              AND m.poster_url != 'N/A'
-            GROUP BY m.id
-            HAVING votes_count > 0
-            ORDER BY avg_rating DESC, votes_count DESC
-            LIMIT 24";
-      $topRated = $mysqli->query($q)->fetch_all(MYSQLI_ASSOC);
-    }
   }
 
 }

@@ -132,14 +132,13 @@ $vdColsGlobal = $mysqli->query("SHOW COLUMNS FROM vote_details")->fetch_all(MYSQ
 $scoreCandidatesGlobal = ['writing','direction','acting_or_doc_theme','emotional_involvement','novelty','casting_research_art','sound'];
 $haveGlobal = array_map(function($c){ return $c['Field']; }, $vdColsGlobal);
 $scoreColsGlobal = array_values(array_filter($scoreCandidatesGlobal, function($c) use ($haveGlobal){ return in_array($c,$haveGlobal); }));
-$numExprGlobal = $denExprGlobal = null;
+$numExprGlobal = null;
 if ($scoreColsGlobal) {
   $numParts = array_map(function($col){ return "COALESCE(vd.`$col`,0)"; }, $scoreColsGlobal);
-  $denParts = array_map(function($col){ return "(vd.`$col` IS NOT NULL)"; }, $scoreColsGlobal);
   $numExprGlobal = implode('+', $numParts);
-  $denExprGlobal = implode('+', $denParts);
 }
-$ratingExprGlobal = $hasRating ? 'v.rating' : ($numExprGlobal ? "(($numExprGlobal)/NULLIF($denExprGlobal,0))" : 'NULL');
+// Per-vote total score = sum of all detail scores (we average these totals across jurors)
+$ratingExprGlobal = $numExprGlobal ? "($numExprGlobal)" : 'NULL';
 
 // All users can view voting results (no mine parameter filtering)
 
@@ -627,14 +626,13 @@ if ($sheet === 'results') {
   $detailCols = ['writing','direction','acting_or_doc_theme','emotional_involvement','novelty','casting_research_art','sound'];
   $have = array_map(function($c){return $c['Field'];}, $vdCols);
   $detailCols = array_values(array_filter($detailCols, function($c) use ($have){ return in_array($c,$have); }));
-  $numExpr = $denExpr = null;
-  if (!$hasRating && $detailCols) {
+  $numExpr = null;
+  if ($detailCols) {
     $numParts = array_map(function($col){ return "COALESCE(vd.`$col`,0)"; }, $detailCols);
-    $denParts = array_map(function($col){ return "(vd.`$col` IS NOT NULL)"; }, $detailCols);
     $numExpr = implode('+', $numParts);
-    $denExpr = implode('+', $denParts);
   }
-  $ratingExpr = $hasRating ? 'v.rating' : ($numExpr ? "(($numExpr)/NULLIF($denExpr,0))" : 'NULL');
+  // Aggregate using per-vote total (sum of category scores)
+  $ratingExpr = $numExpr ? "($numExpr)" : 'NULL';
 
   $avgSelects = [];
   foreach ($detailCols as $c) { $avgSelects[] = "ROUND(AVG(vd.`$c`),2) AS avg_$c"; }
@@ -708,7 +706,7 @@ if ($sheet === 'results') {
           <td><?= e($r['platform_mode'] ?? '') ?></td>
           <td><?= e($r['comp_mode'] ?? '') ?></td>
           <td><?= (int)$r['votes_count'] ?></td>
-          <td class="highlight"><?= $r['avg_rating']!==null ? number_format($r['avg_rating']*10,2) : '' ?></td>
+          <td class="highlight"><?= $r['avg_rating']!==null ? number_format($r['avg_rating'],2) : '' ?></td>
           <?php foreach ($detailCols as $c): $key = 'avg_'.$c; ?>
             <td><?= isset($r[$key]) && $r[$key]!==null ? number_format($r[$key],2) : '' ?></td>
           <?php endforeach; ?>
@@ -751,7 +749,7 @@ if (($sheet === 'votes') || ($sheet === 'raw' && function_exists('is_admin') && 
   $sqlRaw = "SELECT v.id as vote_id, v.user_id, v.created_at, u.username, m.id AS movie_id, m.title, m.year,
         vd.competition_status, vd.category, vd.where_watched, vd.season_number,
         vd.acting_or_doc_theme, vd.casting_research_art, vd.writing, vd.direction, vd.emotional_involvement, vd.novelty, vd.sound,
-        " . ($scoreCols ? "($numExpr) AS total_score, ($denExpr) AS non_empty_count, (($numExpr)/NULLIF($denExpr,0)) AS calc_rating" : "NULL AS total_score, NULL AS non_empty_count, NULL AS calc_rating") . "
+        " . ($scoreCols ? "($numExpr) AS total_score, ($denExpr) AS non_empty_count, ($numExpr) AS calc_rating" : "NULL AS total_score, NULL AS non_empty_count, NULL AS calc_rating") . "
     FROM votes v
         JOIN users u ON u.id = v.user_id
         JOIN movies m ON m.id = v.movie_id
@@ -871,14 +869,13 @@ if ($sheet === 'views') {
         $numericCols[] = $c['Field'];
       }
     }
-    $numExpr = $denExpr = null;
+    $numExpr = null;
     if ($numericCols) {
       $numParts = array_map(function($col){ return "COALESCE(vd.`$col`,0)"; }, $numericCols);
-      $denParts = array_map(function($col){ return "(vd.`$col` IS NOT NULL)"; }, $numericCols);
       $numExpr = implode('+',$numParts);
-      $denExpr = implode('+',$denParts);
     }
-    $ratingExpr = $hasRating ? 'v.rating' : ($numExpr ? "(($numExpr)/NULLIF($denExpr,0))" : 'NULL');
+    // Per-vote total for averaging across views/platforms
+    $ratingExpr = $numExpr ? "($numExpr)" : 'NULL';
 
     // Summary counts per category
     $categories = ['Film','Serie','Miniserie','Documentario','Animazione'];
@@ -995,14 +992,13 @@ if ($sheet === 'judges' || $sheet === 'judges_comp') {
     // ensure they exist
     $have = array_map(function($c){return $c['Field'];}, $vdCols);
     $detailCols = array_values(array_filter($detailCols, function($c) use ($have){ return in_array($c,$have); }));
-    $numExpr = $denExpr = null;
+    $numExpr = null;
     if ($detailCols) {
       $numParts = array_map(function($col){ return "COALESCE(vd.`$col`,0)"; }, $detailCols);
-      $denParts = array_map(function($col){ return "(vd.`$col` IS NOT NULL)"; }, $detailCols);
       $numExpr = implode('+',$numParts);
-      $denExpr = implode('+',$denParts);
     }
-    $ratingExpr = $hasRating ? 'v.rating' : ($numExpr ? "(($numExpr)/NULLIF($denExpr,0))" : 'NULL');
+    // Per-judge average of total scores (sum of categories per vote)
+    $ratingExpr = $numExpr ? "($numExpr)" : 'NULL';
 
     $sql = "SELECT u.username AS judge,
                    COUNT(v.id) AS votes,
@@ -1011,7 +1007,7 @@ if ($sheet === 'judges' || $sheet === 'judges_comp') {
                    SUM(COALESCE(vd.category,'')='Miniserie') AS miniseries_count,
                    SUM(COALESCE(vd.category,'')='Documentario') AS doc_count,
                    SUM(COALESCE(vd.category,'')='Animazione') AS anim_count,
-                   ROUND(AVG($ratingExpr)*10,2) AS media_totale,
+                   ROUND(AVG($ratingExpr),2) AS media_totale,
                    " . (in_array('writing',$detailCols)?'ROUND(AVG(vd.writing),2)':'NULL') . " AS media_sceneggiatura,
                    " . (in_array('direction',$detailCols)?'ROUND(AVG(vd.direction),2)':'NULL') . " AS media_regia,
                    " . (in_array('acting_or_doc_theme',$detailCols)?'ROUND(AVG(vd.acting_or_doc_theme),2)':'NULL') . " AS media_recitazione,

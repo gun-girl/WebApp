@@ -82,14 +82,13 @@ foreach ($vdCols as $c) {
         $numericCols[] = $c['Field'];
     }
 }
-$numExpr = $denExpr = null;
+$numExpr = null;
 if ($numericCols) {
     $numParts = array_map(function($col){ return "COALESCE(vd.`$col`,0)"; }, $numericCols);
-    $denParts = array_map(function($col){ return "(vd.`$col` IS NOT NULL)"; }, $numericCols);
     $numExpr = implode('+',$numParts);
-    $denExpr = implode('+',$denParts);
 }
-$ratingExpr = $hasRating ? 'v.rating' : ($numExpr ? "(($numExpr)/NULLIF($denExpr,0))" : 'NULL');
+// Use per-vote total (sum of category scores) for all averaged metrics
+$ratingExpr = $numExpr ? "($numExpr)" : 'NULL';
 
 // helper to safely emit a cell (avoid empty Number Data elements)
 function emit_cell($value = '', $type = 'String', $style = null) {
