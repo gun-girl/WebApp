@@ -179,6 +179,28 @@ if ($sheet === 'lists') {
               LIMIT 25";
   $bestDocsRows = $mysqli->query($bestDocsSql)->fetch_all(MYSQLI_ASSOC);
 
+  $bestMiniseriesSql = "SELECT m.id, m.title, m.year, m.type, m.poster_url, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
+              FROM movies m
+              JOIN votes v ON v.movie_id = m.id
+              LEFT JOIN vote_details vd ON vd.vote_id = v.id
+              " . $whereYearClause . " AND (m.type = 'miniseries' OR vd.category = 'Miniserie')
+              GROUP BY m.id
+              HAVING votes_count > 0
+              ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
+              LIMIT 25";
+  $bestMiniseriesRows = $mysqli->query($bestMiniseriesSql)->fetch_all(MYSQLI_ASSOC);
+
+  $bestAnimationSql = "SELECT m.id, m.title, m.year, m.type, m.poster_url, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
+              FROM movies m
+              JOIN votes v ON v.movie_id = m.id
+              LEFT JOIN vote_details vd ON vd.vote_id = v.id
+              " . $whereYearClause . " AND (m.type = 'animation' OR vd.category = 'Animazione')
+              GROUP BY m.id
+              HAVING votes_count > 0
+              ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
+              LIMIT 25";
+  $bestAnimationRows = $mysqli->query($bestAnimationSql)->fetch_all(MYSQLI_ASSOC);
+
   // Most viewed: ordered by view count
   $viewsSql = "SELECT m.id, m.title, m.year, m.poster_url, COUNT(v.id) AS views
                FROM movies m
@@ -352,6 +374,70 @@ if ($sheet === 'lists') {
                           <img src="<?= htmlspecialchars($row['poster_url']) ?>" alt="<?= e($row['title']) ?>" class="stat-poster" loading="lazy">
                         <?php else: ?>
                           <div class="stat-poster stat-poster-empty">🎥</div>
+                        <?php endif; ?>
+                        <div class="stat-main">
+                          <div class="stat-title"><?= e($row['title']) ?> <span class="muted">(<?= e($row['year']) ?>)</span></div>
+                          <div class="stat-meta"><?= t('average_rating') ?>: <strong><?= $row['avg_rating'] !== null ? number_format($row['avg_rating'],2) : '' ?></strong> · <?= (int)$row['votes_count'] ?> <?= t('votes') ?></div>
+                        </div>
+                      </a>
+                    </li>
+                  <?php endforeach; ?>
+                </ol>
+              <?php else: ?>
+                <p class="stat-empty"><?= e(t('no_data_yet')) ?></p>
+              <?php endif; ?>
+            </div>
+          </div>
+
+          <!-- Nested: Miniseries -->
+          <div class="stat-nested-card">
+            <button class="stat-nested-toggle" data-target="stat-best-miniseries" aria-expanded="false">
+              <span>📺 <?= t('miniseries') ?></span>
+              <span class="chevron">▾</span>
+            </button>
+            <div id="stat-best-miniseries" class="stat-nested-content">
+              <?php if ($bestMiniseriesRows): ?>
+                <ol class="ranked-list">
+                  <?php foreach ($bestMiniseriesRows as $idx => $row): ?>
+                    <li>
+                      <a href="?sheet=lists&year=<?= $viewYearInt ?>&view_movie=<?= $row['id'] ?>" class="stat-line stat-line-with-poster movie-link" data-movie-id="<?= $row['id'] ?>">
+                        <span class="rank">#<?= $idx + 1 ?></span>
+                        <?php if ($row['poster_url'] && $row['poster_url'] !== 'N/A'): ?>
+                          <img src="<?= htmlspecialchars($row['poster_url']) ?>" alt="<?= e($row['title']) ?>" class="stat-poster" loading="lazy">
+                        <?php else: ?>
+                          <div class="stat-poster stat-poster-empty">📺</div>
+                        <?php endif; ?>
+                        <div class="stat-main">
+                          <div class="stat-title"><?= e($row['title']) ?> <span class="muted">(<?= e($row['year']) ?>)</span></div>
+                          <div class="stat-meta"><?= t('average_rating') ?>: <strong><?= $row['avg_rating'] !== null ? number_format($row['avg_rating'],2) : '' ?></strong> · <?= (int)$row['votes_count'] ?> <?= t('votes') ?></div>
+                        </div>
+                      </a>
+                    </li>
+                  <?php endforeach; ?>
+                </ol>
+              <?php else: ?>
+                <p class="stat-empty"><?= e(t('no_data_yet')) ?></p>
+              <?php endif; ?>
+            </div>
+          </div>
+
+          <!-- Nested: Animation -->
+          <div class="stat-nested-card">
+            <button class="stat-nested-toggle" data-target="stat-best-animation" aria-expanded="false">
+              <span>🎨 <?= t('animation') ?></span>
+              <span class="chevron">▾</span>
+            </button>
+            <div id="stat-best-animation" class="stat-nested-content">
+              <?php if ($bestAnimationRows): ?>
+                <ol class="ranked-list">
+                  <?php foreach ($bestAnimationRows as $idx => $row): ?>
+                    <li>
+                      <a href="?sheet=lists&year=<?= $viewYearInt ?>&view_movie=<?= $row['id'] ?>" class="stat-line stat-line-with-poster movie-link" data-movie-id="<?= $row['id'] ?>">
+                        <span class="rank">#<?= $idx + 1 ?></span>
+                        <?php if ($row['poster_url'] && $row['poster_url'] !== 'N/A'): ?>
+                          <img src="<?= htmlspecialchars($row['poster_url']) ?>" alt="<?= e($row['title']) ?>" class="stat-poster" loading="lazy">
+                        <?php else: ?>
+                          <div class="stat-poster stat-poster-empty">🎨</div>
                         <?php endif; ?>
                         <div class="stat-main">
                           <div class="stat-title"><?= e($row['title']) ?> <span class="muted">(<?= e($row['year']) ?>)</span></div>
