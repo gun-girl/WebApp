@@ -60,7 +60,7 @@ return [
     'search_movies' => 'Cerca titolo...',
     'search' => 'Cerca',
     'searching' => 'Ricerca in corso',
-    'search_intro' => 'Cerca un film da votare.',
+    'search_intro' => 'Cerca un titolo da votare.',
     'search_no_results' => 'Nessun film trovato per questa ricerca. Prova con un altro titolo.',
     'rate' => 'Vota',
     'vote' => 'Vota',
