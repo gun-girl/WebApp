@@ -199,41 +199,6 @@ $calendar_year = (int)date('Y');
     </div>
   </nav>
 </header>
-    <a class="mobile-item" href="<?= ADDRESS ?>/stats.php?sheet=votes&year=<?= $calendar_year ?>"><?= e(t('all_competitions')) ?></a>
-    <?php
-      $m_competitions = [];
-      $m_hasCompetitionsTable = $mysqli->query("SHOW TABLES LIKE 'competitions'")->fetch_all(MYSQLI_NUM);
-      if ($m_hasCompetitionsTable) {
-        $m_rows = $mysqli->query("SELECT year FROM competitions")->fetch_all(MYSQLI_ASSOC);
-        foreach ($m_rows as $r) { $m_competitions[] = (int)$r['year']; }
-      }
-      $m_hasVotesYearCol = $mysqli->query("SHOW COLUMNS FROM votes LIKE 'competition_year'")->fetch_all(MYSQLI_ASSOC);
-      if ($m_hasVotesYearCol) {
-        $m_rows2 = $mysqli->query("SELECT DISTINCT COALESCE(competition_year, YEAR(created_at)) AS y FROM votes WHERE (competition_year IS NOT NULL OR created_at IS NOT NULL)")->fetch_all(MYSQLI_ASSOC);
-        foreach ($m_rows2 as $r) { $m_competitions[] = (int)$r['y']; }
-      } else {
-        $m_rows2 = $mysqli->query("SELECT DISTINCT YEAR(created_at) AS y FROM votes WHERE created_at IS NOT NULL")->fetch_all(MYSQLI_ASSOC);
-        foreach ($m_rows2 as $r) { $m_competitions[] = (int)$r['y']; }
-      }
-      $m_act = $calendar_year; if ($m_act) { $m_competitions[] = $m_act; }
-      $m_competitions = array_map('intval', array_values(array_unique($m_competitions)));
-      rsort($m_competitions, SORT_NUMERIC);
-    ?>
-    <?php foreach ($m_competitions as $cy): ?>
-      <a class="mobile-item" href="<?= ADDRESS ?>/stats.php?year=<?= (int)$cy ?>"><?= (int)$cy ?><?= $cy === $m_act ? ' (active)' : '' ?></a>
-    <?php endforeach; ?>
-  </div>
-  <hr class="mobile-sep" />
-
-  <div class="mobile-heading">Account</div>
-  <?php if (current_user()): ?>
-    <a class="mobile-item" href="<?= ADDRESS ?>/profile.php">👤 <?= e(t('your_profile')) ?></a>
-    <a class="mobile-item" href="<?= ADDRESS ?>/stats.php?mine=1">⭐ <?= e(t('your_ratings')) ?></a>
-    <a class="mobile-item mobile-signout" href="<?= ADDRESS ?>/logout.php">🚪 <?= e(t('sign_out')) ?></a>
-  <?php else: ?>
-    <a class="mobile-item" href="<?= ADDRESS ?>/register.php"><?= e(t('register')) ?></a>
-    <a class="mobile-item" href="<?= ADDRESS ?>/login.php"><?= e(t('login')) ?></a>
-  <?php endif; ?>
 <script>
   // User dropdown menu toggle
   const userBtn = document.getElementById('userMenuBtn');
