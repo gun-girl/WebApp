@@ -588,6 +588,24 @@ main{padding-bottom:140px}
 .year-selector-form { display: inline-block; }
 .year-selector-label { color: #ddd; margin-right: .5rem; font-weight: 600; }
 .year-selector-select { padding: .5rem .6rem; border-radius: .35rem; background: #1a1a1a; color: #fff; border: 1px solid #333; font-weight: 600; }
+.status-detail-text { 
+	margin-top: .8rem; 
+	padding: .6rem 1rem; 
+	background: #1a1a1a; 
+	border: 1px solid #444; 
+	border-radius: .35rem; 
+	color: #f6c90e; 
+	font-weight: 600; 
+	font-size: .95rem;
+	display: inline-block;
+}
+
+@media (max-width: 768px) {
+	.year-selector-form { display: block; }
+	.year-selector-label { display: inline-block; margin: .5rem .3rem .3rem 0; font-size: .9rem; }
+	.year-selector-select { margin-bottom: .5rem; }
+	.status-detail-text { font-size: .88rem; padding: .5rem .8rem; }
+}
 
 /* Stats page table headers */
 .table-header-gold { background: #ffd700 !important; }

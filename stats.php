@@ -24,30 +24,13 @@ if (!empty($_SESSION['flash'])) {
 $sheet = isset($_GET['sheet']) ? $_GET['sheet'] : 'lists';
 // Always default to actual current year, ignore stored settings
 $currentYear = (int)date('Y');
-// Selected competition year (filter votes). Default to current year or ?year= in URL
-$selected_year = (int)($_GET['year'] ?? $currentYear);
-// Build list of available years from both `competitions` table (if present) and votes table
-$years = [];
-// from competitions table if exists
-$hasCompetitionsTable = $mysqli->query("SHOW TABLES LIKE 'competitions'")->fetch_all(MYSQLI_NUM);
-if ($hasCompetitionsTable) {
-  $rows = $mysqli->query("SELECT year FROM competitions")->fetch_all(MYSQLI_ASSOC);
-  foreach ($rows as $r) { $years[] = (int)$r['year']; }
-}
-// from votes table: prefer competition_year when present else YEAR(created_at)
-$hasVotesYearCol = $mysqli->query("SHOW COLUMNS FROM votes LIKE 'competition_year'")->fetch_all(MYSQLI_ASSOC);
-if ($hasVotesYearCol) {
-  $rows2 = $mysqli->query("SELECT DISTINCT COALESCE(competition_year, YEAR(created_at)) AS y FROM votes WHERE (competition_year IS NOT NULL OR created_at IS NOT NULL)")->fetch_all(MYSQLI_ASSOC);
-  foreach ($rows2 as $r) { $years[] = (int)$r['y']; }
-} else {
-  $rows2 = $mysqli->query("SELECT DISTINCT YEAR(created_at) AS y FROM votes WHERE created_at IS NOT NULL")->fetch_all(MYSQLI_ASSOC);
-  foreach ($rows2 as $r) { $years[] = (int)$r['y']; }
-}
-// always include the active/current year so it appears in the list
-if ($currentYear) { $years[] = (int)$currentYear; }
-// normalize: unique, sort descending
-$years = array_map('intval', array_values(array_unique($years)));
-rsort($years, SORT_NUMERIC);
+// Use current year for all queries (no year selection)
+$selected_year = $currentYear;
+$viewYearInt = $currentYear;
+// Selected competition status filter ('all', 'in', 'out')
+$selected_status = isset($_GET['status']) ? $_GET['status'] : 'all';
+// Build list of available years - just use current year
+$years = [$currentYear];
 // Tab labels in the order matching the workbook
 $tabs = [
   'votes' => str_replace('{year}', $selected_year, t('sheet_votes')),
@@ -63,26 +46,45 @@ $tabs = [
 
 // Global fixed bottom tabs styling for all sheets (keeps bottom tabs visible while scrolling)
 ?>
-<!-- Inline year selector (centered) -->
+<!-- Competition status selector (centered) -->
 <div class="year-selector-wrap">
-  <form id="yearForm" method="get" action="<?= ADDRESS ?>/stats.php" class="year-selector-form">
-    <label for="yearSelect" class="year-selector-label"><?= e(t('select_year')) ?>:</label>
-    <select id="yearSelect" name="year" class="year-selector-select">
-      <?php foreach ($years as $y): ?>
-        <option value="<?= (int)$y ?>" <?= ((int)$y === (int)$selected_year) ? 'selected' : '' ?>><?= (int)$y ?></option>
-      <?php endforeach; ?>
+  <form id="statusForm" method="get" action="<?= ADDRESS ?>/stats.php" class="year-selector-form">
+    <label for="statusSelect" class="year-selector-label"><?= e(t('select_competition_status')) ?>:</label>
+    <select id="statusSelect" name="status" class="year-selector-select">
+      <option value="all" <?= $selected_status === 'all' ? 'selected' : '' ?>><?= e(t('all_status')) ?></option>
+      <option value="in" <?= $selected_status === 'in' ? 'selected' : '' ?>><?= e(t('filter_in_competition')) ?></option>
+      <option value="out" <?= $selected_status === 'out' ? 'selected' : '' ?>><?= e(t('filter_out_of_competition')) ?></option>
     </select>
-    <?php // Preserve other GET params (sheet, mine, lang, etc.) when switching years ?>
-    <?php foreach ($_GET as $k=>$v): if ($k === 'year') continue; if (is_array($v)) continue; ?>
+    <?php // Preserve other GET params (sheet, lang, etc.) when switching status ?>
+    <?php foreach ($_GET as $k=>$v): if ($k === 'status') continue; if (is_array($v)) continue; ?>
       <input type="hidden" name="<?= htmlspecialchars($k) ?>" value="<?= htmlspecialchars($v) ?>">
     <?php endforeach; ?>
   </form>
+  
+  <?php
+  // Display status details based on selection
+  $statusDetail = '';
+  if ($selected_status === 'in') {
+    // Determine which competition period based on current year
+    if ($currentYear >= 2026) {
+      $statusDetail = t('status_detail_in_2026');
+    } else {
+      $statusDetail = t('status_detail_in_2025');
+    }
+  } elseif ($selected_status === 'out') {
+    $statusDetail = t('status_detail_out');
+  } elseif ($selected_status === 'all') {
+    $statusDetail = t('status_detail_all');
+  }
+  if ($statusDetail): ?>
+    <div class="status-detail-text"><?= e($statusDetail) ?></div>
+  <?php endif; ?>
 </div>
 <script>
-  // Auto-submit the year form when selection changes
+  // Auto-submit the form when status selection changes
   (function(){
-    var sel = document.getElementById('yearSelect');
-    if (sel) sel.addEventListener('change', function(){ document.getElementById('yearForm').submit(); });
+    var statusSel = document.getElementById('statusSelect');
+    if (statusSel) statusSel.addEventListener('change', function(){ document.getElementById('statusForm').submit(); });
   })();
 </script>
 <?php
@@ -100,6 +102,24 @@ $activeYearInt = (int)$active_year;
 // competition year (admin-facing), but use $viewYearInt when constructing SQL WHERE/JOIN fragments for this page
 // so ?year=YYYY controls which year's votes/results are shown.
 $viewYearInt = (int)$selected_year;
+// competition status filter fragments
+$statusCond = '';
+$statusCondVd = ''; // for vote_details table
+$subStatusV2 = $subStatusV3 = $subStatusV4 = $subStatusV5 = '';
+if ($selected_status === 'in') {
+  $statusCondVd = " AND COALESCE(vd.competition_status,'') IN ('Concorso','In Competizione','In Competition')";
+  $subStatusV2 = " AND COALESCE(vd2.competition_status,'') IN ('Concorso','In Competizione','In Competition')";
+  $subStatusV3 = " AND COALESCE(vd3.competition_status,'') IN ('Concorso','In Competizione','In Competition')";
+  $subStatusV4 = " AND COALESCE(vd4.competition_status,'') IN ('Concorso','In Competizione','In Competition')";
+  $subStatusV5 = " AND COALESCE(vd5.competition_status,'') IN ('Concorso','In Competizione','In Competition')";
+} elseif ($selected_status === 'out') {
+  $statusCondVd = " AND COALESCE(vd.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition') AND COALESCE(vd.competition_status,'') <> ''";
+  $subStatusV2 = " AND COALESCE(vd2.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition') AND COALESCE(vd2.competition_status,'') <> ''";
+  $subStatusV3 = " AND COALESCE(vd3.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition') AND COALESCE(vd3.competition_status,'') <> ''";
+  $subStatusV4 = " AND COALESCE(vd4.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition') AND COALESCE(vd4.competition_status,'') <> ''";
+  $subStatusV5 = " AND COALESCE(vd5.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition') AND COALESCE(vd5.competition_status,'') <> ''";
+}
+
 // year filter fragments to reuse in queries (use selected/view year)
 $yearCond = '';
 $whereYearClause = '';
@@ -149,7 +169,7 @@ if ($sheet === 'lists') {
               FROM movies m
               JOIN votes v ON v.movie_id = m.id
               LEFT JOIN vote_details vd ON vd.vote_id = v.id
-              " . $whereYearClause . " AND m.type = 'movie'
+              " . $whereYearClause . $statusCondVd . " AND m.type = 'movie'
               GROUP BY m.id
               HAVING votes_count > 0
               ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
@@ -160,7 +180,7 @@ if ($sheet === 'lists') {
               FROM movies m
               JOIN votes v ON v.movie_id = m.id
               LEFT JOIN vote_details vd ON vd.vote_id = v.id
-              " . $whereYearClause . " AND m.type = 'series'
+              " . $whereYearClause . $statusCondVd . " AND m.type = 'series'
               GROUP BY m.id
               HAVING votes_count > 0
               ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
@@ -172,7 +192,7 @@ if ($sheet === 'lists') {
               FROM movies m
               JOIN votes v ON v.movie_id = m.id
               LEFT JOIN vote_details vd ON vd.vote_id = v.id
-              " . $whereYearClause . " AND (m.type = 'documentary' OR m.title LIKE '%document%')
+              " . $whereYearClause . $statusCondVd . " AND (m.type = 'documentary' OR m.title LIKE '%document%')
               GROUP BY m.id
               HAVING votes_count > 0
               ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
@@ -183,7 +203,7 @@ if ($sheet === 'lists') {
               FROM movies m
               JOIN votes v ON v.movie_id = m.id
               LEFT JOIN vote_details vd ON vd.vote_id = v.id
-              " . $whereYearClause . " AND (m.type = 'miniseries' OR vd.category = 'Miniserie')
+              " . $whereYearClause . $statusCondVd . " AND (m.type = 'miniseries' OR vd.category = 'Miniserie')
               GROUP BY m.id
               HAVING votes_count > 0
               ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
@@ -194,7 +214,7 @@ if ($sheet === 'lists') {
               FROM movies m
               JOIN votes v ON v.movie_id = m.id
               LEFT JOIN vote_details vd ON vd.vote_id = v.id
-              " . $whereYearClause . " AND (m.type = 'animation' OR vd.category = 'Animazione')
+              " . $whereYearClause . $statusCondVd . " AND (m.type = 'animation' OR vd.category = 'Animazione')
               GROUP BY m.id
               HAVING votes_count > 0
               ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
@@ -206,7 +226,7 @@ if ($sheet === 'lists') {
                FROM movies m
                JOIN votes v ON v.movie_id = m.id
                LEFT JOIN vote_details vd ON vd.vote_id = v.id
-               " . $whereYearClause . "
+               " . $whereYearClause . $statusCondVd . "
                GROUP BY m.id
                ORDER BY views DESC, m.title ASC
                LIMIT 25";
@@ -217,7 +237,7 @@ if ($sheet === 'lists') {
                 FROM votes v
                 JOIN users u ON u.id = v.user_id
                 LEFT JOIN vote_details vd ON vd.vote_id = v.id
-                " . $whereYearClause . "
+                " . $whereYearClause . $statusCondVd . "
                 GROUP BY u.id, u.username
                 ORDER BY votes_count DESC, u.username ASC";
   $judgesRows = $mysqli->query($judgesSql)->fetch_all(MYSQLI_ASSOC);
@@ -232,7 +252,7 @@ if ($sheet === 'lists') {
                   FROM votes v
                   JOIN movies m ON m.id = v.movie_id
                   LEFT JOIN vote_details vd ON vd.vote_id = v.id
-                  WHERE v.user_id = ? " . str_replace('WHERE', 'AND', $whereYearClause) . "
+                  WHERE v.user_id = ? " . str_replace('WHERE', 'AND', $whereYearClause) . $statusCondVd . "
                   ORDER BY rating DESC, m.title ASC";
     $stmt = $mysqli->prepare($titlesSql);
     $stmt->bind_param('i', $jurorId);
@@ -258,7 +278,7 @@ if ($sheet === 'lists') {
                    FROM votes v
                    JOIN users u ON u.id = v.user_id
                    LEFT JOIN vote_details vd ON vd.vote_id = v.id
-                   WHERE v.movie_id = ? " . str_replace('WHERE', 'AND', $whereYearClause) . "
+                   WHERE v.movie_id = ? " . str_replace('WHERE', 'AND', $whereYearClause) . $statusCondVd . "
                    ORDER BY overall_rating DESC, u.username ASC";
       $votesStmt = $mysqli->prepare($votesSql);
       $votesStmt->bind_param('i', $movieId);
@@ -281,7 +301,7 @@ if ($sheet === 'lists') {
       </div>
       <div class="nav-buttons">
         <?php if (function_exists('is_admin') && is_admin()): ?>
-          <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
+          <a href="export_results.php?year=<?= $viewYearInt ?>&status=<?= urlencode($selected_status) ?>" class="btn">⬇ <?= t('download_excel') ?></a>
         <?php endif; ?>
       </div>
     </div>
@@ -658,7 +678,7 @@ if ($sheet === 'lists') {
       if (modal) {
         modal.classList.remove('open');
         // Remove the view_movie parameter from URL
-        window.history.replaceState({}, document.title, '?sheet=lists&year=<?= $viewYearInt ?>');
+        window.history.replaceState({}, document.title, '?sheet=lists&year=<?= $viewYearInt ?>&status=<?= urlencode($selected_status) ?>');
       }
     }
 
@@ -732,29 +752,29 @@ if ($sheet === 'results') {
                    (
                      SELECT vd2.category FROM vote_details vd2
                      JOIN votes v2 ON v2.id = vd2.vote_id
-                     WHERE v2.movie_id = m.id" . $subYearV2 . " AND TRIM(COALESCE(vd2.category,''))<>''
+                     WHERE v2.movie_id = m.id" . $subYearV2 . $subStatusV2 . " AND TRIM(COALESCE(vd2.category,''))<>''
                      GROUP BY vd2.category ORDER BY COUNT(*) DESC LIMIT 1
                    ) AS category_mode,
              (
                SELECT vd3.where_watched FROM vote_details vd3
                JOIN votes v3 ON v3.id = vd3.vote_id
-               WHERE v3.movie_id = m.id" . $subYearV3 . " AND TRIM(COALESCE(vd3.where_watched,''))<>''
+               WHERE v3.movie_id = m.id" . $subYearV3 . $subStatusV3 . " AND TRIM(COALESCE(vd3.where_watched,''))<>''
                GROUP BY vd3.where_watched ORDER BY COUNT(*) DESC LIMIT 1
              ) AS platform_mode,
              (
                SELECT vd4.competition_status FROM vote_details vd4
                JOIN votes v4 ON v4.id = vd4.vote_id
-               WHERE v4.movie_id = m.id" . $subYearV4 . " AND TRIM(COALESCE(vd4.competition_status,''))<>''
+               WHERE v4.movie_id = m.id" . $subYearV4 . $subStatusV4 . " AND TRIM(COALESCE(vd4.competition_status,''))<>''
                GROUP BY vd4.competition_status ORDER BY COUNT(*) DESC LIMIT 1
              ) AS comp_mode,
              (
                SELECT GROUP_CONCAT(DISTINCT TRIM(vd5.adjective) ORDER BY TRIM(vd5.adjective) SEPARATOR ', ')
                FROM vote_details vd5 JOIN votes v5 ON v5.id = vd5.vote_id
-               WHERE v5.movie_id = m.id" . $subYearV5 . " AND TRIM(COALESCE(vd5.adjective,''))<>''
+               WHERE v5.movie_id = m.id" . $subYearV5 . $subStatusV5 . " AND TRIM(COALESCE(vd5.adjective,''))<>''
              ) AS adjectives
       FROM movies m
       " . $leftJoinVotesForResults . "
-      LEFT JOIN vote_details vd ON vd.vote_id = v.id
+      LEFT JOIN vote_details vd ON vd.vote_id = v.id" . $statusCondVd . "
       GROUP BY m.id
       HAVING votes_count > 0
       ORDER BY avg_rating DESC, votes_count DESC
@@ -765,7 +785,7 @@ if ($sheet === 'results') {
   <div class="table-container">
     <div class="nav-buttons">
       <?php if (function_exists('is_admin') && is_admin()): ?>
-    <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
+    <a href="export_results.php?year=<?= $viewYearInt ?>&status=<?= urlencode($selected_status) ?>" class="btn">⬇ <?= t('download_excel') ?></a>
       <?php endif; ?>
     </div>
 
@@ -840,7 +860,7 @@ if (($sheet === 'votes') || ($sheet === 'raw' && function_exists('is_admin') && 
         JOIN users u ON u.id = v.user_id
         JOIN movies m ON m.id = v.movie_id
         LEFT JOIN vote_details vd ON vd.vote_id = v.id
-  " . $whereYearClause . "
+  " . $whereYearClause . $statusCondVd . "
   ORDER BY v.created_at DESC";
     $rawRows = $mysqli->query($sqlRaw)->fetch_all(MYSQLI_ASSOC);
     ?>
@@ -864,7 +884,7 @@ if (($sheet === 'votes') || ($sheet === 'raw' && function_exists('is_admin') && 
       <h2 class="text-center"><?= t('raw_votes') ?></h2>
       <div class="nav-buttons">
         <?php if (function_exists('is_admin') && is_admin()): ?>
-        <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
+        <a href="export_results.php?year=<?= $viewYearInt ?>&status=<?= urlencode($selected_status) ?>" class="btn">⬇ <?= t('download_excel') ?></a>
         <?php endif; ?>
       </div>
       <table class="raw-table">
@@ -970,11 +990,11 @@ if ($sheet === 'views') {
         $catEsc = $mysqli->real_escape_string($cat);
     $q1 = $mysqli->query("SELECT COUNT(DISTINCT v.movie_id) AS uniq_titles, COUNT(v.id) AS views
               FROM votes v LEFT JOIN vote_details vd ON vd.vote_id=v.id
-              WHERE COALESCE(vd.category,'Altro')='$catEsc'" . $yearCond);
+              WHERE COALESCE(vd.category,'Altro')='$catEsc'" . $yearCond . $statusCondVd);
         $summary[$cat] = $q1 ? $q1->fetch_assoc() : ['uniq_titles'=>0,'views'=>0];
       }
     // Also totals across all
-  $qTot = $mysqli->query("SELECT COUNT(DISTINCT v.movie_id) AS uniq_titles, COUNT(v.id) AS views FROM votes v " . $whereYearClause);
+  $qTot = $mysqli->query("SELECT COUNT(DISTINCT v.movie_id) AS uniq_titles, COUNT(v.id) AS views FROM votes v LEFT JOIN vote_details vd ON vd.vote_id = v.id " . $whereYearClause . $statusCondVd);
     $summaryTotal = $qTot ? $qTot->fetch_assoc() : ['uniq_titles'=>0,'views'=>0];
 
     // Platform x category metrics
@@ -985,7 +1005,7 @@ if ($sheet === 'views') {
                    ROUND(AVG($ratingExpr),2) AS avg_rating
       FROM votes v
       LEFT JOIN vote_details vd ON vd.vote_id = v.id
-  " . $whereYearClause . "
+  " . $whereYearClause . $statusCondVd . "
       GROUP BY platform, category
             ORDER BY platform, category";
     $pivot = $mysqli->query($sql)->fetch_all(MYSQLI_ASSOC);
@@ -1019,7 +1039,7 @@ if ($sheet === 'views') {
     <div class="table-container">
       <div class="nav-buttons">
         <?php if (function_exists('is_admin') && is_admin()): ?>
-            <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
+            <a href="export_results.php?year=<?= $viewYearInt ?>&status=<?= urlencode($selected_status) ?>" class="btn">⬇ <?= t('download_excel') ?></a>
         <?php endif; ?>
       </div>
 
@@ -1136,8 +1156,12 @@ if ($sheet === 'judges' || $sheet === 'judges_comp') {
     // ensure we always filter by competition year and optionally by competition status
     $whereParts = [];
   if ($hasCompetitionYear) { $whereParts[] = "v.competition_year = " . $viewYearInt; }
-    if (!empty($compWhere)) {
-      // compWhere starts with WHERE ... so strip it and append
+    // Add status filter from dropdown (takes precedence over judges_comp sheet)
+    if (!empty($statusCondVd)) {
+      $statusWhereClean = preg_replace('/^\s*AND\s+/i', '', $statusCondVd);
+      $whereParts[] = $statusWhereClean;
+    } elseif (!empty($compWhere)) {
+      // Fallback to judges_comp logic if no status filter selected
       $compWhereClean = preg_replace('/^WHERE\s+/i', '', $compWhere);
       $whereParts[] = $compWhereClean;
     }
@@ -1211,13 +1235,13 @@ if ($sheet === 'judges' || $sheet === 'judges_comp') {
 
 // TITLES sheet (unique list like UNIQUE(SORT(...)))
 if ($sheet === 'titles') {
-  $rows = $mysqli->query("SELECT DISTINCT m.title FROM votes v JOIN movies m ON m.id=v.movie_id " . $whereYearClause . " ORDER BY m.title ASC")->fetch_all(MYSQLI_ASSOC);
+  $rows = $mysqli->query("SELECT DISTINCT m.title FROM votes v JOIN movies m ON m.id=v.movie_id LEFT JOIN vote_details vd ON vd.vote_id=v.id " . $whereYearClause . $statusCondVd . " ORDER BY m.title ASC")->fetch_all(MYSQLI_ASSOC);
     ?>
     
     <div class="table-container">
       <div class="nav-buttons">
         <?php if (function_exists('is_admin') && is_admin()): ?>
-    <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
+    <a href="export_results.php?year=<?= $viewYearInt ?>&status=<?= urlencode($selected_status) ?>" class="btn">⬇ <?= t('download_excel') ?></a>
         <?php endif; ?>
       </div>
 
@@ -1252,7 +1276,7 @@ if ($sheet === 'adjectives') {
     
     <div class="nav-buttons">
       <?php if (function_exists('is_admin') && is_admin()): ?>
-  <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
+  <a href="export_results.php?year=<?= $viewYearInt ?>&status=<?= urlencode($selected_status) ?>" class="btn">⬇ <?= t('download_excel') ?></a>
       <?php endif; ?>
     </div>
 
@@ -1264,14 +1288,14 @@ if ($sheet === 'adjectives') {
     FROM votes v
     JOIN movies m ON m.id=v.movie_id
     LEFT JOIN vote_details vd ON vd.vote_id=v.id
-    WHERE TRIM(COALESCE(vd.adjective,''))<>''" . $yearCond . "
+    WHERE TRIM(COALESCE(vd.adjective,''))<>''" . $yearCond . $statusCondVd . "
     ORDER BY m.title, vd.adjective")->fetch_all(MYSQLI_ASSOC);
         // aggregated list per movie
   $agg = $mysqli->query("SELECT m.title, GROUP_CONCAT(DISTINCT TRIM(vd.adjective) ORDER BY TRIM(vd.adjective) SEPARATOR ', ') AS adjectives
              FROM votes v
              JOIN movies m ON m.id=v.movie_id
              LEFT JOIN vote_details vd ON vd.vote_id=v.id
-             WHERE TRIM(COALESCE(vd.adjective,''))<>''" . $yearCond . "
+             WHERE TRIM(COALESCE(vd.adjective,''))<>''" . $yearCond . $statusCondVd . "
              GROUP BY m.title
              ORDER BY m.title")->fetch_all(MYSQLI_ASSOC);
         $aggMap = [];
@@ -1322,7 +1346,7 @@ if ($sheet === 'finalists') {
     <div class="table-container">
       <div class="nav-buttons">
         <?php if (function_exists('is_admin') && is_admin()): ?>
-    <a href="export_results.php?year=<?= $viewYearInt ?>" class="btn">⬇ <?= t('download_excel') ?></a>
+    <a href="export_results.php?year=<?= $viewYearInt ?>&status=<?= urlencode($selected_status) ?>" class="btn">⬇ <?= t('download_excel') ?></a>
         <?php endif; ?>
       </div>
 
@@ -1346,3 +1370,6 @@ if ($sheet === 'finalists') {
     <?php include __DIR__.'/includes/footer.php';
     exit;
 }
+
+
+
