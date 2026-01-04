@@ -34,13 +34,20 @@ if (!function_exists('verify_csrf')) {
 
 /**
  * Return the active competition year stored in settings table or current year as fallback.
+ * Competition year starts in November of the previous year.
+ * E.g.: 2025 competition runs from November 2024 through October 2025.
  */
 function get_active_year(): int
 {
     global $mysqli;
-    // Default to current actual year
-    $nowYear = (int)date('Y');
-    if (!isset($mysqli) || !$mysqli) return $nowYear;
+    // Calculate default based on current date: competition year starts in November of prior year
+    $currentYear = (int)date('Y');
+    $currentMonth = (int)date('n');
+    // If we're before November, use current year as competition year
+    // If we're in November or later, competition year advances to next year
+    $defaultYear = ($currentMonth >= 11) ? $currentYear + 1 : $currentYear;
+    
+    if (!isset($mysqli) || !$mysqli) return $defaultYear;
     // attempt to read from settings table
     try {
         $stmt = $mysqli->prepare("SELECT setting_value FROM settings WHERE setting_key = 'active_year' LIMIT 1");
@@ -54,17 +61,20 @@ function get_active_year(): int
     } catch (Exception $e) {
         // ignore and fall back
     }
-    return $nowYear;
+    return $defaultYear;
 }
 
 /**
  * Determine if a movie/series is in competition for the active year.
- * Rule: In competition if release date is within the configured windows:
- * - Window A: 2024-12-19 to 2025-10-31 (inclusive)
- * - Window B: 2025-11-01 to 2026-12-31 (inclusive)
+ * Rule: A title is in competition for year Y if it was released from November (Y-1) onwards.
+ * E.g., for 2026 competition: released from November 2025 onwards.
  */
 function is_in_competition(array $movie, ?int $activeYear = null): bool
 {
+    if ($activeYear === null) {
+        $activeYear = get_active_year();
+    }
+    
     // Normalize a release date from 'released' (YYYY-MM-DD) or fall back to Jan 1 of year
     $releaseDate = null;
     $released = $movie['released'] ?? null;
@@ -79,14 +89,10 @@ function is_in_competition(array $movie, ?int $activeYear = null): bool
 
     if (!$releaseDate) return false;
 
-    // Competition windows
-    $windowAStart = '2024-12-19';
-    $windowAEnd   = '2025-10-31';
-    $windowBStart = '2025-11-01';
-    $windowBEnd   = '2026-12-31';
-
-    return ($releaseDate >= $windowAStart && $releaseDate <= $windowAEnd)
-        || ($releaseDate >= $windowBStart && $releaseDate <= $windowBEnd);
+    // Competition starts in November of the previous year
+    $competitionStart = ($activeYear - 1) . '-11-01';
+    
+    return ($releaseDate >= $competitionStart);
 }
 
 /**

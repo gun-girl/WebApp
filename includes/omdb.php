@@ -381,6 +381,75 @@ function fetch_omdb_detail_by_id(string $imdb_id): ?array {
 }
 
 /**
+ * Get seasons for a series that match the active competition year
+ * Competition for year Y includes content released from November (Y-1) onwards
+ * Returns array of season info: ['season_number' => int, 'year' => int, 'first_episode_date' => string]
+ */
+function get_series_seasons_for_active_year(string $imdb_id, int $activeYear): array {
+  global $omdbClient;
+  if (!$omdbClient || !$omdbClient->isConfigured()) {
+    error_log("[get_series_seasons] OMDb client not configured");
+    return [];
+  }
+  
+  // First get series detail to know total seasons
+  $detail = $omdbClient->getDetail($imdb_id);
+  if (!$detail || empty($detail['totalSeasons'])) {
+    error_log("[get_series_seasons] No detail or totalSeasons for {$imdb_id}");
+    return [];
+  }
+  
+  $totalSeasons = (int)$detail['totalSeasons'];
+  error_log("[get_series_seasons] Checking {$totalSeasons} seasons for {$imdb_id} against competition year {$activeYear}");
+  
+  // Competition starts in November of the previous year
+  $competitionStartDate = ($activeYear - 1) . '-11-01';
+  error_log("[get_series_seasons] Competition period starts: {$competitionStartDate}");
+  
+  $matchingSeasons = [];
+  
+  // Check each season
+  for ($seasonNum = 1; $seasonNum <= $totalSeasons; $seasonNum++) {
+    $apiKey = $omdbClient->getKey();
+    $url = "https://www.omdbapi.com/?apikey={$apiKey}&i={$imdb_id}&Season={$seasonNum}";
+    
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+    $response = curl_exec($ch);
+    curl_close($ch);
+    
+    if ($response) {
+      $seasonData = json_decode($response, true);
+      if (!empty($seasonData['Episodes']) && is_array($seasonData['Episodes'])) {
+        // Get the first episode's release date
+        $firstEpisode = $seasonData['Episodes'][0];
+        $releaseDate = $firstEpisode['Released'] ?? null;
+        
+        if ($releaseDate && $releaseDate !== 'N/A') {
+          $releaseYear = (int)substr($releaseDate, 0, 4);
+          error_log("[get_series_seasons] Season {$seasonNum} released: {$releaseDate}");
+          
+          // Check if this season was released during the competition period
+          if ($releaseDate >= $competitionStartDate) {
+            error_log("[get_series_seasons] Season {$seasonNum} MATCHES (released {$releaseDate} >= {$competitionStartDate})!");
+            $matchingSeasons[] = [
+              'season_number' => $seasonNum,
+              'year' => $releaseYear,
+              'first_episode_date' => $releaseDate
+            ];
+          }
+        }
+      }
+    }
+  }
+  
+  error_log("[get_series_seasons] Found " . count($matchingSeasons) . " matching seasons");
+  return $matchingSeasons;
+}
+
+/**
  * fetch_recent_releases(): Fetch popular recent movies/series from OMDb API for specified year.
  * Returns an array of movie data fetched and stored in the database.
  */

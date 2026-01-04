@@ -162,8 +162,10 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
       <?php
         // Show movies/series (including miniseries) always; only hide other types without posters
         global $omdbClient;
+        $activeYear = function_exists('get_active_year') ? get_active_year() : (int)date('Y');
         $mainResults = [];
         $hiddenResults = [];
+        
         foreach ($movies as $movie) {
           $type = $movie['type'] ?? '';
           $poster = $movie['poster_url'] ?? null;
@@ -238,11 +240,17 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
           <div class="movie-card">
             <?php $badgeKey = competition_badge_key($movie); $in = ($badgeKey === 'badge_in_competition'); ?>
             <div class="comp-badge <?= $in ? 'in' : 'out' ?>"><?= e(t($badgeKey)) ?></div>
+            <?php if (!empty($movie['season_number'])): ?>
+              <div class="season-badge">Season <?= $movie['season_number'] ?></div>
+            <?php endif; ?>
             <?php 
               $poster = $movie['poster_url'] ?? null;
               if (!$poster || $poster === 'N/A' || $poster === '') {
                 $poster = ADDRESS . '/assets/img/no-poster.svg';
               }
+              
+              // For seasons, show just the series title (season is in the badge)
+              $displayTitle = !empty($movie['season_number']) ? $movie['title'] : $movie['title'];
             ?>
             <a class="movie-link" href="movie.php?id=<?= $movie['id'] ?>" style="text-decoration:none;color:inherit;display:block;">
               <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" loading="lazy" onerror="this.onerror=null;this.src='<?= ADDRESS ?>/assets/img/no-poster.svg';">

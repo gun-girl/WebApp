@@ -174,5 +174,4 @@ return [
     , 'no_votes_yet' => 'Nessun voto ancora'
     , 'no_results_found' => 'Nessun risultato trovato per questa categoria'
     , 'documentaries' => 'Documentari'
-    , 'voted_titles' => 'Titoli Votati'
-];
+    , 'voted_titles' => 'Titoli Votati'    , 'voting_for_season' => 'Stai votando per questa stagione specifica'];

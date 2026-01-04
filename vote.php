@@ -367,8 +367,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php $poster = $movie['poster_url']; if(!$poster || $poster==='N/A'){ $poster=ADDRESS.'/assets/img/no-poster.svg'; } ?>
     <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src=ADDRESS.'/assets/img/no-poster.svg';">
     <div class="movie-info">
-      <h2><?= htmlspecialchars($movie['title']) ?></h2>
+      <h2><?= htmlspecialchars($movie['title']) ?><?php if ($season_number): ?> - <span style="color: #ffd700;">Season <?= $season_number ?></span><?php endif; ?></h2>
       <p class="year"><?= ($movie['type'] === 'series' && !empty($movie['start_year'])) ? htmlspecialchars($movie['start_year']) . ((!empty($movie['end_year']) && $movie['end_year'] != $movie['start_year']) ? ' - ' . htmlspecialchars($movie['end_year']) : '') : htmlspecialchars($movie['year']) ?></p>
+      <?php if ($season_number): ?>
+        <p style="font-size: 0.9rem; color: #aaa; margin-top: 0.5rem;">
+          <?= t('voting_for_season') ?? 'You are voting for this specific season' ?>
+        </p>
+      <?php endif; ?>
     </div>
   </div>
 
