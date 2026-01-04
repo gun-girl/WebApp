@@ -39,8 +39,9 @@ class OmdbApiClient {
     $type = $m['Type'] ?? $typeHint;
     $poster = $m['Poster'] ?? null;
     $releasedYmd = null;
+    $totalSeasons = null;
 
-    // Poster handling
+    // Poster handling from search results
     if ($poster === 'N/A' || $poster === '' || empty($poster)) {
       $poster = null;
     } elseif ($poster) {
@@ -50,32 +51,77 @@ class OmdbApiClient {
       }
     }
 
-    // Try to get detail once (poster and released)
-    $detail = $this->getDetail($imdb);
-    if ($detail) {
-      if (!$poster && !empty($detail['Poster']) && $detail['Poster'] !== 'N/A') {
-        $posterCandidate = str_replace('http://', 'https://', $detail['Poster']);
-        if ($this->isValidPoster($posterCandidate)) {
-          $poster = $posterCandidate;
+    // Check if we already have this movie with complete data cached
+    $checkCache = $this->mysqli->prepare("SELECT total_seasons, poster_url, released FROM movies WHERE imdb_id = ?");
+    $checkCache->bind_param('s', $imdb);
+    $checkCache->execute();
+    $existing = $checkCache->get_result()->fetch_assoc();
+    
+    // Only fetch details if:
+    // 1. It's a series/miniseries AND we don't have totalSeasons yet
+    // 2. OR we're missing poster/release date
+    $needsDetail = false;
+    
+    if (($type === 'series' || $type === 'miniseries') && empty($existing['total_seasons'])) {
+      $needsDetail = true;
+    } elseif (!$poster && empty($existing['poster_url'])) {
+      $needsDetail = true;
+    }
+
+    if ($needsDetail) {
+      error_log("[OmdbApiClient] Fetching additional details for $imdb ($title)");
+      $detail = $this->getDetail($imdb);
+      if ($detail) {
+        // Update poster if missing
+        if (!$poster && !empty($detail['Poster']) && $detail['Poster'] !== 'N/A') {
+          $posterCandidate = str_replace('http://', 'https://', $detail['Poster']);
+          if ($this->isValidPoster($posterCandidate)) {
+            $poster = $posterCandidate;
+          }
+        }
+        
+        // Update release date if missing
+        if (!empty($detail['Released'])) {
+          $ts = strtotime($detail['Released']);
+          if ($ts) {
+            $releasedYmd = date('Y-m-d', $ts);
+          }
+        }
+        
+        // Get totalSeasons for series
+        if (!empty($detail['totalSeasons']) && is_numeric($detail['totalSeasons'])) {
+          $totalSeasons = (int)$detail['totalSeasons'];
+          error_log("[OmdbApiClient] Found $totalSeasons seasons for $title");
         }
       }
-      if (!empty($detail['Released'])) {
-        $ts = strtotime($detail['Released']);
-        if ($ts) {
-          $releasedYmd = date('Y-m-d', $ts);
-        }
+    } else {
+      // Use existing cached data
+      if (!empty($existing['total_seasons'])) {
+        $totalSeasons = (int)$existing['total_seasons'];
+      }
+      if (!$poster && !empty($existing['poster_url'])) {
+        $poster = $existing['poster_url'];
+      }
+      if (!$releasedYmd && !empty($existing['released'])) {
+        $releasedYmd = $existing['released'];
       }
     }
 
-    $stmt = $this->mysqli->prepare("INSERT INTO movies (imdb_id,title,year,type,start_year,end_year,poster_url,released,last_fetched_at)
-      VALUES (?,?,?,?,?,?,?,?,NOW()) 
+    $stmt = $this->mysqli->prepare("INSERT INTO movies (imdb_id,title,year,type,start_year,end_year,poster_url,released,total_seasons,last_fetched_at)
+      VALUES (?,?,?,?,?,?,?,?,?,NOW()) 
       ON DUPLICATE KEY UPDATE 
-      title=VALUES(title),year=VALUES(year),type=VALUES(type),start_year=VALUES(start_year),end_year=VALUES(end_year),
+      title=VALUES(title),
+      year=VALUES(year),
+      type=VALUES(type),
+      start_year=VALUES(start_year),
+      end_year=VALUES(end_year),
       released=COALESCE(VALUES(released),released),
-      poster_url=COALESCE(VALUES(poster_url),poster_url),last_fetched_at=NOW()");
-    $stmt->bind_param('ssisiiss', $imdb, $title, $year, $type, $startYear, $endYear, $poster, $releasedYmd);
+      poster_url=COALESCE(VALUES(poster_url),poster_url),
+      total_seasons=COALESCE(VALUES(total_seasons),total_seasons),
+      last_fetched_at=NOW()");
+    $stmt->bind_param('ssisiissi', $imdb, $title, $year, $type, $startYear, $endYear, $poster, $releasedYmd, $totalSeasons);
     $stmt->execute();
-    error_log("[OmdbApiClient] Inserted: $title ($rawYear) - start: $startYear, end: $endYear");
+    error_log("[OmdbApiClient] Cached: $title ($rawYear) - Seasons: " . ($totalSeasons ?? 'N/A'));
   }
 
   // Validate that a poster URL is a proper HTTPS URL and not a placeholder
@@ -190,7 +236,7 @@ class OmdbApiClient {
       error_log("[OmdbApiClient] No results found from API for '$query' - NOT caching (will retry next time)");
     }
 
-    // STEP 5: Return results from database after API insert (filter by type and poster, order by relevance)
+    // STEP 5: Return results from database after API insert
     $check = $this->mysqli->prepare("
       SELECT * FROM movies 
       WHERE (
@@ -225,11 +271,10 @@ class OmdbApiClient {
     $candidates = [];
     foreach ($tokens as $tok) {
       foreach (['movie','series','episode'] as $t) {
-        $url = ADDRESS . '/includes/async-worker.php';
+        $url = "https://www.omdbapi.com/?apikey={$this->apiKey}&type={$t}&s=".urlencode($tok);
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); // Follow redirects
         curl_setopt($ch, CURLOPT_TIMEOUT, 10);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
         $response = curl_exec($ch);
@@ -279,31 +324,123 @@ class OmdbApiClient {
     return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
   }
   
+  /**
+   * Get basic movie/series details by IMDb ID with caching
+   */
   public function getDetail($imdbId): ?array {
     if (!$this->isConfigured()) return null;
+    
+    // Check cache first (valid for 30 days for basic details)
+    $stmt = $this->mysqli->prepare("SELECT poster_url, released, total_seasons, last_fetched_at FROM movies 
+                                     WHERE imdb_id = ? 
+                                     AND last_fetched_at > DATE_SUB(NOW(), INTERVAL 30 DAY)
+                                     AND poster_url IS NOT NULL 
+                                     AND released IS NOT NULL");
+    $stmt->bind_param('s', $imdbId);
+    $stmt->execute();
+    $cached = $stmt->get_result()->fetch_assoc();
+    
+    if ($cached && $cached['poster_url'] && $cached['released'] !== '0000-00-00') {
+      error_log("[OmdbApiClient] Movie details for $imdbId loaded from DATABASE CACHE");
+      // Return cached data in OMDb format
+      $result = [
+        'Response' => 'True',
+        'imdbID' => $imdbId,
+        'Poster' => $cached['poster_url'],
+        'Released' => $cached['released']
+      ];
+      
+      // Include totalSeasons if available
+      if (!empty($cached['total_seasons'])) {
+        $result['totalSeasons'] = (string)$cached['total_seasons'];
+      }
+      
+      return $result;
+    }
+    
+    // Not in cache - fetch from API
+    error_log("[OmdbApiClient] Fetching details from API for $imdbId");
     $url = "https://www.omdbapi.com/?apikey={$this->apiKey}&i=".urlencode($imdbId);
     
-    // Use cURL instead of file_get_contents
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 10);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
     $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
     
-    if ($response === false) return null;
+    if ($response === false || $httpCode !== 200) {
+      error_log("[OmdbApiClient] API request failed for $imdbId");
+      return null;
+    }
     
     $json = json_decode($response, true);
-    if (!empty($json['Response']) && $json['Response'] === 'True') return $json;
+    
+    if (!empty($json['Response']) && $json['Response'] === 'True') {
+      error_log("[OmdbApiClient] Movie details for $imdbId fetched from API and CACHED");
+      
+      // Cache poster, release date, and totalSeasons in movies table
+      $poster = $json['Poster'] ?? null;
+      if ($poster && $poster !== 'N/A') {
+        $poster = str_replace('http://', 'https://', $poster);
+      } else {
+        $poster = null;
+      }
+      
+      $released = null;
+      if (!empty($json['Released'])) {
+        $ts = strtotime($json['Released']);
+        if ($ts) {
+          $released = date('Y-m-d', $ts);
+        }
+      }
+      
+      $totalSeasons = null;
+      if (!empty($json['totalSeasons']) && is_numeric($json['totalSeasons'])) {
+        $totalSeasons = (int)$json['totalSeasons'];
+      }
+      
+      // Update the cache
+      $update = $this->mysqli->prepare("UPDATE movies 
+                                        SET poster_url = COALESCE(?, poster_url),
+                                            released = COALESCE(?, released),
+                                            total_seasons = COALESCE(?, total_seasons),
+                                            last_fetched_at = NOW()
+                                        WHERE imdb_id = ?");
+      $update->bind_param('ssis', $poster, $released, $totalSeasons, $imdbId);
+      $update->execute();
+      
+      return $json;
+    }
+    
     return null;
   }
   
   /**
-   * Get season-specific details (poster, release year)
+   * Get season-specific details with caching
    */
   public function getSeasonDetail($imdbId, $seasonNumber): ?array {
     if (!$this->isConfigured()) return null;
+    
+    // Check cache first (valid for 7 days)
+    $stmt = $this->mysqli->prepare("SELECT data, last_fetched_at FROM series_seasons_cache 
+                                     WHERE imdb_id = ? AND season_number = ? 
+                                     AND last_fetched_at > DATE_SUB(NOW(), INTERVAL 7 DAY)");
+    $stmt->bind_param('si', $imdbId, $seasonNumber);
+    $stmt->execute();
+    $cached = $stmt->get_result()->fetch_assoc();
+    
+    if ($cached) {
+      $data = json_decode($cached['data'], true);
+      if ($data && isset($data['Response']) && $data['Response'] === 'True') {
+        error_log("[OmdbApiClient] Season $seasonNumber for $imdbId loaded from CACHE");
+        return $data;
+      }
+    }
+    
+    // Not in cache - fetch from API
     $url = "https://www.omdbapi.com/?apikey={$this->apiKey}&i=".urlencode($imdbId)."&Season=".intval($seasonNumber);
     
     $ch = curl_init();
@@ -312,77 +449,93 @@ class OmdbApiClient {
     curl_setopt($ch, CURLOPT_TIMEOUT, 10);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
     $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
     
-    if ($response === false) return null;
+    if ($response === false || $httpCode !== 200) {
+      error_log("[OmdbApiClient] API request failed for season $seasonNumber of $imdbId");
+      return null;
+    }
     
     $json = json_decode($response, true);
-    if (!empty($json['Response']) && $json['Response'] === 'True') return $json;
+    
+    if (!empty($json['Response']) && $json['Response'] === 'True') {
+      // Cache the successful result
+      $jsonData = json_encode($json);
+      $stmt = $this->mysqli->prepare("INSERT INTO series_seasons_cache (imdb_id, season_number, data, last_fetched_at) 
+                                       VALUES (?, ?, ?, NOW())
+                                       ON DUPLICATE KEY UPDATE data = ?, last_fetched_at = NOW()");
+      $stmt->bind_param('siss', $imdbId, $seasonNumber, $jsonData, $jsonData);
+      $stmt->execute();
+      error_log("[OmdbApiClient] Season $seasonNumber for $imdbId fetched and CACHED");
+      return $json;
+    }
+    
     return null;
   }
   
   /**
-   * Helper: Check if a movie/series is a miniseries based on totalSeasons or Genre
+   * Helper: Check if a movie/series is a miniseries
    */
   public function isMiniseries($imdb_id) {
     $detail = $this->getDetail($imdb_id);
-    if (!$detail) {
-      return false;
-    }
+    if (!$detail) return false;
     
     $totalSeasons = $detail['totalSeasons'] ?? null;
     $genre = strtolower($detail['Genre'] ?? '');
     
-    // If totalSeasons is 1 or Genre contains "mini-series"
     return ($totalSeasons === '1' || $totalSeasons === 1 || 
             strpos($genre, 'mini-series') !== false || 
             strpos($genre, 'miniseries') !== false);
   }
 }
 
-  // Fuzzy fallback: when no results, try longest tokens and pick closest Levenshtein matches
-    // Global instance for OMDb API interactions
-    $omdbClient = new OmdbApiClient($OMDB_API_KEY, $mysqli);
+// Global instance for OMDb API interactions
+$omdbClient = new OmdbApiClient($OMDB_API_KEY, $mysqli);
 
-    // Trigger async background tasks without blocking page load
-    try {
-      // Use non-blocking async trigger via AJAX/cURL background call
-      if (PHP_SAPI !== 'cli') { // Only trigger if not CLI
-        trigger_async_maintenance();
-      }
-    } catch (Throwable $e) { /* silent fail */ }
+// Trigger async background tasks without blocking page load
+try {
+  if (PHP_SAPI !== 'cli') {
+    trigger_async_maintenance();
+  }
+} catch (Throwable $e) { /* silent fail */ }
 
 // Trigger async maintenance tasks without blocking page load
 function trigger_async_maintenance(): void {
-  // Use non-blocking HTTP request to background worker
   $url = ADDRESS . '/includes/async-worker.php';
   
   $ch = curl_init();
   curl_setopt($ch, CURLOPT_URL, $url);
-  curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); // MUST be true to prevent output leaking!
-  curl_setopt($ch, CURLOPT_TIMEOUT_MS, 100); // Ultra-short timeout
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+  curl_setopt($ch, CURLOPT_TIMEOUT_MS, 100);
   curl_setopt($ch, CURLOPT_CONNECTTIMEOUT_MS, 50);
   curl_setopt($ch, CURLOPT_NOSIGNAL, 1);
-  curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); // Follow redirects
-  @curl_exec($ch); // Suppress errors
+  curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+  @curl_exec($ch);
   curl_close($ch);
-} 
+}
 
-// get_movie_or_fetch(): Backward compatible wrapper
+// Backward compatible wrappers
 function get_movie_or_fetch($query): array {
   global $omdbClient;
   return $omdbClient->search($query);
 }
 
-// fetch_omdb_detail_by_id(): Backward compatible wrapper
-function fetch_omdb_detail_by_id(string $imdb_id): ?array {
+function fetch_omdb_detail_by_id(string $imdb_id, $season = null): ?array {
   global $omdbClient;
+  if ($season !== null) {
+    return $omdbClient->getSeasonDetail($imdb_id, $season);
+  }
   return $omdbClient->getDetail($imdb_id);
 }
 
+function fetch_season_data($imdb_id, $season_number) {
+  global $omdbClient;
+  return $omdbClient->getSeasonDetail($imdb_id, $season_number);
+}
+
 /**
- * fetch_recent_releases(): Fetch popular recent movies/series from OMDb API for specified year.
- * Returns an array of movie data fetched and stored in the database.
+ * Fetch recent releases for a given year
  */
 function fetch_recent_releases(int $year = null): array {
   global $mysqli, $omdbClient;
@@ -390,15 +543,12 @@ function fetch_recent_releases(int $year = null): array {
   if ($year === null) $year = (int)date('Y');
   
   $collected = [];
-  // Search for diverse terms to get various types of content (movies, series, documentaries)
   $searches = ['action', 'drama', 'thriller', 'comedy', 'series', 'documentary', 'adventure', 'romance', 'mystery'];
   
   foreach ($searches as $term) {
-    // Search both movies and series types
     foreach (['movie', 'series'] as $type) {
       $url = "https://www.omdbapi.com/?apikey=".$omdbClient->getKey()."&s={$term}&y={$year}&type={$type}";
       
-      // Use cURL instead of file_get_contents
       $ch = curl_init();
       curl_setopt($ch, CURLOPT_URL, $url);
       curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -412,23 +562,20 @@ function fetch_recent_releases(int $year = null): array {
       if (!empty($json['Search'])) {
         foreach ($json['Search'] as $m) {
           $imdb = $m['imdbID'];
-          if (isset($collected[$imdb])) continue; // Skip duplicates
+          if (isset($collected[$imdb])) continue;
           
           $title = $m['Title'];
           $rawYear = $m['Year'];
           $normalizedYear = str_replace(["\u2013", "\u2014", "–", "—"], '-', $rawYear);
           $movieYear = (int)substr($normalizedYear, 0, 4);
           
-          // Parse year for movies vs series
           $startYear = null;
           $endYear = null;
           if (strpos($normalizedYear, '-') !== false) {
-            // Series: extract start and end year
             $yearParts = explode('-', $normalizedYear);
             $startYear = (int)$yearParts[0];
             $endYear = isset($yearParts[1]) && $yearParts[1] !== '' ? (int)$yearParts[1] : null;
           } else {
-            // Movie: just the single year
             $startYear = $movieYear;
           }
           
@@ -437,20 +584,17 @@ function fetch_recent_releases(int $year = null): array {
           if ($poster === 'N/A' || $poster === '') { 
             $poster = null; 
           } elseif ($poster) {
-            // Force HTTPS for poster URLs to prevent mixed content issues
             $poster = str_replace('http://', 'https://', $poster);
           }
           
-          // Only insert movies with valid posters
           if ($poster) {
             $stmt = $mysqli->prepare(
               "INSERT INTO movies (imdb_id, title, year, type, start_year, end_year, poster_url, last_fetched_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, NOW()) 
                ON DUPLICATE KEY UPDATE 
-               title=VALUES(title), year=VALUES(year), type=VALUES(type), start_year=VALUES(start_year), end_year=VALUES(end_year),
+               title=VALUES(title), year=VALUES(year), type=VALUES(type), start_year=VALUES(startYear), end_year=VALUES(endYear),
                poster_url=COALESCE(VALUES(poster_url), poster_url), last_fetched_at=NOW()"
             );
-            // s s i s i i s => imdb, title, year, type, start_year, end_year, poster_url
             $stmt->bind_param('ssisiis', $imdb, $title, $movieYear, $mType, $startYear, $endYear, $poster);
             $stmt->execute();
             
@@ -459,13 +603,12 @@ function fetch_recent_releases(int $year = null): array {
         }
       }
       
-      if (count($collected) >= 50) break; // Got enough
+      if (count($collected) >= 50) break;
     }
     
     if (count($collected) >= 50) break;
   }
   
-  // Return the newly fetched movies
   if ($collected) {
     $ids = array_values($collected);
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
@@ -480,14 +623,13 @@ function fetch_recent_releases(int $year = null): array {
 }
 
 /**
- * Auto-fetch missing posters: For movies/series without posters, try to fetch them from OMDb
+ * Auto-fetch missing posters
  */
 function auto_fetch_missing_posters(): void {
   global $mysqli, $omdbClient;
   
   if (!$omdbClient->isConfigured()) return;
   
-  // Find up to 10 movies/series without posters (exclude other types)
   $missing = $mysqli->query("
     SELECT id, title FROM movies 
     WHERE type IN ('movie', 'series')
@@ -499,15 +641,9 @@ function auto_fetch_missing_posters(): void {
   
   foreach ($missing as $movie) {
     try {
-      $results = $omdbClient->search($movie['title']);
-      // The search function already saves to DB, so just update if found
-      foreach ($results as $r) {
-        if ($r['title'] === $movie['title']) {
-          break;
-        }
-      }
+      $omdbClient->search($movie['title']);
     } catch (Throwable $e) {
-      // Silently skip on error
+      // Silently skip
     }
   }
 }

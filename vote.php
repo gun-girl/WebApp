@@ -96,17 +96,37 @@ if ($edit_vote_id > 0) {
 
 // Best-effort: backfill released date from OMDb if missing
 if (!empty($movie['imdb_id']) && (empty($movie['released']) || $movie['released'] === '0000-00-00')) {
-  $detail = fetch_omdb_detail_by_id($movie['imdb_id']);
-  if ($detail && !empty($detail['Released'])) {
-    $ts = strtotime($detail['Released']);
-    if ($ts) {
-      $releasedYmd = date('Y-m-d', $ts);
-      $update = $mysqli->prepare("UPDATE movies SET released = ? WHERE id = ?");
-      if ($update) {
-        $update->bind_param('si', $releasedYmd, $movie_id);
-        $update->execute();
+  // If it's a series/miniseries and we have a season, fetch season data
+  if ($url_season && in_array($movie['type'], ['series', 'miniseries'])) {
+    $season_data = fetch_season_data($movie['imdb_id'], $url_season);
+    
+    // Try to extract release date from season data if available
+    if ($season_data && !empty($season_data['Released'])) {
+      $ts = strtotime($season_data['Released']);
+      if ($ts) {
+        $releasedYmd = date('Y-m-d', $ts);
+        $update = $mysqli->prepare("UPDATE movies SET released = ? WHERE id = ?");
+        if ($update) {
+          $update->bind_param('si', $releasedYmd, $movie_id);
+          $update->execute();
+        }
+        $movie['released'] = $releasedYmd;
       }
-      $movie['released'] = $releasedYmd;
+    }
+  } else {
+    // Regular movie/show - fetch basic details
+    $detail = fetch_omdb_detail_by_id($movie['imdb_id']);
+    if ($detail && !empty($detail['Released'])) {
+      $ts = strtotime($detail['Released']);
+      if ($ts) {
+        $releasedYmd = date('Y-m-d', $ts);
+        $update = $mysqli->prepare("UPDATE movies SET released = ? WHERE id = ?");
+        if ($update) {
+          $update->bind_param('si', $releasedYmd, $movie_id);
+          $update->execute();
+        }
+        $movie['released'] = $releasedYmd;
+      }
     }
   }
 }
@@ -365,7 +385,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="vote-container">
   <div class="movie-header">
     <?php $poster = $movie['poster_url']; if(!$poster || $poster==='N/A'){ $poster=ADDRESS.'/assets/img/no-poster.svg'; } ?>
-    <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src=ADDRESS.'/assets/img/no-poster.svg';">
+    <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src=ADDRESS+'/assets/img/no-poster.svg';">
     <div class="movie-info">
       <h2><?= htmlspecialchars($movie['title']) ?></h2>
       <p class="year"><?= ($movie['type'] === 'series' && !empty($movie['start_year'])) ? htmlspecialchars($movie['start_year']) . ((!empty($movie['end_year']) && $movie['end_year'] != $movie['start_year']) ? ' - ' . htmlspecialchars($movie['end_year']) : '') : htmlspecialchars($movie['year']) ?></p>
@@ -513,6 +533,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 
 <script>
+  // Track API calls
+  window.apiCallCount = 0;
+  window.apiCallLog = [];
+  
+  function logApiCall(endpoint, cached = false) {
+    window.apiCallCount++;
+    const log = {
+      count: window.apiCallCount,
+      endpoint: endpoint,
+      cached: cached,
+      timestamp: new Date().toISOString()
+    };
+    window.apiCallLog.push(log);
+    console.log(`[API Call #${window.apiCallCount}] ${cached ? '(CACHED)' : '(LIVE)'} ${endpoint}`);
+  }
+  
+  // Log summary on page load
+  window.addEventListener('load', () => {
+    console.log('=== API Call Summary ===');
+    console.log(`Total API calls: ${window.apiCallCount}`);
+    console.log(`Cached calls: ${window.apiCallLog.filter(c => c.cached).length}`);
+    console.log(`Live calls: ${window.apiCallLog.filter(c => !c.cached).length}`);
+    console.table(window.apiCallLog);
+  });
+
   const categorySelect = document.getElementById('category');
   const seasonEpisodeGroup = document.getElementById('seasonEpisodeGroup');
   function toggleSeasonEpisode(){
