@@ -162,8 +162,10 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
       <?php
         // Show movies/series (including miniseries) always; only hide other types without posters
         global $omdbClient;
+        $activeYear = function_exists('get_active_year') ? get_active_year() : (int)date('Y');
         $mainResults = [];
         $hiddenResults = [];
+        
         foreach ($movies as $movie) {
           $type = $movie['type'] ?? '';
           $poster = $movie['poster_url'] ?? null;
@@ -172,8 +174,49 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
           // Check if this is a miniseries
           $isMiniseries = ($type === 'series' && $omdbClient && $omdbClient->isMiniseries($movie['imdb_id'] ?? ''));
           
-          // Always show movies, series, and detected miniseries
-          if (in_array($type, ['movie', 'series']) || $isMiniseries) {
+          // For series (not miniseries), check if any seasons match the active year
+          if ($type === 'series' && !$isMiniseries && !empty($movie['imdb_id'])) {
+            // Check series that could have seasons in the competition period
+            // Competition period for year Y starts in November of year Y-1
+            // So we need series that have content from (activeYear - 1) onwards
+            $startYear = $movie['start_year'] ?? $movie['year'] ?? 0;
+            $endYear = $movie['end_year'] ?? $movie['year'] ?? 9999;
+            
+            $debugInfo[] = "Series: {$movie['title']} | start={$startYear}, end={$endYear}, type={$type}, miniseries=" . ($isMiniseries ? 'yes' : 'no');
+            
+            // Check if series has any content from (activeYear - 1) onwards
+            // E.g., for 2026 competition (starts Nov 2025), check series with end year >= 2025
+            $competitionStartYear = $activeYear - 1;
+            if ($endYear >= $competitionStartYear) {
+              $debugInfo[] = "  → Series might have seasons from {$competitionStartYear} onwards. Fetching seasons...";
+              $matchingSeasons = get_series_seasons_for_active_year($movie['imdb_id'], $activeYear);
+              
+              $debugInfo[] = "  → Returned " . count($matchingSeasons) . " matching seasons";
+              
+              // If we found matching seasons, create separate entries for each
+              if (!empty($matchingSeasons)) {
+                foreach ($matchingSeasons as $seasonInfo) {
+                  $seasonMovie = $movie;
+                  $seasonMovie['season_number'] = $seasonInfo['season_number'];
+                  $seasonMovie['season_year'] = $seasonInfo['year'];
+                  $seasonMovie['display_title'] = $movie['title'] . ' - Season ' . $seasonInfo['season_number'];
+                  $seasonMovie['year'] = $seasonInfo['year']; // Override year for competition check
+                  $seasonMovie['released'] = $seasonInfo['first_episode_date']; // Set release date for competition
+                  $debugInfo[] = "  → Added season card: Season {$seasonInfo['season_number']} (year {$seasonInfo['year']})";
+                  $mainResults[] = $seasonMovie;
+                }
+                continue; // Skip adding the full series
+              } else {
+                $debugInfo[] = "  → No matching seasons, showing full series";
+              }
+            } else {
+              $debugInfo[] = "  → Series ended before competition period (ended {$endYear}, need >= {$competitionStartYear})";
+            }
+            // Show the full series (either no seasons matched or series ended too early)
+            $mainResults[] = $movie;
+          } 
+          // Always show movies and miniseries
+          elseif (in_array($type, ['movie']) || $isMiniseries) {
             $mainResults[] = $movie;
           } elseif ($hasPoster) {
             $mainResults[] = $movie;
@@ -187,20 +230,26 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
           <div class="movie-card">
             <?php $badgeKey = competition_badge_key($movie); $in = ($badgeKey === 'badge_in_competition'); ?>
             <div class="comp-badge <?= $in ? 'in' : 'out' ?>"><?= e(t($badgeKey)) ?></div>
+            <?php if (!empty($movie['season_number'])): ?>
+              <div class="season-badge">Season <?= $movie['season_number'] ?></div>
+            <?php endif; ?>
             <?php 
               $poster = $movie['poster_url'] ?? null;
               if (!$poster || $poster === 'N/A' || $poster === '') {
                 $poster = ADDRESS . '/assets/img/no-poster.svg';
               }
+              
+              // For seasons, show just the series title (season is in the badge)
+              $displayTitle = !empty($movie['season_number']) ? $movie['title'] : $movie['title'];
             ?>
-            <a class="movie-link" href="movie.php?id=<?= $movie['id'] ?>" style="text-decoration:none;color:inherit;display:block;">
-              <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" loading="lazy" onerror="this.onerror=null;this.src='<?= ADDRESS ?>/assets/img/no-poster.svg';">
+            <a class="movie-link" href="movie.php?id=<?= $movie['id'] ?><?= !empty($movie['season_number']) ? '&season=' . $movie['season_number'] : '' ?>" style="text-decoration:none;color:inherit;display:block;">
+              <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($displayTitle) ?>" loading="lazy" onerror="this.onerror=null;this.src='<?= ADDRESS ?>/assets/img/no-poster.svg';">
               <div class="movie-info">
-                <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
-                <div class="movie-year"><?= ($movie['type'] === 'series' && !empty($movie['start_year'])) ? htmlspecialchars($movie['start_year']) . ((!empty($movie['end_year']) && $movie['end_year'] != $movie['start_year']) ? ' - ' . htmlspecialchars($movie['end_year']) : '') : htmlspecialchars($movie['year']) ?></div>
+                <div class="movie-title"><?= htmlspecialchars($displayTitle) ?></div>
+                <div class="movie-year"><?= ($movie['type'] === 'series' && !empty($movie['start_year']) && empty($movie['season_number'])) ? htmlspecialchars($movie['start_year']) . ((!empty($movie['end_year']) && $movie['end_year'] != $movie['start_year']) ? ' - ' . htmlspecialchars($movie['end_year']) : '') : htmlspecialchars($movie['year']) ?></div>
               </div>
             </a>
-            <a class="rate-btn" href="vote.php?movie_id=<?= $movie['id'] ?>"><?= t('rate') ?> ⭐</a>
+            <a class="rate-btn" href="vote.php?movie_id=<?= $movie['id'] ?><?= !empty($movie['season_number']) ? '&season=' . $movie['season_number'] : '' ?>"><?= t('rate') ?> ⭐</a>
           </div>
         <?php endforeach; ?>
       </section>

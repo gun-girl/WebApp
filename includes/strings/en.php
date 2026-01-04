@@ -177,4 +177,5 @@ return [
     , 'no_results_found' => 'No results found for this category'
     , 'documentaries' => 'Documentaries'
     , 'voted_titles' => 'Voted Titles'
+    , 'voting_for_season' => 'You are voting for this specific season'
 ];
