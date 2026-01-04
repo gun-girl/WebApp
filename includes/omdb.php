@@ -300,6 +300,28 @@ class OmdbApiClient {
   }
   
   /**
+   * Get season-specific details (poster, release year)
+   */
+  public function getSeasonDetail($imdbId, $seasonNumber): ?array {
+    if (!$this->isConfigured()) return null;
+    $url = "https://www.omdbapi.com/?apikey={$this->apiKey}&i=".urlencode($imdbId)."&Season=".intval($seasonNumber);
+    
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    $response = curl_exec($ch);
+    curl_close($ch);
+    
+    if ($response === false) return null;
+    
+    $json = json_decode($response, true);
+    if (!empty($json['Response']) && $json['Response'] === 'True') return $json;
+    return null;
+  }
+  
+  /**
    * Helper: Check if a movie/series is a miniseries based on totalSeasons or Genre
    */
   public function isMiniseries($imdb_id) {

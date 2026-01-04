@@ -172,8 +172,59 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
           // Check if this is a miniseries
           $isMiniseries = ($type === 'series' && $omdbClient && $omdbClient->isMiniseries($movie['imdb_id'] ?? ''));
           
-          // Always show movies, series, and detected miniseries
-          if (in_array($type, ['movie', 'series']) || $isMiniseries) {
+          // For series/miniseries, fetch season information and create separate cards
+          if ($type === 'series' || $isMiniseries) {
+            $totalSeasons = 1;
+            $imdb_id = $movie['imdb_id'] ?? '';
+            
+            if ($omdbClient && $imdb_id) {
+              try {
+                $detail = $omdbClient->getDetail($imdb_id);
+                if ($detail && isset($detail['totalSeasons']) && is_numeric($detail['totalSeasons'])) {
+                  $totalSeasons = (int)$detail['totalSeasons'];
+                }
+              } catch (Exception $e) {
+                error_log("Failed to fetch OMDb details for series: " . $e->getMessage());
+              }
+            }
+            
+            // Create a separate card for each season
+            for ($seasonNum = 1; $seasonNum <= $totalSeasons; $seasonNum++) {
+              $seasonMovie = $movie;
+              $seasonMovie['season_number'] = $seasonNum;
+              
+              // Fetch season-specific poster and year
+              if ($omdbClient && $imdb_id) {
+                try {
+                  $seasonDetail = $omdbClient->getSeasonDetail($imdb_id, $seasonNum);
+                  if ($seasonDetail) {
+                    // Use season poster if available
+                    if (!empty($seasonDetail['Poster']) && $seasonDetail['Poster'] !== 'N/A') {
+                      $seasonPoster = str_replace('http://', 'https://', $seasonDetail['Poster']);
+                      $seasonMovie['poster_url'] = $seasonPoster;
+                    }
+                    // Extract year from Season field or from first episode's release date
+                    if (!empty($seasonDetail['Season'])) {
+                      $seasonMovie['season_year'] = $seasonDetail['Season'];
+                    }
+                    if (!empty($seasonDetail['Episodes']) && is_array($seasonDetail['Episodes'])) {
+                      $firstEpisode = $seasonDetail['Episodes'][0];
+                      if (!empty($firstEpisode['Released']) && $firstEpisode['Released'] !== 'N/A') {
+                        $releaseDate = $firstEpisode['Released'];
+                        if (preg_match('/(\d{4})/', $releaseDate, $matches)) {
+                          $seasonMovie['season_year'] = $matches[1];
+                        }
+                      }
+                    }
+                  }
+                } catch (Exception $e) {
+                  error_log("Failed to fetch season $seasonNum details: " . $e->getMessage());
+                }
+              }
+              
+              $mainResults[] = $seasonMovie;
+            }
+          } elseif ($type === 'movie') {
             $mainResults[] = $movie;
           } elseif ($hasPoster) {
             $mainResults[] = $movie;
@@ -195,12 +246,23 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
             ?>
             <a class="movie-link" href="movie.php?id=<?= $movie['id'] ?>" style="text-decoration:none;color:inherit;display:block;">
               <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" loading="lazy" onerror="this.onerror=null;this.src='<?= ADDRESS ?>/assets/img/no-poster.svg';">
+              <?php if (isset($movie['season_number'])): ?>
+                <div class="season-badge">Season <?= $movie['season_number'] ?></div>
+              <?php endif; ?>
               <div class="movie-info">
                 <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
-                <div class="movie-year"><?= ($movie['type'] === 'series' && !empty($movie['start_year'])) ? htmlspecialchars($movie['start_year']) . ((!empty($movie['end_year']) && $movie['end_year'] != $movie['start_year']) ? ' - ' . htmlspecialchars($movie['end_year']) : '') : htmlspecialchars($movie['year']) ?></div>
+                <div class="movie-year"><?php 
+                  if (isset($movie['season_year'])) {
+                    echo htmlspecialchars($movie['season_year']);
+                  } elseif ($movie['type'] === 'series' && !empty($movie['start_year'])) {
+                    echo htmlspecialchars($movie['start_year']) . ((!empty($movie['end_year']) && $movie['end_year'] != $movie['start_year']) ? ' - ' . htmlspecialchars($movie['end_year']) : '');
+                  } else {
+                    echo htmlspecialchars($movie['year']);
+                  }
+                ?></div>
               </div>
             </a>
-            <a class="rate-btn" href="vote.php?movie_id=<?= $movie['id'] ?>"><?= t('rate') ?> ⭐</a>
+            <a class="rate-btn" href="vote.php?movie_id=<?= $movie['id'] ?><?= isset($movie['season_number']) ? '&season='.$movie['season_number'] : '' ?>"><?= t('rate') ?> ⭐</a>
           </div>
         <?php endforeach; ?>
       </section>

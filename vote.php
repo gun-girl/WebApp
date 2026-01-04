@@ -26,16 +26,32 @@ try {
 
 $edit_vote_id = (int)($_GET['edit'] ?? 0);
 $movie_id = (int)($_GET['movie_id'] ?? 0);
+$url_season = isset($_GET['season']) ? (int)$_GET['season'] : null;
 
-// Check if user already voted for this movie (for reminder)
+// Check if user already voted for this movie+season combination (for reminder)
 $existing_vote_for_movie = null;
 if ($movie_id > 0 && $edit_vote_id === 0) {
-  $checkSql = "SELECT v.id FROM votes v WHERE v.user_id = ? AND v.movie_id = ?" . ($hasCompetitionYear ? " AND v.competition_year = ?" : "");
-  $checkStmt = $mysqli->prepare($checkSql);
-  if ($hasCompetitionYear) {
-    $checkStmt->bind_param('iii', $user['id'], $movie_id, $active_year);
+  // For series/miniseries with season, check season-specific vote
+  if ($url_season !== null) {
+    $checkSql = "SELECT v.id FROM votes v 
+                 LEFT JOIN vote_details vd ON vd.vote_id = v.id
+                 WHERE v.user_id = ? AND v.movie_id = ? AND vd.season_number = ?" 
+                 . ($hasCompetitionYear ? " AND v.competition_year = ?" : "");
+    $checkStmt = $mysqli->prepare($checkSql);
+    if ($hasCompetitionYear) {
+      $checkStmt->bind_param('iiii', $user['id'], $movie_id, $url_season, $active_year);
+    } else {
+      $checkStmt->bind_param('iii', $user['id'], $movie_id, $url_season);
+    }
   } else {
-    $checkStmt->bind_param('ii', $user['id'], $movie_id);
+    // Regular movie vote check
+    $checkSql = "SELECT v.id FROM votes v WHERE v.user_id = ? AND v.movie_id = ?" . ($hasCompetitionYear ? " AND v.competition_year = ?" : "");
+    $checkStmt = $mysqli->prepare($checkSql);
+    if ($hasCompetitionYear) {
+      $checkStmt->bind_param('iii', $user['id'], $movie_id, $active_year);
+    } else {
+      $checkStmt->bind_param('ii', $user['id'], $movie_id);
+    }
   }
   $checkStmt->execute();
   $existing_vote_for_movie = $checkStmt->get_result()->fetch_assoc();
@@ -400,7 +416,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <div class="form-group season-episode-group-hidden<?= isset($errorFields['season_number']) ? ' has-error' : '' ?>" id="seasonEpisodeGroup">
         <label><?= t('season') ?></label>
         <div class="season-episode-fields">
-          <input type="number" name="season_number" min="1" placeholder="<?= t('season_placeholder') ?>" value="<?= htmlspecialchars($old('season_number', $existing_vote['season_number'] ?? '')) ?>">
+          <input type="number" name="season_number" min="1" placeholder="<?= t('season_placeholder') ?>" value="<?= htmlspecialchars($old('season_number', $existing_vote['season_number'] ?? ($url_season ?? ''))) ?>">
         </div>
         <p class="helper-text"><?= t('season_episode_helper') ?></p>
         <?php if (isset($errorFields['season_number'])): ?><p class="error-hint"><?= htmlspecialchars($errorFields['season_number']) ?></p><?php endif; ?>
