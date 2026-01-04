@@ -555,6 +555,16 @@ main{padding-bottom:140px}
 .success{background:#1a5;color:#efe;padding:.8rem;border-radius:.3rem;margin-bottom:1rem}
 .grid-2{display:grid;grid-template-columns:1fr;gap:1rem}
 @media(min-width:720px){.grid-2{grid-template-columns:1fr 1fr}}
+.profile-box form{display:flex;flex-direction:column;gap:1.2rem}
+.profile-box form label{display:flex;flex-direction:column;gap:.5rem;color:#ddd;font-weight:600;font-size:.95rem}
+.profile-box form input{background:#0a0a0a;border:2px solid #222;border-radius:.5rem;padding:.85rem 1rem;color:#fff;font-size:1rem;transition:all .3s ease}
+.profile-box form input:focus{outline:none;border-color:#f6c90e;box-shadow:0 0 0 3px rgba(246,201,14,.1)}
+.profile-box form button[type="submit"]{background:linear-gradient(135deg,#f6c90e,#ffde50);color:#000;border:none;border-radius:.5rem;padding:.85rem 2rem;font-size:1rem;font-weight:700;cursor:pointer;transition:all .3s ease;text-transform:uppercase;letter-spacing:.05em;box-shadow:0 4px 16px rgba(246,201,14,.3);text-align:center}
+.profile-box form button[type="submit"]:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(246,201,14,.4)}
+.profile-box form .btn.secondary{background:transparent;border:2px solid #333;color:#fff;text-align:center;padding:.75rem 2rem;border-radius:.5rem;text-decoration:none;font-weight:600;transition:all .3s ease;display:inline-block;cursor:pointer}
+.profile-box form .btn.secondary:hover{border-color:#f6c90e;color:#f6c90e;background:rgba(246,201,14,.05)}
+.profile-box .form-actions{display:flex;gap:1rem;margin-top:.5rem}
+.profile-box .form-actions button,.profile-box .form-actions .btn{flex:1;margin:0}
 
 /* Profile page: tighter mobile layout & full-width buttons/cards */
 @media (max-width: 640px){
@@ -567,6 +577,8 @@ main{padding-bottom:140px}
 	.profile-spacing .btn{width:100%;text-align:center}
 	.lang-buttons{flex-direction:column}
 	.lang-btn{width:100%}
+	.profile-box .form-actions{flex-direction:column}
+	.profile-box .form-actions button,.profile-box .form-actions .btn{width:100%}
 }
 
 /* Watchlist */

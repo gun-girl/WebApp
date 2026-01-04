@@ -156,8 +156,10 @@ include __DIR__.'/includes/header.php';
         <label><?= t('email') ?>
           <input type="email" name="email" value="<?= htmlspecialchars($user['email']) ?>" required>
         </label>
-        <button type="submit"><?= t('save_changes') ?></button>
-        <a href="index.php" class="btn secondary"><?= t('cancel') ?></a>
+        <div class="form-actions">
+          <button type="submit"><?= t('save_changes') ?></button>
+          <a href="index.php" class="btn secondary"><?= t('cancel') ?></a>
+        </div>
       </form>
     </div>
 
