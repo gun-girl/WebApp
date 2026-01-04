@@ -99,7 +99,7 @@ include __DIR__ . '/includes/header.php';
         <span id="compStatusBadge" class="badge <?= $cls ?>"><?= status_label($currentStatus) ?></span>
       </div>
       <div class="actions">
-        <a class="btn btn-primary" href="vote.php?movie_id=<?= $movieId ?>"><?= t('rate') ?> ⭐</a>
+        <a class="btn btn-primary" href="vote.php?movie_id=<?= $movieId ?>"><?= t('vote') ?> ⭐</a>
       </div>
     </div>
   </div>

@@ -62,7 +62,7 @@ return [
     'searching' => 'Ricerca in corso',
     'search_intro' => 'Cerca un titolo da votare.',
     'search_no_results' => 'Nessun film trovato per questa ricerca. Prova con un altro titolo.',
-    'rate' => 'Vota',
+    'vote' => 'Vota',
     'vote' => 'Vota',
     'stats' => 'Statistiche',
     'my_votes' => 'I miei voti',
@@ -71,7 +71,7 @@ return [
     'edit_profile' => 'Modifica profilo',
     'save_changes' => 'Salva modifiche',
     'total_votes' => 'Voti totali',
-    'movies_rated' => 'film votati',
+    'movies_voted' => 'film votati',
     'profile_updated' => 'Profilo aggiornato con successo!',
     'error_updating_profile' => 'Errore nell\'aggiornamento del profilo',
     'your_votes' => 'I tuoi voti',
@@ -129,7 +129,7 @@ return [
     'novelty' => 'Senso di nuovo',
     'casting_research' => 'Casting / Ricerca (documentari) / Design personaggi (animazione)',
     'sound' => 'Sonoro',
-    'rate_1_to_10' => 'Vota da 1 a 10 (mezzi punti consentiti)',
+    'vote_1_to_10' => 'Vota da 1 a 10 (mezzi punti consentiti)',
     'adjective' => 'Descrivi ciò che hai appena visto con un aggettivo',
     'adjective_placeholder' => 'es. Avvincente, Noioso, Ispirante...',
     'adjective_helper' => 'Facoltativo: Una parola che riassume la tua esperienza',
@@ -139,7 +139,7 @@ return [
     'vote_id' => 'ID Voto',
     'release_year' => 'Anno di uscita'
     , 'in_competition_section' => 'In Competizione'
-    , 'top_rated' => 'Più votati'
+    , 'top_voted' => 'Più votati'
     , 'in_theatres' => 'Al Cinema'
     , 'recently_added' => 'Aggiunti di recente'
     , 'season' => 'Stagione'

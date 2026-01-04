@@ -109,7 +109,7 @@ if ($searchRequested) {
     }
   } catch (Throwable $e) { $inCompetition = []; }
 
-  // 2) Top Rated: compute average of per-vote totals (sum of category scores)
+  // 2) Top Voted: compute average of per-vote totals (sum of category scores)
   $vdCols = $mysqli->query("SHOW COLUMNS FROM vote_details")->fetch_all(MYSQLI_ASSOC);
   $scoreCandidates = ['writing','direction','acting_or_doc_theme','emotional_involvement','novelty','casting_research_art','sound'];
   $haveCols = array_map(function($c){ return $c['Field']; }, $vdCols);
@@ -130,7 +130,7 @@ if ($searchRequested) {
           HAVING votes_count > 0 AND avg_rating IS NOT NULL
           ORDER BY avg_rating DESC, votes_count DESC
           LIMIT 24";
-    $topRated = $mysqli->query($q)->fetch_all(MYSQLI_ASSOC);
+    $topVoted = $mysqli->query($q)->fetch_all(MYSQLI_ASSOC);
   }
 
 }
@@ -262,7 +262,7 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
                 ?></div>
               </div>
             </a>
-            <a class="rate-btn" href="vote.php?movie_id=<?= $movie['id'] ?><?= isset($movie['season_number']) ? '&season='.$movie['season_number'] : '' ?>"><?= t('rate') ?> ⭐</a>
+            <a class="vote-btn" href="vote.php?movie_id=<?= $movie['id'] ?><?= isset($movie['season_number']) ? '&season='.$movie['season_number'] : '' ?>"><?= t('vote') ?> ⭐</a>
           </div>
         <?php endforeach; ?>
       </section>
@@ -283,7 +283,7 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
                   <div class="movie-year"><?= ($movie['type'] === 'series' && !empty($movie['start_year'])) ? htmlspecialchars($movie['start_year']) . ((!empty($movie['end_year']) && $movie['end_year'] != $movie['start_year']) ? ' - ' . htmlspecialchars($movie['end_year']) : '') : htmlspecialchars($movie['year']) ?></div>
                 </div>
               </a>
-              <a class="rate-btn" href="vote.php?movie_id=<?= $movie['id'] ?>"><?= t('rate') ?> ⭐</a>
+              <a class="vote-btn" href="vote.php?movie_id=<?= $movie['id'] ?>"><?= t('vote') ?> ⭐</a>
             </div>
           <?php endforeach; ?>
         </section>
@@ -319,7 +319,7 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
                 <div class="movie-year"><?= ($movie['type'] === 'series' && !empty($movie['start_year'])) ? htmlspecialchars($movie['start_year']) . ((!empty($movie['end_year']) && $movie['end_year'] != $movie['start_year']) ? ' - ' . htmlspecialchars($movie['end_year']) : '') : htmlspecialchars($movie['year']) ?></div>
               </div>
             </a>
-            <a class="rate-btn" href="vote.php?movie_id=<?= $movie['id'] ?>"><?= t('rate') ?> ⭐</a>
+            <a class="vote-btn" href="vote.php?movie_id=<?= $movie['id'] ?>"><?= t('vote') ?> ⭐</a>
           </div>
         <?php endforeach; ?>
         </div>
@@ -340,7 +340,7 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
                 <div class="movie-year"><?= ($movie['type'] === 'series' && !empty($movie['start_year'])) ? htmlspecialchars($movie['start_year']) . ((!empty($movie['end_year']) && $movie['end_year'] != $movie['start_year']) ? ' - ' . htmlspecialchars($movie['end_year']) : '') : htmlspecialchars($movie['year']) ?></div>
               </div>
             </a>
-            <a class="rate-btn" href="vote.php?movie_id=<?= $movie['id'] ?>"><?= t('rate') ?> ⭐</a>
+            <a class="vote-btn" href="vote.php?movie_id=<?= $movie['id'] ?>"><?= t('vote') ?> ⭐</a>
           </div>
         <?php endforeach; ?>
       </div>
@@ -348,14 +348,14 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
     </section>
 
     <section class="home-section">
-      <h2><?= t('top_rated') ?></h2>
+      <h2><?= t('top_voted') ?></h2>
       <div class="movie-row-wrap">
         <button class="row-nav prev" aria-label="Previous" data-target="rowTop" data-dir="-1">‹</button>
         <div class="row-fade left"></div>
         <div id="rowTop" class="movie-row">
         <?php 
-        $topWithPoster = array_filter($topRated, fn($m) => !empty($m['poster_url']) && $m['poster_url'] !== 'N/A');
-        $topWithoutPoster = array_diff_key($topRated, $topWithPoster);
+        $topWithPoster = array_filter($topVoted, fn($m) => !empty($m['poster_url']) && $m['poster_url'] !== 'N/A');
+        $topWithoutPoster = array_diff_key($topVoted, $topWithPoster);
         foreach ($topWithPoster as $movie): ?>
           <div class="movie-card">
             <?php $poster = $movie['poster_url']; ?>
@@ -366,7 +366,7 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
                 <div class="movie-year"><?= ($movie['type'] === 'series' && !empty($movie['start_year'])) ? htmlspecialchars($movie['start_year']) . ((!empty($movie['end_year']) && $movie['end_year'] != $movie['start_year']) ? ' - ' . htmlspecialchars($movie['end_year']) : '') : htmlspecialchars($movie['year']) ?></div>
               </div>
             </a>
-            <a class="rate-btn" href="vote.php?movie_id=<?= $movie['id'] ?>"><?= t('rate') ?> ⭐</a>
+            <a class="vote-btn" href="vote.php?movie_id=<?= $movie['id'] ?>"><?= t('vote') ?> ⭐</a>
           </div>
         <?php endforeach; ?>
         </div>
@@ -387,7 +387,7 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
                 <div class="movie-year"><?= ($movie['type'] === 'series' && !empty($movie['start_year'])) ? htmlspecialchars($movie['start_year']) . ((!empty($movie['end_year']) && $movie['end_year'] != $movie['start_year']) ? ' - ' . htmlspecialchars($movie['end_year']) : '') : htmlspecialchars($movie['year']) ?></div>
               </div>
             </a>
-            <a class="rate-btn" href="vote.php?movie_id=<?= $movie['id'] ?>"><?= t('rate') ?> ⭐</a>
+            <a class="vote-btn" href="vote.php?movie_id=<?= $movie['id'] ?>"><?= t('vote') ?> ⭐</a>
           </div>
         <?php endforeach; ?>
       </div>

@@ -113,7 +113,7 @@ include __DIR__.'/includes/header.php';
         
         <div class="info-card">
           <h3><?= t('total_votes') ?></h3>
-          <p><?= $vote_count ?> <?= t('movies_rated') ?></p>
+          <p><?= $vote_count ?> <?= t('movies_voted') ?></p>
         </div>
         
         <?php if (function_exists('is_admin') && is_admin()): ?>

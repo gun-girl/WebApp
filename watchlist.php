@@ -78,7 +78,7 @@ include __DIR__.'/includes/header.php';
             <p class="watchlist-date">Added: <?= date('M d, Y', strtotime($item['added_at'])) ?></p>
             
             <div class="watchlist-actions">
-              <a href="<?= ADDRESS ?>/vote.php?movie_id=<?= $item['movie_id'] ?>" class="btn"><?= e(t('rate')) ?></a>
+              <a href="<?= ADDRESS ?>/vote.php?movie_id=<?= $item['movie_id'] ?>" class="btn"><?= e(t('vote')) ?></a>
               <form method="post" class="watchlist-form-inline">
                 <?= csrf_field() ?>
                 <input type="hidden" name="movie_id" value="<?= $item['movie_id'] ?>">

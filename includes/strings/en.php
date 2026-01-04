@@ -60,9 +60,9 @@ return [
     'search_movies' => 'Search title...',
     'search' => 'Search',
     'searching' => 'Searching',
-    'search_intro' => 'Find a movie you want to rate.',
+    'search_intro' => 'Find a movie you want to vote on.',
     'search_no_results' => 'No movies matched your search. Try a different title.',
-    'rate' => 'Rate',
+    'vote' => 'Vote',
     'vote' => 'Vote',
     'stats' => 'Stats',
     'my_votes' => 'My Votes',
@@ -71,7 +71,7 @@ return [
     'edit_profile' => 'Edit Profile',
     'save_changes' => 'Save Changes',
     'total_votes' => 'Total Votes',
-    'movies_rated' => 'movie(s) rated',
+    'movies_voted' => 'movie(s) voted',
     'profile_updated' => 'Profile updated successfully!',
     'error_updating_profile' => 'Error updating profile',
     'your_votes' => 'Your Votes',
@@ -129,7 +129,7 @@ return [
     'novelty' => 'Sense of Novelty',
     'casting_research' => 'Casting / Research (documentaries) / Character Artwork (animation)',
     'sound' => 'Sound',
-    'rate_1_to_10' => 'Rate from 1 to 10 (half points allowed)',
+    'vote_1_to_10' => 'Vote from 1 to 10 (half points allowed)',
     'adjective' => 'Describe what you just watched with one adjective',
     'adjective_placeholder' => 'e.g., Captivating, Boring, Inspiring...',
     'adjective_helper' => 'Optional: One word that summarizes your experience',
@@ -149,7 +149,7 @@ return [
     'sheet_adjectives' => 'Adjective List',
     'sheet_finalists_2023' => 'Finalists 2023',
     'raw_votes' => 'Raw Votes',
-    'top_rated' => 'Top Rated'
+    'top_voted' => 'Top Voted'
     , 'in_theatres' => 'In Theatres'
     , 'recently_added' => 'Recently Added'
     , 'season' => 'Season'
