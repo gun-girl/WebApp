@@ -107,17 +107,17 @@ $statusCond = '';
 $statusCondVd = ''; // for vote_details table
 $subStatusV2 = $subStatusV3 = $subStatusV4 = $subStatusV5 = '';
 if ($selected_status === 'in') {
-  $statusCondVd = " AND COALESCE(vd.competition_status,'') IN ('Concorso','In Competizione','In Competition')";
-  $subStatusV2 = " AND COALESCE(vd2.competition_status,'') IN ('Concorso','In Competizione','In Competition')";
-  $subStatusV3 = " AND COALESCE(vd3.competition_status,'') IN ('Concorso','In Competizione','In Competition')";
-  $subStatusV4 = " AND COALESCE(vd4.competition_status,'') IN ('Concorso','In Competizione','In Competition')";
-  $subStatusV5 = " AND COALESCE(vd5.competition_status,'') IN ('Concorso','In Competizione','In Competition')";
+  $statusCondVd = " AND COALESCE(vd.competition_status,'') IN ('Concorso','In Competizione','In Competition','2026 In Competition')";
+  $subStatusV2 = " AND COALESCE(vd2.competition_status,'') IN ('Concorso','In Competizione','In Competition','2026 In Competition')";
+  $subStatusV3 = " AND COALESCE(vd3.competition_status,'') IN ('Concorso','In Competizione','In Competition','2026 In Competition')";
+  $subStatusV4 = " AND COALESCE(vd4.competition_status,'') IN ('Concorso','In Competizione','In Competition','2026 In Competition')";
+  $subStatusV5 = " AND COALESCE(vd5.competition_status,'') IN ('Concorso','In Competizione','In Competition','2026 In Competition')";
 } elseif ($selected_status === 'out') {
-  $statusCondVd = " AND COALESCE(vd.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition') AND COALESCE(vd.competition_status,'') <> ''";
-  $subStatusV2 = " AND COALESCE(vd2.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition') AND COALESCE(vd2.competition_status,'') <> ''";
-  $subStatusV3 = " AND COALESCE(vd3.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition') AND COALESCE(vd3.competition_status,'') <> ''";
-  $subStatusV4 = " AND COALESCE(vd4.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition') AND COALESCE(vd4.competition_status,'') <> ''";
-  $subStatusV5 = " AND COALESCE(vd5.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition') AND COALESCE(vd5.competition_status,'') <> ''";
+  $statusCondVd = " AND COALESCE(vd.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition','2026 In Competition') AND COALESCE(vd.competition_status,'') <> ''";
+  $subStatusV2 = " AND COALESCE(vd2.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition','2026 In Competition') AND COALESCE(vd2.competition_status,'') <> ''";
+  $subStatusV3 = " AND COALESCE(vd3.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition','2026 In Competition') AND COALESCE(vd3.competition_status,'') <> ''";
+  $subStatusV4 = " AND COALESCE(vd4.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition','2026 In Competition') AND COALESCE(vd4.competition_status,'') <> ''";
+  $subStatusV5 = " AND COALESCE(vd5.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition','2026 In Competition') AND COALESCE(vd5.competition_status,'') <> ''";
 }
 
 // year filter fragments to reuse in queries (use selected/view year)
@@ -169,57 +169,88 @@ if ($sheet === 'lists') {
               FROM movies m
               JOIN votes v ON v.movie_id = m.id
               LEFT JOIN vote_details vd ON vd.vote_id = v.id
-              " . $whereYearClause . $statusCondVd . " AND m.type = 'movie'
+              " . $whereYearClause . $statusCondVd . " AND (vd.category IN ('Film') OR (vd.category IS NULL OR vd.category = '') AND m.type = 'movie')
               GROUP BY m.id
               HAVING votes_count > 0
               ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
               LIMIT 25";
-  $bestMoviesRows = $mysqli->query($bestMoviesSql)->fetch_all(MYSQLI_ASSOC);
+  error_log("[STATS DEBUG] bestMoviesSql: " . $bestMoviesSql);
+  $result = $mysqli->query($bestMoviesSql);
+  if (!$result) {
+    error_log("[STATS ERROR] Movies query failed: " . $mysqli->error);
+    $bestMoviesRows = [];
+  } else {
+    $bestMoviesRows = $result->fetch_all(MYSQLI_ASSOC);
+  }
 
   $bestSeriesSql = "SELECT m.id, m.title, m.year, m.type, m.poster_url, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
               FROM movies m
               JOIN votes v ON v.movie_id = m.id
               LEFT JOIN vote_details vd ON vd.vote_id = v.id
-              " . $whereYearClause . $statusCondVd . " AND m.type = 'series'
+              " . $whereYearClause . $statusCondVd . " AND (vd.category IN ('Series') OR (vd.category IS NULL OR vd.category = '') AND m.type = 'series')
               GROUP BY m.id
               HAVING votes_count > 0
               ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
               LIMIT 25";
-  $bestSeriesRows = $mysqli->query($bestSeriesSql)->fetch_all(MYSQLI_ASSOC);
+  $result = $mysqli->query($bestSeriesSql);
+  if (!$result) {
+    error_log("[STATS ERROR] Series query failed: " . $mysqli->error);
+    $bestSeriesRows = [];
+  } else {
+    $bestSeriesRows = $result->fetch_all(MYSQLI_ASSOC);
+  }
 
   // For documentaries, we'll check for 'movie' type but could add a category field check later
   $bestDocsSql = "SELECT m.id, m.title, m.year, m.type, m.poster_url, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
               FROM movies m
               JOIN votes v ON v.movie_id = m.id
               LEFT JOIN vote_details vd ON vd.vote_id = v.id
-              " . $whereYearClause . $statusCondVd . " AND (m.type = 'documentary' OR m.title LIKE '%document%')
+              " . $whereYearClause . $statusCondVd . " AND (vd.category IN ('Documentary','Documentario') OR m.type = 'documentary' OR m.title LIKE '%document%')
               GROUP BY m.id
               HAVING votes_count > 0
               ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
               LIMIT 25";
-  $bestDocsRows = $mysqli->query($bestDocsSql)->fetch_all(MYSQLI_ASSOC);
+  $result = $mysqli->query($bestDocsSql);
+  if (!$result) {
+    error_log("[STATS ERROR] Docs query failed: " . $mysqli->error);
+    $bestDocsRows = [];
+  } else {
+    $bestDocsRows = $result->fetch_all(MYSQLI_ASSOC);
+  }
 
   $bestMiniseriesSql = "SELECT m.id, m.title, m.year, m.type, m.poster_url, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
               FROM movies m
               JOIN votes v ON v.movie_id = m.id
               LEFT JOIN vote_details vd ON vd.vote_id = v.id
-              " . $whereYearClause . $statusCondVd . " AND (m.type = 'miniseries' OR vd.category = 'Miniserie')
+              " . $whereYearClause . $statusCondVd . " AND (vd.category IN ('Miniseries','Miniserie') OR m.type = 'miniseries')
               GROUP BY m.id
               HAVING votes_count > 0
               ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
               LIMIT 25";
-  $bestMiniseriesRows = $mysqli->query($bestMiniseriesSql)->fetch_all(MYSQLI_ASSOC);
+  $result = $mysqli->query($bestMiniseriesSql);
+  if (!$result) {
+    error_log("[STATS ERROR] Miniseries query failed: " . $mysqli->error);
+    $bestMiniseriesRows = [];
+  } else {
+    $bestMiniseriesRows = $result->fetch_all(MYSQLI_ASSOC);
+  }
 
   $bestAnimationSql = "SELECT m.id, m.title, m.year, m.type, m.poster_url, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
               FROM movies m
               JOIN votes v ON v.movie_id = m.id
               LEFT JOIN vote_details vd ON vd.vote_id = v.id
-              " . $whereYearClause . $statusCondVd . " AND (m.type = 'animation' OR vd.category = 'Animazione')
+              " . $whereYearClause . $statusCondVd . " AND (vd.category IN ('Animation','Animazione') OR m.type = 'animation')
               GROUP BY m.id
               HAVING votes_count > 0
               ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
               LIMIT 25";
-  $bestAnimationRows = $mysqli->query($bestAnimationSql)->fetch_all(MYSQLI_ASSOC);
+  $result = $mysqli->query($bestAnimationSql);
+  if (!$result) {
+    error_log("[STATS ERROR] Animation query failed: " . $mysqli->error);
+    $bestAnimationRows = [];
+  } else {
+    $bestAnimationRows = $result->fetch_all(MYSQLI_ASSOC);
+  }
 
   // Most viewed: ordered by view count
   $viewsSql = "SELECT m.id, m.title, m.year, m.poster_url, COUNT(v.id) AS views

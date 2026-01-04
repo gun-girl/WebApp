@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__.'/includes/auth.php';
 require_once __DIR__.'/includes/lang.php';
+require_once __DIR__.'/includes/omdb.php';
 require_login();
 
 $user = current_user();
@@ -44,7 +45,7 @@ if ($movie_id > 0 && $edit_vote_id === 0) {
 $existing_vote = null;
 if ($edit_vote_id > 0) {
   // Load vote and verify ownership (include year condition only if column exists)
-  $sql = "SELECT v.*, vd.*, m.id as movie_id, m.title, m.year, m.poster_url\n            FROM votes v\n            INNER JOIN vote_details vd ON vd.vote_id = v.id\n            INNER JOIN movies m ON m.id = v.movie_id\n            WHERE v.id = ? AND v.user_id = ?" . ($hasCompetitionYear ? " AND v.competition_year = ?" : "");
+  $sql = "SELECT v.*, vd.*, m.*\n            FROM votes v\n            INNER JOIN vote_details vd ON vd.vote_id = v.id\n            INNER JOIN movies m ON m.id = v.movie_id\n            WHERE v.id = ? AND v.user_id = ?" . ($hasCompetitionYear ? " AND v.competition_year = ?" : "");
   $stmt = $mysqli->prepare($sql);
   if ($hasCompetitionYear) {
     $stmt->bind_param('iii', $edit_vote_id, $user['id'], $active_year);
@@ -58,14 +59,8 @@ if ($edit_vote_id > 0) {
         die('Vote not found or access denied');
     }
     
-    // Set movie details from existing vote
     $movie_id = $existing_vote['movie_id'];
-    $movie = [
-        'id' => $existing_vote['movie_id'],
-        'title' => $existing_vote['title'],
-        'year' => $existing_vote['year'],
-        'poster_url' => $existing_vote['poster_url']
-    ];
+    $movie = $existing_vote;
 } else {
     // New vote - require movie_id
     if ($movie_id <= 0) {
@@ -83,27 +78,51 @@ if ($edit_vote_id > 0) {
     }
 }
 
-// Auto-determine competition status based on movie year
-$auto_competition_status = 'Out of Competition'; // default
-$movieYear = null;
-if (isset($movie['year'])) {
-  $yRaw = $movie['year'];
-  if (is_numeric($yRaw)) {
-    $movieYear = (int)$yRaw;
-  } else {
-    if (preg_match('/(\d{4})/', (string)$yRaw, $m)) {
-      $movieYear = (int)$m[1];
+// Best-effort: backfill released date from OMDb if missing
+if (!empty($movie['imdb_id']) && (empty($movie['released']) || $movie['released'] === '0000-00-00')) {
+  $detail = fetch_omdb_detail_by_id($movie['imdb_id']);
+  if ($detail && !empty($detail['Released'])) {
+    $ts = strtotime($detail['Released']);
+    if ($ts) {
+      $releasedYmd = date('Y-m-d', $ts);
+      $update = $mysqli->prepare("UPDATE movies SET released = ? WHERE id = ?");
+      if ($update) {
+        $update->bind_param('si', $releasedYmd, $movie_id);
+        $update->execute();
+      }
+      $movie['released'] = $releasedYmd;
     }
   }
-  
-  if ($movieYear !== null) {
-    if ($movieYear === $active_year) {
-      $auto_competition_status = 'In Competition';
-    } elseif ($movieYear === $active_year + 1) {
-      $auto_competition_status = '2026 In Competition';
-    } else {
-      $auto_competition_status = 'Out of Competition';
-    }
+}
+
+// Auto-determine competition status based on release date windows
+$auto_competition_status = 'Out of Competition';
+$releaseDate = $movie['released'] ?? null;
+if (!$releaseDate || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $releaseDate)) {
+  if (!empty($movie['year']) && preg_match('/(\d{4})/', (string)$movie['year'], $m)) {
+    $releaseDate = $m[1] . '-01-01';
+  }
+}
+
+if ($releaseDate) {
+  $windowAStart = '2024-12-19';
+  $windowAEnd   = '2025-10-31';
+  $windowBStart = '2025-11-01';
+  $windowBEnd   = '2026-12-31';
+  if ($releaseDate >= $windowAStart && $releaseDate <= $windowAEnd) {
+    $auto_competition_status = 'In Competition';
+  } elseif ($releaseDate >= $windowBStart && $releaseDate <= $windowBEnd) {
+    $auto_competition_status = '2026 In Competition';
+  }
+}
+
+// Repair existing vote_detail competition_status if it's out-of-date
+if (!empty($existing_vote['id']) && isset($existing_vote['competition_status']) && $existing_vote['competition_status'] !== $auto_competition_status) {
+  $fix = $mysqli->prepare("UPDATE vote_details SET competition_status = ? WHERE vote_id = ?");
+  if ($fix) {
+    $fix->bind_param('si', $auto_competition_status, $existing_vote['id']);
+    $fix->execute();
+    $existing_vote['competition_status'] = $auto_competition_status;
   }
 }
 
@@ -119,7 +138,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     
     // Collect all form data
-    $competition_status = $_POST['competition_status'] ?? '';
+    // Always recompute competition status server-side to prevent stale/incorrect values
+    $competition_status = $auto_competition_status;
     $category = $_POST['category'] ?? '';
     $where_watched = $_POST['where_watched'] ?? '';
     $writing = (float)($_POST['writing'] ?? 0);
@@ -332,7 +352,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src=ADDRESS.'/assets/img/no-poster.svg';">
     <div class="movie-info">
       <h2><?= htmlspecialchars($movie['title']) ?></h2>
-      <p class="year"><?= htmlspecialchars($movie['year']) ?></p>
+      <p class="year"><?= ($movie['type'] === 'series' && !empty($movie['start_year'])) ? htmlspecialchars($movie['start_year']) . ((!empty($movie['end_year']) && $movie['end_year'] != $movie['start_year']) ? ' - ' . htmlspecialchars($movie['end_year']) : '') : htmlspecialchars($movie['year']) ?></p>
     </div>
   </div>
 

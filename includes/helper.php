@@ -59,25 +59,34 @@ function get_active_year(): int
 
 /**
  * Determine if a movie/series is in competition for the active year.
- * Rule: if the parsed release year equals the active competition year.
+ * Rule: In competition if release date is within the configured windows:
+ * - Window A: 2024-12-19 to 2025-10-31 (inclusive)
+ * - Window B: 2025-11-01 to 2026-12-31 (inclusive)
  */
 function is_in_competition(array $movie, ?int $activeYear = null): bool
 {
-    if ($activeYear === null) {
-        $activeYear = get_active_year();
-    }
-    $yRaw = $movie['year'] ?? null;
-    if ($yRaw === null || $yRaw === '') return false;
-    if (is_numeric($yRaw)) {
-        $y = (int)$yRaw;
+    // Normalize a release date from 'released' (YYYY-MM-DD) or fall back to Jan 1 of year
+    $releaseDate = null;
+    $released = $movie['released'] ?? null;
+    if ($released && preg_match('/^\d{4}-\d{2}-\d{2}$/', $released)) {
+        $releaseDate = $released;
     } else {
-        if (preg_match('/(\d{4})/', (string)$yRaw, $m)) {
-            $y = (int)$m[1];
-        } else {
-            return false;
+        $yRaw = $movie['year'] ?? null;
+        if ($yRaw && preg_match('/(\d{4})/', (string)$yRaw, $m)) {
+            $releaseDate = $m[1] . '-01-01';
         }
     }
-    return $y === (int)$activeYear;
+
+    if (!$releaseDate) return false;
+
+    // Competition windows
+    $windowAStart = '2024-12-19';
+    $windowAEnd   = '2025-10-31';
+    $windowBStart = '2025-11-01';
+    $windowBEnd   = '2026-12-31';
+
+    return ($releaseDate >= $windowAStart && $releaseDate <= $windowAEnd)
+        || ($releaseDate >= $windowBStart && $releaseDate <= $windowBEnd);
 }
 
 /**
