@@ -165,12 +165,12 @@ $ratingExprGlobal = $numExprGlobal ? "($numExprGlobal)" : 'NULL';
 // COMPACT LISTS sheet (mobile-friendly dropdown lists)
 if ($sheet === 'lists') {
   // Best of by category: Movies, Series, Documentaries
-  $bestMoviesSql = "SELECT m.id, m.title, m.year, m.type, m.poster_url, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
+  $bestMoviesSql = "SELECT m.id, m.title, m.year, m.type, m.poster_url, vd.season_number, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
               FROM movies m
               JOIN votes v ON v.movie_id = m.id
               LEFT JOIN vote_details vd ON vd.vote_id = v.id
               " . $whereYearClause . $statusCondVd . " AND (vd.category IN ('Film') OR (vd.category IS NULL OR vd.category = '') AND m.type = 'movie')
-              GROUP BY m.id
+              GROUP BY m.id, vd.season_number
               HAVING votes_count > 0
               ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
               LIMIT 25";
@@ -183,12 +183,12 @@ if ($sheet === 'lists') {
     $bestMoviesRows = $result->fetch_all(MYSQLI_ASSOC);
   }
 
-  $bestSeriesSql = "SELECT m.id, m.title, m.year, m.type, m.poster_url, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
+  $bestSeriesSql = "SELECT m.id, m.title, m.year, m.type, m.poster_url, vd.season_number, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
               FROM movies m
               JOIN votes v ON v.movie_id = m.id
               LEFT JOIN vote_details vd ON vd.vote_id = v.id
               " . $whereYearClause . $statusCondVd . " AND (vd.category IN ('Series') OR (vd.category IS NULL OR vd.category = '') AND m.type = 'series')
-              GROUP BY m.id
+              GROUP BY m.id, vd.season_number
               HAVING votes_count > 0
               ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
               LIMIT 25";
@@ -201,12 +201,12 @@ if ($sheet === 'lists') {
   }
 
   // For documentaries, we'll check for 'movie' type but could add a category field check later
-  $bestDocsSql = "SELECT m.id, m.title, m.year, m.type, m.poster_url, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
+  $bestDocsSql = "SELECT m.id, m.title, m.year, m.type, m.poster_url, vd.season_number, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
               FROM movies m
               JOIN votes v ON v.movie_id = m.id
               LEFT JOIN vote_details vd ON vd.vote_id = v.id
               " . $whereYearClause . $statusCondVd . " AND (vd.category IN ('Documentary','Documentario') OR m.type = 'documentary' OR m.title LIKE '%document%')
-              GROUP BY m.id
+              GROUP BY m.id, vd.season_number
               HAVING votes_count > 0
               ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
               LIMIT 25";
@@ -218,12 +218,12 @@ if ($sheet === 'lists') {
     $bestDocsRows = $result->fetch_all(MYSQLI_ASSOC);
   }
 
-  $bestMiniseriesSql = "SELECT m.id, m.title, m.year, m.type, m.poster_url, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
+  $bestMiniseriesSql = "SELECT m.id, m.title, m.year, m.type, m.poster_url, vd.season_number, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
               FROM movies m
               JOIN votes v ON v.movie_id = m.id
               LEFT JOIN vote_details vd ON vd.vote_id = v.id
               " . $whereYearClause . $statusCondVd . " AND (vd.category IN ('Miniseries','Miniserie') OR m.type = 'miniseries')
-              GROUP BY m.id
+              GROUP BY m.id, vd.season_number
               HAVING votes_count > 0
               ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
               LIMIT 25";
@@ -235,12 +235,12 @@ if ($sheet === 'lists') {
     $bestMiniseriesRows = $result->fetch_all(MYSQLI_ASSOC);
   }
 
-  $bestAnimationSql = "SELECT m.id, m.title, m.year, m.type, m.poster_url, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
+  $bestAnimationSql = "SELECT m.id, m.title, m.year, m.type, m.poster_url, vd.season_number, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
               FROM movies m
               JOIN votes v ON v.movie_id = m.id
               LEFT JOIN vote_details vd ON vd.vote_id = v.id
               " . $whereYearClause . $statusCondVd . " AND (vd.category IN ('Animation','Animazione') OR m.type = 'animation')
-              GROUP BY m.id
+              GROUP BY m.id, vd.season_number
               HAVING votes_count > 0
               ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
               LIMIT 25";
@@ -253,12 +253,12 @@ if ($sheet === 'lists') {
   }
 
   // Most viewed: ordered by view count
-  $viewsSql = "SELECT m.id, m.title, m.year, m.poster_url, COUNT(v.id) AS views
+  $viewsSql = "SELECT m.id, m.title, m.year, m.poster_url, vd.season_number, COUNT(v.id) AS views
                FROM movies m
                JOIN votes v ON v.movie_id = m.id
                LEFT JOIN vote_details vd ON vd.vote_id = v.id
                " . $whereYearClause . $statusCondVd . "
-               GROUP BY m.id
+               GROUP BY m.id, vd.season_number
                ORDER BY views DESC, m.title ASC
                LIMIT 25";
   $viewsRows = $mysqli->query($viewsSql)->fetch_all(MYSQLI_ASSOC);
@@ -277,7 +277,7 @@ if ($sheet === 'lists') {
   $jurorTitles = [];
   foreach ($judgesRows as $juror) {
     $jurorId = $juror['user_id'];
-    $titlesSql = "SELECT m.id, m.title, m.year, ROUND($ratingExprGlobal,2) AS rating, 
+    $titlesSql = "SELECT m.id, m.title, m.year, vd.season_number, ROUND($ratingExprGlobal,2) AS rating, 
                   vd.writing, vd.direction, vd.acting_or_doc_theme, vd.emotional_involvement, 
                   vd.novelty, vd.casting_research_art, vd.sound
                   FROM votes v
@@ -363,7 +363,13 @@ if ($sheet === 'lists') {
                           <div class="stat-poster stat-poster-empty">📽️</div>
                         <?php endif; ?>
                         <div class="stat-main">
-                          <div class="stat-title"><?= e($row['title']) ?> <span class="muted">(<?= e($row['year']) ?>)</span></div>
+                          <div class="stat-title">
+                            <?= e($row['title']) ?>
+                            <?php if (!empty($row['season_number'])): ?>
+                              <span style="color:#f6c90e;font-weight:600;"> - Season <?= (int)$row['season_number'] ?></span>
+                            <?php endif; ?>
+                            <span class="muted">(<?= e($row['year']) ?>)</span>
+                          </div>
                           <div class="stat-meta"><?= t('average_rating') ?>: <strong><?= $row['avg_rating'] !== null ? number_format($row['avg_rating'],2) : '' ?></strong> · <?= (int)$row['votes_count'] ?> <?= t('votes') ?></div>
                         </div>
                       </a>
@@ -395,7 +401,13 @@ if ($sheet === 'lists') {
                           <div class="stat-poster stat-poster-empty">📺</div>
                         <?php endif; ?>
                         <div class="stat-main">
-                          <div class="stat-title"><?= e($row['title']) ?> <span class="muted">(<?= e($row['year']) ?>)</span></div>
+                          <div class="stat-title">
+                            <?= e($row['title']) ?>
+                            <?php if (!empty($row['season_number'])): ?>
+                              <span style="color:#f6c90e;font-weight:600;"> - Season <?= (int)$row['season_number'] ?></span>
+                            <?php endif; ?>
+                            <span class="muted">(<?= e($row['year']) ?>)</span>
+                          </div>
                           <div class="stat-meta"><?= t('average_rating') ?>: <strong><?= $row['avg_rating'] !== null ? number_format($row['avg_rating'],2) : '' ?></strong> · <?= (int)$row['votes_count'] ?> <?= t('votes') ?></div>
                         </div>
                       </a>
@@ -427,7 +439,13 @@ if ($sheet === 'lists') {
                           <div class="stat-poster stat-poster-empty">🎥</div>
                         <?php endif; ?>
                         <div class="stat-main">
-                          <div class="stat-title"><?= e($row['title']) ?> <span class="muted">(<?= e($row['year']) ?>)</span></div>
+                          <div class="stat-title">
+                            <?= e($row['title']) ?>
+                            <?php if (!empty($row['season_number'])): ?>
+                              <span style="color:#f6c90e;font-weight:600;"> - Season <?= (int)$row['season_number'] ?></span>
+                            <?php endif; ?>
+                            <span class="muted">(<?= e($row['year']) ?>)</span>
+                          </div>
                           <div class="stat-meta"><?= t('average_rating') ?>: <strong><?= $row['avg_rating'] !== null ? number_format($row['avg_rating'],2) : '' ?></strong> · <?= (int)$row['votes_count'] ?> <?= t('votes') ?></div>
                         </div>
                       </a>
@@ -459,7 +477,13 @@ if ($sheet === 'lists') {
                           <div class="stat-poster stat-poster-empty">📺</div>
                         <?php endif; ?>
                         <div class="stat-main">
-                          <div class="stat-title"><?= e($row['title']) ?> <span class="muted">(<?= e($row['year']) ?>)</span></div>
+                          <div class="stat-title">
+                            <?= e($row['title']) ?>
+                            <?php if (!empty($row['season_number'])): ?>
+                              <span style="color:#f6c90e;font-weight:600;"> - Season <?= (int)$row['season_number'] ?></span>
+                            <?php endif; ?>
+                            <span class="muted">(<?= e($row['year']) ?>)</span>
+                          </div>
                           <div class="stat-meta"><?= t('average_rating') ?>: <strong><?= $row['avg_rating'] !== null ? number_format($row['avg_rating'],2) : '' ?></strong> · <?= (int)$row['votes_count'] ?> <?= t('votes') ?></div>
                         </div>
                       </a>
@@ -491,7 +515,13 @@ if ($sheet === 'lists') {
                           <div class="stat-poster stat-poster-empty">🎨</div>
                         <?php endif; ?>
                         <div class="stat-main">
-                          <div class="stat-title"><?= e($row['title']) ?> <span class="muted">(<?= e($row['year']) ?>)</span></div>
+                          <div class="stat-title">
+                            <?= e($row['title']) ?>
+                            <?php if (!empty($row['season_number'])): ?>
+                              <span style="color:#f6c90e;font-weight:600;"> - Season <?= (int)$row['season_number'] ?></span>
+                            <?php endif; ?>
+                            <span class="muted">(<?= e($row['year']) ?>)</span>
+                          </div>
                           <div class="stat-meta"><?= t('average_rating') ?>: <strong><?= $row['avg_rating'] !== null ? number_format($row['avg_rating'],2) : '' ?></strong> · <?= (int)$row['votes_count'] ?> <?= t('votes') ?></div>
                         </div>
                       </a>
@@ -524,7 +554,13 @@ if ($sheet === 'lists') {
                       <div class="stat-poster stat-poster-empty">📽️</div>
                     <?php endif; ?>
                     <div class="stat-main">
-                      <div class="stat-title"><?= e($row['title']) ?> <span class="muted">(<?= e($row['year']) ?>)</span></div>
+                      <div class="stat-title">
+                        <?= e($row['title']) ?>
+                        <?php if (!empty($row['season_number'])): ?>
+                          <span style="color:#f6c90e;font-weight:600;"> - Season <?= (int)$row['season_number'] ?></span>
+                        <?php endif; ?>
+                        <span class="muted">(<?= e($row['year']) ?>)</span>
+                      </div>
                       <div class="stat-meta"><?= t('views') ?>: <strong><?= (int)$row['views'] ?></strong></div>
                     </div>
                   </div>
@@ -581,7 +617,13 @@ if ($sheet === 'lists') {
                           <?php foreach ($jurorTitles[$juror['user_id']] as $title): ?>
                             <li>
                               <div class="title-header">
-                                <span class="title-name"><?= e($title['title']) ?> <span class="muted">(<?= e($title['year']) ?>)</span></span>
+                                <span class="title-name">
+                                  <?= e($title['title']) ?>
+                                  <?php if (!empty($title['season_number'])): ?>
+                                    <span style="color:#f6c90e;font-weight:600;"> - Season <?= (int)$title['season_number'] ?></span>
+                                  <?php endif; ?>
+                                  <span class="muted">(<?= e($title['year']) ?>)</span>
+                                </span>
                                 <?php if ($title['rating'] !== null): ?>
                                   <span class="title-rating">⭐ <?= number_format($title['rating'],2) ?></span>
                                 <?php endif; ?>
