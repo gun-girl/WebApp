@@ -333,14 +333,15 @@ class OmdbApiClient {
 // Trigger async maintenance tasks without blocking page load
 function trigger_async_maintenance(): void {
   // Use non-blocking HTTP request to background worker
-  $url = $_SERVER['REQUEST_SCHEME'] . '://' . $_SERVER['HTTP_HOST'] . '/includes/async-worker.php';
+  $url = ADDRESS . '/includes/async-worker.php';
   
   $ch = curl_init();
   curl_setopt($ch, CURLOPT_URL, $url);
-  curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); // MUST be true to prevent output leaking!
   curl_setopt($ch, CURLOPT_TIMEOUT_MS, 100); // Ultra-short timeout
   curl_setopt($ch, CURLOPT_CONNECTTIMEOUT_MS, 50);
   curl_setopt($ch, CURLOPT_NOSIGNAL, 1);
+  curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); // Follow redirects
   @curl_exec($ch); // Suppress errors
   curl_close($ch);
 } 
