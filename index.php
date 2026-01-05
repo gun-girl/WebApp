@@ -3,6 +3,11 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/lang.php';
 require_login();
+
+// Set aggressive caching headers for search results
+header('Cache-Control: public, max-age=604800'); // Cache for 7 days
+header('Expires: ' . gmdate('D, d M Y H:i:s', time() + 604800) . ' GMT');
+
 require_once __DIR__ . '/includes/omdb.php';
 require_once __DIR__ . '/includes/helper.php';
 

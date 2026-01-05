@@ -4,6 +4,7 @@ require_once __DIR__.'/../config.php';
 class OmdbApiClient {
   private $apiKey;
   private $mysqli;
+  private static $memoryCache = []; // In-memory cache for this session
 
   // Normalize strings for loose matching (strip punctuation, lowercase, collapse spaces)
   private function normalizeKey(string $s): string {
@@ -148,9 +149,17 @@ class OmdbApiClient {
   public function search($query, bool $allowFuzzy = true): array {
     error_log("[OmdbApiClient] Starting search for: '$query'");
     
+    $cacheKey = 'search_' . md5($query);
+    
+    // STEP 0: Check in-memory cache first (fastest)
+    if (isset(self::$memoryCache[$cacheKey])) {
+      error_log("[OmdbApiClient] Found in memory cache for '$query'");
+      return self::$memoryCache[$cacheKey];
+    }
+    
     $normalized = $this->normalizeKey($query);
 
-    // STEP 1: Check if we have cached results from the last 24 hours
+    // STEP 1: Check database cache (valid for 7 days, not just 24 hours)
     $check = $this->mysqli->prepare("
       SELECT m.* FROM movies m
       WHERE (
@@ -158,7 +167,7 @@ class OmdbApiClient {
         OR LOWER(REPLACE(REPLACE(REPLACE(REPLACE(m.title,'.',''),':',''),'&',' '),'-',' ')) LIKE CONCAT('%',?,'%')
       )
       AND m.type IN ('movie', 'series')
-      AND m.last_fetched_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)
+      AND m.last_fetched_at > DATE_SUB(NOW(), INTERVAL 7 DAY)
       ORDER BY 
         CASE WHEN m.title = ? THEN 0 ELSE 1 END,
         m.year DESC
@@ -168,10 +177,25 @@ class OmdbApiClient {
     $check->execute();
     $cachedResults = $check->get_result()->fetch_all(MYSQLI_ASSOC);
     
-    // If we have cached results, return them immediately
+    // If we have cached results, cache in memory and return
     if (!empty($cachedResults)) {
       error_log("[OmdbApiClient] Found " . count($cachedResults) . " cached results in database for '$query'");
+      self::$memoryCache[$cacheKey] = $cachedResults;
       return $cachedResults;
+    }
+    
+    // Check if we have a "no results" cache from the last 3 days
+    $noResultsCheck = $this->mysqli->prepare("
+      SELECT 1 FROM query_cache 
+      WHERE query = ? AND date > DATE_SUB(NOW(), INTERVAL 3 DAY)
+      LIMIT 1
+    ");
+    $noResultsCheck->bind_param('s', $query);
+    $noResultsCheck->execute();
+    if ($noResultsCheck->get_result()->num_rows > 0) {
+      error_log("[OmdbApiClient] Found 'no results' cache for '$query', returning empty");
+      self::$memoryCache[$cacheKey] = [];
+      return [];
     }
     
     error_log("[OmdbApiClient] No valid cache for '$query'. Calling API...");
@@ -225,15 +249,19 @@ class OmdbApiClient {
       }
     }
 
-    // STEP 4: Only cache if we found results
+    // STEP 4: Cache all results (including "no results")
     if ($found_any) {
-      // Mark this query as successfully cached today (so we don't re-query the API)
+      // Mark this query as successfully cached (so we don't re-query the API)
       $upsert = $this->mysqli->prepare("INSERT INTO query_cache (query,date) VALUES (?, NOW()) ON DUPLICATE KEY UPDATE date = NOW()");
       $upsert->bind_param('s', $query);
       $upsert->execute();
       error_log("[OmdbApiClient] Cached successful search for '$query'");
     } else {
-      error_log("[OmdbApiClient] No results found from API for '$query' - NOT caching (will retry next time)");
+      // Also cache "no results" so we don't keep hitting API for non-existent movies
+      $upsert = $this->mysqli->prepare("INSERT INTO query_cache (query,date) VALUES (?, NOW()) ON DUPLICATE KEY UPDATE date = NOW()");
+      $upsert->bind_param('s', $query);
+      $upsert->execute();
+      error_log("[OmdbApiClient] Cached 'no results' for '$query' - won't retry for 3 days");
     }
 
     // STEP 5: Return results from database after API insert
@@ -252,6 +280,9 @@ class OmdbApiClient {
     $check->bind_param('sss', $query, $normalized, $query);
     $check->execute();
     $results = $check->get_result()->fetch_all(MYSQLI_ASSOC);
+    
+    // Cache results in memory
+    self::$memoryCache[$cacheKey] = $results;
     
     // If we have some results but not many, try fuzzy matching to find better matches
     if ($allowFuzzy && (empty($results) || count($results) < 5)) {
@@ -416,12 +447,17 @@ class OmdbApiClient {
   public function getDetail($imdbId): ?array {
     if (!$this->isConfigured()) return null;
     
+    // STEP 0: Check memory cache first (fastest)
+    $memKey = 'detail_' . $imdbId;
+    if (isset(self::$memoryCache[$memKey])) {
+      error_log("[OmdbApiClient] Found detail in memory cache for $imdbId");
+      return self::$memoryCache[$memKey];
+    }
+    
     // Check cache first (valid for 7 days for basic details)
-    $stmt = $this->mysqli->prepare("SELECT poster_url, released, total_seasons, last_fetched_at FROM movies 
+    $stmt = $this->mysqli->prepare("SELECT * FROM movies 
                                      WHERE imdb_id = ? 
-                                     AND last_fetched_at > DATE_SUB(NOW(), INTERVAL 7 DAY)
-                                     AND poster_url IS NOT NULL 
-                                     AND released IS NOT NULL");
+                                     AND last_fetched_at > DATE_SUB(NOW(), INTERVAL 7 DAY)");
     $stmt->bind_param('s', $imdbId);
     $stmt->execute();
     $cached = $stmt->get_result()->fetch_assoc();
@@ -441,6 +477,8 @@ class OmdbApiClient {
         $result['totalSeasons'] = (string)$cached['total_seasons'];
       }
       
+      // Store in memory cache
+      self::$memoryCache[$memKey] = $result;
       return $result;
     }
     
@@ -498,6 +536,8 @@ class OmdbApiClient {
       $update->bind_param('ssis', $poster, $released, $totalSeasons, $imdbId);
       $update->execute();
       
+      // Store in memory cache
+      self::$memoryCache[$memKey] = $json;
       return $json;
     }
     
