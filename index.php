@@ -211,8 +211,15 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
                       $firstEpisode = $seasonDetail['Episodes'][0];
                       if (!empty($firstEpisode['Released']) && $firstEpisode['Released'] !== 'N/A') {
                         $releaseDate = $firstEpisode['Released'];
+                        // Use the first episode release date for competition logic
+                        $ts = strtotime($releaseDate);
+                        if ($ts) {
+                          $seasonMovie['released'] = date('Y-m-d', $ts);
+                        }
                         if (preg_match('/(\d{4})/', $releaseDate, $matches)) {
                           $seasonMovie['season_year'] = $matches[1];
+                          // Also set general year so competition badge uses season year
+                          $seasonMovie['year'] = $matches[1];
                         }
                       }
                     }

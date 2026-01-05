@@ -28,6 +28,11 @@ $edit_vote_id = (int)($_GET['edit'] ?? 0);
 $movie_id = (int)($_GET['movie_id'] ?? 0);
 $url_season = isset($_GET['season']) ? (int)$_GET['season'] : null;
 
+error_log("[VOTE DEBUG] ===== VOTE PAGE LOADED =====");
+error_log("[VOTE DEBUG] movie_id: $movie_id");
+error_log("[VOTE DEBUG] url_season: " . ($url_season ?? 'NULL'));
+error_log("[VOTE DEBUG] GET params: " . json_encode($_GET));
+
 // Check if user already voted for this movie+season combination (for reminder)
 $existing_vote_for_movie = null;
 if ($movie_id > 0 && $edit_vote_id === 0) {
@@ -101,7 +106,7 @@ if (!empty($movie['imdb_id']) && (empty($movie['released']) || $movie['released'
     $season_data = fetch_season_data($movie['imdb_id'], $url_season);
     
     // Try to extract release date from season data if available
-    if ($season_data && !empty($season_data['Released'])) {
+    if ($season_data && !empty($season_data['Released']) && $season_data['Released'] !== 'N/A') {
       $ts = strtotime($season_data['Released']);
       if ($ts) {
         $releasedYmd = date('Y-m-d', $ts);
@@ -111,6 +116,23 @@ if (!empty($movie['imdb_id']) && (empty($movie['released']) || $movie['released'
           $update->execute();
         }
         $movie['released'] = $releasedYmd;
+      }
+    } else if ($season_data && !empty($season_data['Episodes']) && is_array($season_data['Episodes'])) {
+      // If no overall season date, try to get the first episode's release date
+      foreach ($season_data['Episodes'] as $episode) {
+        if (!empty($episode['Released']) && $episode['Released'] !== 'N/A') {
+          $ts = strtotime($episode['Released']);
+          if ($ts) {
+            $releasedYmd = date('Y-m-d', $ts);
+            $update = $mysqli->prepare("UPDATE movies SET released = ? WHERE id = ?");
+            if ($update) {
+              $update->bind_param('si', $releasedYmd, $movie_id);
+              $update->execute();
+            }
+            $movie['released'] = $releasedYmd;
+            break;
+          }
+        }
       }
     }
   } else {
@@ -131,12 +153,54 @@ if (!empty($movie['imdb_id']) && (empty($movie['released']) || $movie['released'
   }
 }
 
+// For series/miniseries with a specific season, get season-specific release date
+$seasonReleaseDate = null;
+if ($url_season && in_array($movie['type'], ['series', 'miniseries']) && !empty($movie['imdb_id'])) {
+  $season_data = fetch_season_data($movie['imdb_id'], $url_season);
+  error_log("[VOTE DEBUG] Fetching season $url_season for {$movie['title']} (IMDB: {$movie['imdb_id']})");
+  error_log("[VOTE DEBUG] Season data received: " . ($season_data ? 'YES' : 'NO'));
+  
+  if ($season_data) {
+    error_log("[VOTE DEBUG] Season Released field: " . ($season_data['Released'] ?? 'NULL'));
+    error_log("[VOTE DEBUG] Episodes count: " . (isset($season_data['Episodes']) && is_array($season_data['Episodes']) ? count($season_data['Episodes']) : 0));
+    
+    // Try season-level Released field first
+    if (!empty($season_data['Released']) && $season_data['Released'] !== 'N/A') {
+      $ts = strtotime($season_data['Released']);
+      if ($ts) {
+        $seasonReleaseDate = date('Y-m-d', $ts);
+        error_log("[VOTE DEBUG] Season release date from Season field: $seasonReleaseDate");
+      }
+    }
+    // Fall back to first episode's release date
+    if (!$seasonReleaseDate && !empty($season_data['Episodes']) && is_array($season_data['Episodes'])) {
+      foreach ($season_data['Episodes'] as $episode) {
+        error_log("[VOTE DEBUG] Episode {$episode['Episode']}: Released = " . ($episode['Released'] ?? 'NULL'));
+        if (!empty($episode['Released']) && $episode['Released'] !== 'N/A') {
+          $ts = strtotime($episode['Released']);
+          if ($ts) {
+            $seasonReleaseDate = date('Y-m-d', $ts);
+            error_log("[VOTE DEBUG] Season release date from Episode {$episode['Episode']}: $seasonReleaseDate");
+            break;
+          }
+        }
+      }
+    }
+  }
+  error_log("[VOTE DEBUG] Final seasonReleaseDate: " . ($seasonReleaseDate ?? 'NULL'));
+}
+
 // Auto-determine competition status based on release date windows
 $auto_competition_status = 'Out of Competition';
-$releaseDate = $movie['released'] ?? null;
+// Use season-specific date if available, otherwise use movie's general release date
+$releaseDate = $seasonReleaseDate ?? ($movie['released'] ?? null);
+error_log("[VOTE DEBUG] Movie released field: " . ($movie['released'] ?? 'NULL'));
+error_log("[VOTE DEBUG] Using release date: " . ($releaseDate ?? 'NULL'));
+
 if (!$releaseDate || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $releaseDate)) {
   if (!empty($movie['year']) && preg_match('/(\d{4})/', (string)$movie['year'], $m)) {
     $releaseDate = $m[1] . '-01-01';
+    error_log("[VOTE DEBUG] Fell back to year-based date: $releaseDate");
   }
 }
 
@@ -145,10 +209,19 @@ if ($releaseDate) {
   $windowAEnd   = '2025-10-31';
   $windowBStart = '2025-11-01';
   $windowBEnd   = '2026-12-31';
+  
+  error_log("[VOTE DEBUG] Checking date $releaseDate against windows");
+  error_log("[VOTE DEBUG] Window A: $windowAStart to $windowAEnd");
+  error_log("[VOTE DEBUG] Window B: $windowBStart to $windowBEnd");
+  
   if ($releaseDate >= $windowAStart && $releaseDate <= $windowAEnd) {
     $auto_competition_status = 'In Competition';
+    error_log("[VOTE DEBUG] Result: In Competition");
   } elseif ($releaseDate >= $windowBStart && $releaseDate <= $windowBEnd) {
     $auto_competition_status = '2026 In Competition';
+    error_log("[VOTE DEBUG] Result: 2026 In Competition");
+  } else {
+    error_log("[VOTE DEBUG] Result: Out of Competition");
   }
 }
 
