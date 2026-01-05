@@ -281,31 +281,39 @@ class OmdbApiClient {
     $check->execute();
     $results = $check->get_result()->fetch_all(MYSQLI_ASSOC);
     
-    // Cache results in memory
-    self::$memoryCache[$cacheKey] = $results;
-    
-    // If we have some results but not many, try fuzzy matching to find better matches
-    if ($allowFuzzy && (empty($results) || count($results) < 5)) {
-      error_log("[OmdbApiClient] Limited results (" . count($results) . "), attempting fuzzy matching...");
-      $fuzzy = $this->fuzzyFallback($query, $normalized);
-      if (!empty($fuzzy)) {
-        error_log("[OmdbApiClient] Fuzzy fallback found " . count($fuzzy) . " matches");
-        return $fuzzy;
-      }
+    // If we have results, cache and return them (don't override with fuzzy)
+    if (!empty($results)) {
+      // Cache results in memory
+      self::$memoryCache[$cacheKey] = $results;
+      error_log("[OmdbApiClient] Returning " . count($results) . " exact/partial match results");
+      return $results;
     }
     
-    // If no results found in DB, do one more fuzzy attempt to be thorough
-    if (empty($results) && $allowFuzzy) {
-      error_log("[OmdbApiClient] No exact matches found, trying fuzzy search...");
+    // Only use fuzzy matching when we have NO results at all
+    if ($allowFuzzy) {
+      error_log("[OmdbApiClient] No exact matches found, trying API fuzzy search...");
+      $fuzzy = $this->fuzzyFallback($query, $normalized);
+      if (!empty($fuzzy)) {
+        error_log("[OmdbApiClient] API fuzzy fallback found " . count($fuzzy) . " matches");
+        // Cache fuzzy results in memory
+        self::$memoryCache[$cacheKey] = $fuzzy;
+        return $fuzzy;
+      }
+      
+      error_log("[OmdbApiClient] API fuzzy failed, trying database fuzzy search...");
       $fuzzy = $this->fuzzyFallbackDatabase($query, $normalized);
       if (!empty($fuzzy)) {
         error_log("[OmdbApiClient] Database fuzzy search found " . count($fuzzy) . " matches");
+        // Cache fuzzy results in memory
+        self::$memoryCache[$cacheKey] = $fuzzy;
         return $fuzzy;
       }
     }
     
-    error_log("[OmdbApiClient] Returning " . count($results) . " results");
-    return $results;
+    // No results found anywhere, cache empty result
+    error_log("[OmdbApiClient] No results found for '$query'");
+    self::$memoryCache[$cacheKey] = [];
+    return [];
   }
 
   // Fuzzy fallback: when no results, try longest tokens and pick closest Levenshtein matches
