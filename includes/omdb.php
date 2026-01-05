@@ -252,10 +252,27 @@ class OmdbApiClient {
     $check->bind_param('sss', $query, $normalized, $query);
     $check->execute();
     $results = $check->get_result()->fetch_all(MYSQLI_ASSOC);
-    if (empty($results) && $allowFuzzy) {
+    
+    // If we have some results but not many, try fuzzy matching to find better matches
+    if ($allowFuzzy && (empty($results) || count($results) < 5)) {
+      error_log("[OmdbApiClient] Limited results (" . count($results) . "), attempting fuzzy matching...");
       $fuzzy = $this->fuzzyFallback($query, $normalized);
-      if (!empty($fuzzy)) return $fuzzy;
+      if (!empty($fuzzy)) {
+        error_log("[OmdbApiClient] Fuzzy fallback found " . count($fuzzy) . " matches");
+        return $fuzzy;
+      }
     }
+    
+    // If no results found in DB, do one more fuzzy attempt to be thorough
+    if (empty($results) && $allowFuzzy) {
+      error_log("[OmdbApiClient] No exact matches found, trying fuzzy search...");
+      $fuzzy = $this->fuzzyFallbackDatabase($query, $normalized);
+      if (!empty($fuzzy)) {
+        error_log("[OmdbApiClient] Database fuzzy search found " . count($fuzzy) . " matches");
+        return $fuzzy;
+      }
+    }
+    
     error_log("[OmdbApiClient] Returning " . count($results) . " results");
     return $results;
   }
@@ -322,6 +339,75 @@ class OmdbApiClient {
     $stmt->bind_param('sss', $query, $normalizedQuery, $query);
     $stmt->execute();
     return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+  }
+
+  // Database-based fuzzy matching: retrieve all movies and score them by Levenshtein distance
+  private function fuzzyFallbackDatabase(string $query, string $normalizedQuery): array {
+    error_log("[OmdbApiClient] Attempting database fuzzy fallback for: '$query'");
+    
+    // Fetch all movies from database (limited to reasonable number)
+    $stmt = $this->mysqli->prepare("
+      SELECT * FROM movies 
+      WHERE type IN ('movie', 'series')
+      LIMIT 1000
+    ");
+    $stmt->execute();
+    $allMovies = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    
+    if (empty($allMovies)) {
+      error_log("[OmdbApiClient] No movies found in database for fuzzy matching");
+      return [];
+    }
+    
+    // Score all movies using Levenshtein distance
+    $scored = [];
+    foreach ($allMovies as $movie) {
+      $title = $movie['title'] ?? '';
+      $titleNorm = $this->normalizeKey($title);
+      
+      // Calculate distance against both original query and normalized query
+      $len1 = max(strlen($normalizedQuery), strlen($titleNorm));
+      $dist1 = $len1 > 0 ? levenshtein($normalizedQuery, $titleNorm) / $len1 : 1;
+      
+      // Also check each individual word in the normalized query
+      $queryWords = array_filter(explode(' ', $normalizedQuery), fn($w) => strlen($w) >= 3);
+      $wordMatches = 0;
+      foreach ($queryWords as $word) {
+        if (strpos($titleNorm, $word) !== false) {
+          $wordMatches++;
+        }
+      }
+      
+      // Weight score: prefer word matches, then short Levenshtein distance
+      $score = $dist1 - ($wordMatches * 0.15);
+      
+      if ($score <= 0.65) { // Slightly more lenient than API fuzzy
+        $scored[] = [
+          'movie' => $movie,
+          'score' => $score,
+          'wordMatches' => $wordMatches
+        ];
+      }
+    }
+    
+    if (empty($scored)) {
+      error_log("[OmdbApiClient] No fuzzy matches found in database");
+      return [];
+    }
+    
+    // Sort by score (lower is better), then by word matches (higher is better)
+    usort($scored, function($a, $b) {
+      if ($a['wordMatches'] !== $b['wordMatches']) {
+        return $b['wordMatches'] <=> $a['wordMatches']; // More word matches first
+      }
+      return $a['score'] <=> $b['score']; // Then better Levenshtein distance
+    });
+    
+    // Return top 10 matches
+    $results = array_slice(array_column($scored, 'movie'), 0, 10);
+    error_log("[OmdbApiClient] Found " . count($results) . " fuzzy matches in database");
+    
+    return $results;
   }
   
   /**
