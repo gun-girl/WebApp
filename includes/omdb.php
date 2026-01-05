@@ -330,10 +330,10 @@ class OmdbApiClient {
   public function getDetail($imdbId): ?array {
     if (!$this->isConfigured()) return null;
     
-    // Check cache first (valid for 30 days for basic details)
+    // Check cache first (valid for 7 days for basic details)
     $stmt = $this->mysqli->prepare("SELECT poster_url, released, total_seasons, last_fetched_at FROM movies 
                                      WHERE imdb_id = ? 
-                                     AND last_fetched_at > DATE_SUB(NOW(), INTERVAL 30 DAY)
+                                     AND last_fetched_at > DATE_SUB(NOW(), INTERVAL 7 DAY)
                                      AND poster_url IS NOT NULL 
                                      AND released IS NOT NULL");
     $stmt->bind_param('s', $imdbId);
