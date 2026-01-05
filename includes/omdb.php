@@ -184,36 +184,6 @@ class OmdbApiClient {
       return $cachedResults;
     }
     
-    // Before checking "no results" cache, check if movie exists in DB at all (even if old)
-    $existsCheck = $this->mysqli->prepare("
-      SELECT m.* FROM movies m
-      WHERE (
-        m.title LIKE CONCAT('%',?,'%')
-        OR LOWER(REPLACE(REPLACE(REPLACE(REPLACE(m.title,'.',''),':',''),'&',' '),'-',' ')) LIKE CONCAT('%',?,'%')
-      )
-      AND m.type IN ('movie', 'series')
-      ORDER BY 
-        CASE WHEN m.title = ? THEN 0 ELSE 1 END,
-        m.year DESC
-      LIMIT 30
-    ");
-    $existsCheck->bind_param('sss', $query, $normalized, $query);
-    $existsCheck->execute();
-    $existingResults = $existsCheck->get_result()->fetch_all(MYSQLI_ASSOC);
-    
-    // If movie exists in DB (even if old), return it and update cache
-    if (!empty($existingResults)) {
-      error_log("[OmdbApiClient] Found " . count($existingResults) . " existing results in database for '$query' (updating cache)");
-      // Update last_fetched_at for these movies
-      foreach ($existingResults as $movie) {
-        $updateStmt = $this->mysqli->prepare("UPDATE movies SET last_fetched_at = NOW() WHERE id = ?");
-        $updateStmt->bind_param('i', $movie['id']);
-        $updateStmt->execute();
-      }
-      self::$memoryCache[$cacheKey] = $existingResults;
-      return $existingResults;
-    }
-    
     // Check if we have a "no results" cache from the last 3 days
     $noResultsCheck = $this->mysqli->prepare("
       SELECT 1 FROM query_cache 
