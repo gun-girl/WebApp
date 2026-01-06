@@ -148,7 +148,7 @@ return [
     'sheet_adjectives' => 'Adjective List',
     'sheet_finalists_2023' => 'Finalists',
     'raw_votes' => 'Raw Votes',
-    'top_voted' => 'Top Voted on Divano d\'Oro',
+    'top_voted' => 'Top Voted on DIVANO D\'ORO',
     'imdb_top_week_note' => 'Top 10 in competition from IMDb this week'
     , 'in_theatres' => 'In Theatres'
     , 'recently_added' => 'Recently Added'
