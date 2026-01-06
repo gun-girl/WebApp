@@ -35,6 +35,24 @@ if (!$movie) {
     exit;
 }
 
+// Check if movie has been released yet
+$today = date('Y-m-d');
+$currentYear = (int)date('Y');
+$isReleased = false;
+
+if (!empty($movie['released']) && $movie['released'] !== '0000-00-00') {
+  $isReleased = ($movie['released'] <= $today);
+} else {
+  $movieYear = (int)($movie['year'] ?? 0);
+  $isReleased = ($movieYear <= $currentYear);
+}
+
+if (!$isReleased) {
+  http_response_code(403);
+  echo 'This title has not been released yet.';
+  exit;
+}
+
 $currentUser = current_user();
 $canAdmin = $currentUser && (($currentUser['role'] ?? 'user') === 'admin');
 

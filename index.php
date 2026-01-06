@@ -19,11 +19,23 @@ if ($searchTerm === '1') {
   $searchTerm = '';
 }
 $movies = [];
+$inCompetitionNote = '';
 
 if ($searchRequested) {
   if ($searchTerm !== '') {
     // Use OMDb-backed helper: search locally first, otherwise fetch and cache
     $movies = get_movie_or_fetch($searchTerm);
+    
+    // Filter out unreleased movies from search results
+    $today = date('Y-m-d');
+    $currentYear = (int)date('Y');
+    $movies = array_filter($movies, function($m) use ($today, $currentYear) {
+      if (!empty($m['released']) && $m['released'] !== '0000-00-00') {
+        return $m['released'] <= $today;
+      }
+      $movieYear = (int)($m['year'] ?? 0);
+      return $movieYear <= $currentYear;
+    });
   }
 } else {
   // Prepare homepage sections when not searching
@@ -114,6 +126,35 @@ if ($searchRequested) {
     }
   } catch (Throwable $e) { $inCompetition = []; }
 
+  // Prefer IMDb Moviemeter Top 10 when available
+  $imdbTopWeek = fetch_imdb_top_weekly(10);
+  if (!empty($imdbTopWeek)) {
+    $inCompetition = $imdbTopWeek;
+    $inCompetitionNote = t('imdb_top_week_note');
+  }
+
+  // Fallbacks if nothing to show
+  if (empty($inCompetition)) {
+    $fallbackRecent = fetch_recent_releases($activeYear);
+    if (!empty($fallbackRecent)) {
+      $inCompetition = $fallbackRecent;
+      $inCompetitionNote = $inCompetitionNote ?: 'Recent releases';
+    }
+  }
+
+  // Filter out unreleased movies (future releases)
+  $today = date('Y-m-d');
+  $currentYear = (int)date('Y');
+  $inCompetition = array_filter($inCompetition, function($m) use ($today, $currentYear) {
+    // Check released date first (most accurate)
+    if (!empty($m['released']) && $m['released'] !== '0000-00-00') {
+      return $m['released'] <= $today;
+    }
+    // Fallback to year check
+    $movieYear = (int)($m['year'] ?? 0);
+    return $movieYear <= $currentYear;
+  });
+
   // 2) Top Voted: compute average of per-vote totals (sum of category scores)
   $vdCols = $mysqli->query("SHOW COLUMNS FROM vote_details")->fetch_all(MYSQLI_ASSOC);
   $scoreCandidates = ['writing','direction','acting_or_doc_theme','emotional_involvement','novelty','casting_research_art','sound'];
@@ -136,6 +177,22 @@ if ($searchRequested) {
           ORDER BY avg_rating DESC, votes_count DESC
           LIMIT 24";
     $topVoted = $mysqli->query($q)->fetch_all(MYSQLI_ASSOC);
+    
+    // Filter out unreleased movies from Top Voted
+    $today = date('Y-m-d');
+    $currentYear = (int)date('Y');
+    $topVoted = array_filter($topVoted, function($m) use ($today, $currentYear) {
+      if (!empty($m['released']) && $m['released'] !== '0000-00-00') {
+        return $m['released'] <= $today;
+      }
+      $movieYear = (int)($m['year'] ?? 0);
+      return $movieYear <= $currentYear;
+    });
+  }
+
+  if (empty($inCompetition) && !empty($topVoted)) {
+    $inCompetition = $topVoted;
+    $inCompetitionNote = $inCompetitionNote ?: 'Top voted fallback';
   }
 
 }
@@ -313,7 +370,7 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
     
 
     <section class="home-section">
-      <h2><?= t('in_competition_section') ?></h2>
+      <h2><?= $inCompetitionNote ? e($inCompetitionNote) : t('in_competition_section') ?></h2>
       <div class="movie-row-wrap">
         <button class="row-nav prev" aria-label="Previous" data-target="rowIn" data-dir="-1">‹</button>
         <div class="row-fade left"></div>

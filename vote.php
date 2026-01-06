@@ -99,6 +99,22 @@ if ($edit_vote_id > 0) {
     }
 }
 
+// Check if movie has been released yet
+$today = date('Y-m-d');
+$currentYear = (int)date('Y');
+$isReleased = false;
+
+if (!empty($movie['released']) && $movie['released'] !== '0000-00-00') {
+  $isReleased = ($movie['released'] <= $today);
+} else {
+  $movieYear = (int)($movie['year'] ?? 0);
+  $isReleased = ($movieYear <= $currentYear);
+}
+
+if (!$isReleased && !$edit_vote_id) {
+  die('This title has not been released yet and cannot be voted on.');
+}
+
 // Best-effort: backfill released date from OMDb if missing
 if (!empty($movie['imdb_id']) && (empty($movie['released']) || $movie['released'] === '0000-00-00')) {
   // If it's a series/miniseries and we have a season, fetch season data

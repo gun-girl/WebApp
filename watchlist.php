@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['movie_id'])) {
 
 // Get user's watchlist
 $stmt = $mysqli->prepare("
-    SELECT w.id as watchlist_id, m.id as movie_id, m.title, m.year, m.poster_url, w.added_at
+    SELECT w.id as watchlist_id, m.id as movie_id, m.title, m.year, m.poster_url, m.released, w.added_at
     FROM watchlist w
     JOIN movies m ON m.id = w.movie_id
     WHERE w.user_id = ?
@@ -41,6 +41,17 @@ $stmt = $mysqli->prepare("
 $stmt->bind_param('i', $user['id']);
 $stmt->execute();
 $watchlist_items = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+// Filter out unreleased movies
+$today = date('Y-m-d');
+$currentYear = (int)date('Y');
+$watchlist_items = array_filter($watchlist_items, function($item) use ($today, $currentYear) {
+  if (!empty($item['released']) && $item['released'] !== '0000-00-00') {
+    return $item['released'] <= $today;
+  }
+  $movieYear = (int)($item['year'] ?? 0);
+  return $movieYear <= $currentYear;
+});
 
 include __DIR__.'/includes/header.php';
 ?>

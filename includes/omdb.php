@@ -726,7 +726,7 @@ function fetch_recent_releases(int $year = null): array {
               "INSERT INTO movies (imdb_id, title, year, type, start_year, end_year, poster_url, last_fetched_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, NOW()) 
                ON DUPLICATE KEY UPDATE 
-               title=VALUES(title), year=VALUES(year), type=VALUES(type), start_year=VALUES(startYear), end_year=VALUES(endYear),
+               title=VALUES(title), year=VALUES(year), type=VALUES(type), start_year=VALUES(start_year), end_year=VALUES(end_year),
                poster_url=COALESCE(VALUES(poster_url), poster_url), last_fetched_at=NOW()"
             );
             $stmt->bind_param('ssisiis', $imdb, $title, $movieYear, $mType, $startYear, $endYear, $poster);
@@ -754,6 +754,196 @@ function fetch_recent_releases(int $year = null): array {
   }
   
   return [];
+}
+
+/**
+ * Upsert a movie/series using an OMDb detail payload and return its internal ID.
+ */
+function upsert_movie_from_detail(array $detail): ?int {
+  global $mysqli;
+  if (!isset($mysqli) || !$mysqli) return null;
+
+  $imdbId = $detail['imdbID'] ?? ($detail['imdb_id'] ?? null);
+  if (!$imdbId) return null;
+
+  $title = $detail['Title'] ?? ($detail['title'] ?? '');
+  $rawYear = $detail['Year'] ?? ($detail['year'] ?? '0000');
+  $normalizedYear = str_replace(["\u2013", "\u2014", "–", "—"], '-', $rawYear);
+  $year = (int)substr($normalizedYear, 0, 4);
+
+  $startYear = null;
+  $endYear = null;
+  if (strpos($normalizedYear, '-') !== false) {
+    $yearParts = explode('-', $normalizedYear);
+    $startYear = isset($yearParts[0]) && $yearParts[0] !== '' ? (int)$yearParts[0] : null;
+    $endYear = isset($yearParts[1]) && $yearParts[1] !== '' ? (int)$yearParts[1] : null;
+  } else {
+    $startYear = $year;
+  }
+
+  $type = strtolower($detail['Type'] ?? ($detail['type'] ?? 'movie'));
+
+  $poster = $detail['Poster'] ?? ($detail['poster_url'] ?? null);
+  if ($poster === 'N/A' || $poster === '') {
+    $poster = null;
+  } elseif ($poster) {
+    $poster = str_replace('http://', 'https://', $poster);
+  }
+
+  $released = null;
+  if (!empty($detail['Released'])) {
+    $ts = strtotime($detail['Released']);
+    if ($ts) {
+      $released = date('Y-m-d', $ts);
+    }
+  } elseif (!empty($detail['released'])) {
+    $released = $detail['released'];
+  }
+
+  $totalSeasons = null;
+  if (!empty($detail['totalSeasons']) && is_numeric($detail['totalSeasons'])) {
+    $totalSeasons = (int)$detail['totalSeasons'];
+  } elseif (!empty($detail['total_seasons']) && is_numeric($detail['total_seasons'])) {
+    $totalSeasons = (int)$detail['total_seasons'];
+  }
+
+  $existingId = null;
+  $existingStmt = $mysqli->prepare("SELECT id FROM movies WHERE imdb_id = ? LIMIT 1");
+  if ($existingStmt) {
+    $existingStmt->bind_param('s', $imdbId);
+    $existingStmt->execute();
+    $existingRes = $existingStmt->get_result()->fetch_assoc();
+    if ($existingRes && isset($existingRes['id'])) {
+      $existingId = (int)$existingRes['id'];
+    }
+  }
+
+  $stmt = $mysqli->prepare(
+    "INSERT INTO movies (imdb_id, title, year, type, start_year, end_year, poster_url, released, total_seasons, last_fetched_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+     ON DUPLICATE KEY UPDATE
+       title=VALUES(title),
+       year=VALUES(year),
+       type=VALUES(type),
+       start_year=VALUES(start_year),
+       end_year=VALUES(end_year),
+       poster_url=COALESCE(VALUES(poster_url), poster_url),
+       released=COALESCE(VALUES(released), released),
+       total_seasons=COALESCE(VALUES(total_seasons), total_seasons),
+       last_fetched_at=NOW()"
+  );
+
+  if (!$stmt) return $existingId;
+
+  $stmt->bind_param('ssisiissi', $imdbId, $title, $year, $type, $startYear, $endYear, $poster, $released, $totalSeasons);
+  $stmt->execute();
+
+  $id = $mysqli->insert_id ?: $existingId;
+  if (!$id && $existingStmt) {
+    $existingStmt->execute();
+    $existingRes = $existingStmt->get_result()->fetch_assoc();
+    if ($existingRes && isset($existingRes['id'])) {
+      $id = (int)$existingRes['id'];
+    }
+  }
+
+  return $id ?: null;
+}
+
+/**
+ * Load movies by IMDb IDs preserving the provided order.
+ */
+function get_movies_by_imdb_ids(array $imdbIds): array {
+  global $mysqli;
+  if (!isset($mysqli) || !$mysqli || empty($imdbIds)) return [];
+
+  $placeholders = implode(',', array_fill(0, count($imdbIds), '?'));
+  $types = str_repeat('s', count($imdbIds));
+  $stmt = $mysqli->prepare("SELECT * FROM movies WHERE imdb_id IN ($placeholders)");
+  if (!$stmt) return [];
+
+  $stmt->bind_param($types, ...$imdbIds);
+  $stmt->execute();
+  $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+  $map = [];
+  foreach ($rows as $row) {
+    $map[$row['imdb_id']] = $row;
+  }
+
+  $ordered = [];
+  foreach ($imdbIds as $id) {
+    if (isset($map[$id])) {
+      $ordered[] = $map[$id];
+    }
+  }
+
+  return $ordered;
+}
+
+/**
+ * Fetch IMDb Moviemeter Top 10 (Most Popular This Week) and cache for 6 hours.
+ */
+function fetch_imdb_top_weekly(int $limit = 10): array {
+  global $omdbClient;
+  $limit = max(1, min($limit, 20));
+
+  $idsCacheKey = 'imdb_top_weekly_ids';
+  $timeCacheKey = 'imdb_top_weekly_cached_at';
+  $cachedIdsJson = function_exists('get_setting') ? get_setting($idsCacheKey, '') : '';
+  $cachedAt = function_exists('get_setting') ? get_setting($timeCacheKey, '') : '';
+
+  if ($cachedIdsJson && $cachedAt && strtotime($cachedAt) > (time() - 6 * 3600)) {
+    $ids = json_decode($cachedIdsJson, true);
+    if (is_array($ids) && $ids) {
+      $movies = get_movies_by_imdb_ids($ids);
+      if ($movies) return $movies;
+    }
+  }
+
+  $url = 'https://www.imdb.com/chart/moviemeter/';
+  $ch = curl_init();
+  curl_setopt($ch, CURLOPT_URL, $url);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+  curl_setopt($ch, CURLOPT_TIMEOUT, 8);
+  curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+  curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+  curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+  $html = curl_exec($ch);
+  $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+  curl_close($ch);
+
+  if ($html === false || $httpCode !== 200) {
+    return [];
+  }
+
+  preg_match_all('/\/title\/(tt\d{7,8})/i', $html, $matches);
+  $ids = array_values(array_unique($matches[1] ?? []));
+  $ids = array_slice($ids, 0, $limit);
+
+  if (empty($ids)) return [];
+
+  $collectedIds = [];
+  foreach ($ids as $imdbId) {
+    try {
+      $detail = $omdbClient->getDetail($imdbId);
+      if ($detail && (!isset($detail['Response']) || $detail['Response'] === 'True')) {
+        upsert_movie_from_detail($detail);
+        $collectedIds[] = $imdbId;
+      }
+    } catch (Throwable $e) {
+      // Skip failures
+    }
+  }
+
+  if (!$collectedIds) return [];
+
+  if (function_exists('set_setting')) {
+    set_setting($idsCacheKey, json_encode($collectedIds));
+    set_setting($timeCacheKey, date('Y-m-d H:i:s'));
+  }
+
+  return get_movies_by_imdb_ids($collectedIds);
 }
 
 /**
