@@ -156,7 +156,7 @@ $calendar_year = (int)date('Y');
             <form method="post" action="<?= ADDRESS ?>/admin_competitions.php" class="admin-form-flex">
               <?= csrf_field() ?>
               <input type="hidden" name="action" value="create">
-              <button type="submit" class="dropdown-item admin-btn-create">🎉 Create & set next year</button>
+              <button type="submit" class="dropdown-item admin-btn-create">🎉 <?= e(t('create_set_next_year')) ?></button>
             </form>
           <?php endif; ?>
         </div>

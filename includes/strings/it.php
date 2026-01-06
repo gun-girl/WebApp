@@ -176,4 +176,5 @@ return [
     , 'no_results_found' => 'Nessun risultato trovato per questa categoria'
     , 'documentaries' => 'Documentari'
     , 'voted_titles' => 'Titoli Votati'
+    , 'create_set_next_year' => "Crea e imposta l'anno successivo"
 ];

@@ -178,4 +178,5 @@ return [
     , 'no_results_found' => 'No results found for this category'
     , 'documentaries' => 'Documentaries'
     , 'voted_titles' => 'Voted Titles'
+    , 'create_set_next_year' => 'Create & set next year'
 ];
