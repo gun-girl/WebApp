@@ -55,10 +55,28 @@ try {
   // keep defaults
 }
 
-// Use active competition by default (still allow legacy ?year=... for filtering by competition_year)
+// Use active competition by default. If ?year=YYYY is provided, try to resolve
+// the competition whose YEAR(start)=YYYY and use its window/name for filtering/labels.
 $selectedYearNumber = isset($_GET['year']) ? (int)$_GET['year'] : $activeYearNumber;
 $viewYearInt = $selectedYearNumber;
+if ($selectedYearNumber && isset($mysqli)) {
+  try {
+    $stmtY = $mysqli->prepare("SELECT id, name, start, `end` FROM competitions WHERE YEAR(start) = ? ORDER BY start DESC LIMIT 1");
+    if ($stmtY) {
+      $stmtY->bind_param('i', $selectedYearNumber);
+      $stmtY->execute();
+      $rowY = $stmtY->get_result()->fetch_assoc();
+      if ($rowY) {
+        $activeCompName = $rowY['name'] ?? $activeCompName;
+        $active_window_start = $rowY['start'] ?? $active_window_start;
+        $active_window_end = $rowY['end'] ?? $active_window_end;
+      }
+    }
+  } catch (Throwable $e) { /* ignore */ }
+}
 $competitionLabel = $activeCompName !== '' ? $activeCompName : (string)$viewYearInt;
+// legacy param used by some links below
+$selected_year = $viewYearInt;
 // Selected competition status filter ('all', 'in', 'out')
 $selected_status = isset($_GET['status']) ? $_GET['status'] : 'all';
 // Build list of available years - default to the active competition's start year (legacy)
@@ -120,15 +138,6 @@ $tabs = [
 $cols = $mysqli->query("SHOW COLUMNS FROM votes")->fetch_all(MYSQLI_ASSOC);
 $fields = array_column($cols, 'Field');
 $hasRating = in_array('rating', $fields);
-// active competition year (used to scope queries)
-$active_year = function_exists('get_active_year') ? get_active_year() : (int)date('Y');
-// Check whether the DB has the competition_year column; if not, don't add year filters (keeps backwards compatibility)
-$hasCompetitionYear = in_array('competition_year', $fields);
-$activeYearInt = (int)$active_year;
-// Use the year selected in the UI for filtering display queries. Keep $activeYearInt as the configured/active
-// competition year (admin-facing), but use $viewYearInt when constructing SQL WHERE/JOIN fragments for this page
-// so ?year=YYYY controls which year's votes/results are shown.
-$viewYearInt = (int)$selected_year;
 // competition status filter fragments
 $statusCond = '';
 $statusCondVd = ''; // for vote_details table
@@ -147,31 +156,17 @@ if ($selected_status === 'in') {
   $subStatusV5 = " AND COALESCE(vd5.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition') AND COALESCE(vd5.competition_status,'') <> ''";
 }
 
-// year filter fragments to reuse in queries (use selected/view year)
-$yearCond = '';
-$whereYearClause = '';
-$leftJoinVotesForResults = "LEFT JOIN votes v ON v.movie_id = m.id";
-$subYearV2 = $subYearV3 = $subYearV4 = $subYearV5 = '';
-if ($hasCompetitionYear) {
-  $yearCond = " AND v.competition_year = " . $viewYearInt;
-  $whereYearClause = "WHERE v.competition_year = " . $viewYearInt;
-  $leftJoinVotesForResults = "LEFT JOIN votes v ON v.movie_id = m.id AND v.competition_year = " . $viewYearInt;
-  $subYearV2 = $subYearV3 = $subYearV4 = $subYearV5 = " AND v2.competition_year = " . $viewYearInt; // will be overwritten individually below when needed
-  // correct the per-subquery fragments
-  $subYearV2 = " AND v2.competition_year = " . $viewYearInt;
-  $subYearV3 = " AND v3.competition_year = " . $viewYearInt;
-  $subYearV4 = " AND v4.competition_year = " . $viewYearInt;
-  $subYearV5 = " AND v5.competition_year = " . $viewYearInt;
-} else {
-  // Fallback: filter by YEAR(created_at) when competition_year column is not present
-  $yearCond = " AND YEAR(v.created_at) = " . $viewYearInt;
-  $whereYearClause = "WHERE YEAR(v.created_at) = " . $viewYearInt;
-  // For the LEFT JOIN used in results aggregation we keep the simple join; subqueries need YEAR() checks
-  $leftJoinVotesForResults = "LEFT JOIN votes v ON v.movie_id = m.id";
-  $subYearV2 = " AND YEAR(v2.created_at) = " . $viewYearInt;
-  $subYearV3 = " AND YEAR(v3.created_at) = " . $viewYearInt;
-  $subYearV4 = " AND YEAR(v4.created_at) = " . $viewYearInt;
-  $subYearV5 = " AND YEAR(v5.created_at) = " . $viewYearInt;
+// competition window fragments to reuse in queries (use movie release date)
+$windowStart = $active_window_start;
+$windowEnd = $active_window_end;
+$whereWindowClause = '';
+$andWindowClause = '';
+$leftJoinVotesForResults = "LEFT JOIN votes v ON v.movie_id = m.id"; // unchanged, window filter uses m.released
+$subWindowV2 = $subWindowV3 = $subWindowV4 = $subWindowV5 = '';
+if ($windowStart && $windowEnd) {
+  $whereWindowClause = "WHERE m.released >= '" . $mysqli->real_escape_string($windowStart) . "' AND m.released <= '" . $mysqli->real_escape_string($windowEnd) . "'";
+  $andWindowClause = " AND m.released >= '" . $mysqli->real_escape_string($windowStart) . "' AND m.released <= '" . $mysqli->real_escape_string($windowEnd) . "'";
+  $subWindowV2 = $subWindowV3 = $subWindowV4 = $subWindowV5 = $andWindowClause;
 }
 
 // Reusable rating expression for compact stats (fallback to average of detail columns when rating is absent)
@@ -191,12 +186,29 @@ $ratingExprGlobal = $numExprGlobal ? "($numExprGlobal)" : 'NULL';
 
 // COMPACT LISTS sheet (mobile-friendly dropdown lists)
 if ($sheet === 'lists') {
-  // Best of by category: Movies, Series, Documentaries
+  // Type-to-category mapping (same as in vote.php)
+  $typeMap = [
+    'movie' => 'Film',
+    'film' => 'Film',
+    'series' => 'Series',
+    'miniseries' => 'Miniseries',
+    'documentary' => 'Documentary',
+    'animation' => 'Animation',
+    'anime' => 'Animation',
+  ];
+  
+  // Helper function to build a type filter (filters by m.type, not by hardcoded categories)
+  $buildTypeFilter = function($movieTypes) use ($whereWindowClause, $statusCondVd) {
+    $typeList = "'" . implode("','", array_map(function($t) { return addslashes($t); }, $movieTypes)) . "'";
+    return $whereWindowClause . $statusCondVd . " AND m.type IN ($typeList)";
+  };
+  
+  // Best of by type: Movies, Series, Documentaries, etc.
   $bestMoviesSql = "SELECT m.id, m.title, m.year, m.type, m.poster_url, vd.season_number, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
               FROM movies m
               JOIN votes v ON v.movie_id = m.id
               LEFT JOIN vote_details vd ON vd.vote_id = v.id
-              " . $whereYearClause . $statusCondVd . " AND (vd.category IN ('Film') OR (vd.category IS NULL OR vd.category = '') AND m.type = 'movie')
+              " . $buildTypeFilter(['movie']) . "
               GROUP BY m.id, vd.season_number
               HAVING votes_count > 0
               ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
@@ -214,7 +226,7 @@ if ($sheet === 'lists') {
               FROM movies m
               JOIN votes v ON v.movie_id = m.id
               LEFT JOIN vote_details vd ON vd.vote_id = v.id
-              " . $whereYearClause . $statusCondVd . " AND (vd.category IN ('Series') OR (vd.category IS NULL OR vd.category = '') AND m.type = 'series')
+              " . $buildTypeFilter(['series']) . "
               GROUP BY m.id, vd.season_number
               HAVING votes_count > 0
               ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
@@ -227,12 +239,12 @@ if ($sheet === 'lists') {
     $bestSeriesRows = $result->fetch_all(MYSQLI_ASSOC);
   }
 
-  // For documentaries, we'll check for 'movie' type but could add a category field check later
+  // Documentaries filter by type
   $bestDocsSql = "SELECT m.id, m.title, m.year, m.type, m.poster_url, vd.season_number, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
               FROM movies m
               JOIN votes v ON v.movie_id = m.id
               LEFT JOIN vote_details vd ON vd.vote_id = v.id
-              " . $whereYearClause . $statusCondVd . " AND (vd.category IN ('Documentary','Documentario') OR m.type = 'documentary' OR m.title LIKE '%document%')
+              " . $buildTypeFilter(['documentary']) . "
               GROUP BY m.id, vd.season_number
               HAVING votes_count > 0
               ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
@@ -249,7 +261,7 @@ if ($sheet === 'lists') {
               FROM movies m
               JOIN votes v ON v.movie_id = m.id
               LEFT JOIN vote_details vd ON vd.vote_id = v.id
-              " . $whereYearClause . $statusCondVd . " AND (vd.category IN ('Miniseries','Miniserie') OR m.type = 'miniseries')
+              " . $buildTypeFilter(['miniseries']) . "
               GROUP BY m.id, vd.season_number
               HAVING votes_count > 0
               ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
@@ -266,7 +278,7 @@ if ($sheet === 'lists') {
               FROM movies m
               JOIN votes v ON v.movie_id = m.id
               LEFT JOIN vote_details vd ON vd.vote_id = v.id
-              " . $whereYearClause . $statusCondVd . " AND (vd.category IN ('Animation','Animazione') OR m.type = 'animation')
+              " . $buildTypeFilter(['animation', 'anime']) . "
               GROUP BY m.id, vd.season_number
               HAVING votes_count > 0
               ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
@@ -284,7 +296,7 @@ if ($sheet === 'lists') {
                FROM movies m
                JOIN votes v ON v.movie_id = m.id
                LEFT JOIN vote_details vd ON vd.vote_id = v.id
-               " . $whereYearClause . $statusCondVd . "
+               " . $whereWindowClause . $statusCondVd . "
                GROUP BY m.id, vd.season_number
                ORDER BY views DESC, m.title ASC
                LIMIT 25";
@@ -294,8 +306,9 @@ if ($sheet === 'lists') {
   $judgesSql = "SELECT u.id AS user_id, u.username AS judge, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
                 FROM votes v
                 JOIN users u ON u.id = v.user_id
+                JOIN movies m ON m.id = v.movie_id
                 LEFT JOIN vote_details vd ON vd.vote_id = v.id
-                " . $whereYearClause . $statusCondVd . "
+                " . $whereWindowClause . $statusCondVd . "
                 GROUP BY u.id, u.username
                 ORDER BY votes_count DESC, u.username ASC";
   $judgesRows = $mysqli->query($judgesSql)->fetch_all(MYSQLI_ASSOC);
@@ -310,7 +323,7 @@ if ($sheet === 'lists') {
                   FROM votes v
                   JOIN movies m ON m.id = v.movie_id
                   LEFT JOIN vote_details vd ON vd.vote_id = v.id
-                  WHERE v.user_id = ? " . str_replace('WHERE', 'AND', $whereYearClause) . $statusCondVd . "
+            WHERE v.user_id = ? " . $andWindowClause . $statusCondVd . "
                   ORDER BY rating DESC, m.title ASC";
     $stmt = $mysqli->prepare($titlesSql);
     $stmt->bind_param('i', $jurorId);
@@ -335,8 +348,9 @@ if ($sheet === 'lists') {
                    vd.novelty, vd.casting_research_art, vd.sound
                    FROM votes v
                    JOIN users u ON u.id = v.user_id
+                   JOIN movies m ON m.id = v.movie_id
                    LEFT JOIN vote_details vd ON vd.vote_id = v.id
-                   WHERE v.movie_id = ? " . str_replace('WHERE', 'AND', $whereYearClause) . $statusCondVd . "
+                   WHERE v.movie_id = ? " . $andWindowClause . $statusCondVd . "
                    ORDER BY overall_rating DESC, u.username ASC";
       $votesStmt = $mysqli->prepare($votesSql);
       $votesStmt->bind_param('i', $movieId);
@@ -355,7 +369,7 @@ if ($sheet === 'lists') {
     <div class="stats-header">
       <div>
         <h2 class="stats-title"><?= e(t('stats_compact_title')) ?></h2>
-        <p class="stats-sub"><?= e(str_replace('{year}', $viewYearInt, t('sheet_results'))) ?></p>
+        <p class="stats-sub"><?= e(str_replace('{year}', $competitionLabel, t('sheet_results'))) ?></p>
       </div>
       <div class="nav-buttons">
         <?php if (function_exists('is_admin') && is_admin()): ?>
@@ -852,29 +866,30 @@ if ($sheet === 'results') {
                    (
                      SELECT vd2.category FROM vote_details vd2
                      JOIN votes v2 ON v2.id = vd2.vote_id
-                     WHERE v2.movie_id = m.id" . $subYearV2 . $subStatusV2 . " AND TRIM(COALESCE(vd2.category,''))<>''
+                     WHERE v2.movie_id = m.id" . $subWindowV2 . $subStatusV2 . " AND TRIM(COALESCE(vd2.category,''))<>''
                      GROUP BY vd2.category ORDER BY COUNT(*) DESC LIMIT 1
                    ) AS category_mode,
              (
                SELECT vd3.where_watched FROM vote_details vd3
                JOIN votes v3 ON v3.id = vd3.vote_id
-               WHERE v3.movie_id = m.id" . $subYearV3 . $subStatusV3 . " AND TRIM(COALESCE(vd3.where_watched,''))<>''
+               WHERE v3.movie_id = m.id" . $subWindowV3 . $subStatusV3 . " AND TRIM(COALESCE(vd3.where_watched,''))<>''
                GROUP BY vd3.where_watched ORDER BY COUNT(*) DESC LIMIT 1
              ) AS platform_mode,
              (
                SELECT vd4.competition_status FROM vote_details vd4
                JOIN votes v4 ON v4.id = vd4.vote_id
-               WHERE v4.movie_id = m.id" . $subYearV4 . $subStatusV4 . " AND TRIM(COALESCE(vd4.competition_status,''))<>''
+               WHERE v4.movie_id = m.id" . $subWindowV4 . $subStatusV4 . " AND TRIM(COALESCE(vd4.competition_status,''))<>''
                GROUP BY vd4.competition_status ORDER BY COUNT(*) DESC LIMIT 1
              ) AS comp_mode,
              (
                SELECT GROUP_CONCAT(DISTINCT TRIM(vd5.adjective) ORDER BY TRIM(vd5.adjective) SEPARATOR ', ')
                FROM vote_details vd5 JOIN votes v5 ON v5.id = vd5.vote_id
-               WHERE v5.movie_id = m.id" . $subYearV5 . $subStatusV5 . " AND TRIM(COALESCE(vd5.adjective,''))<>''
+               WHERE v5.movie_id = m.id" . $subWindowV5 . $subStatusV5 . " AND TRIM(COALESCE(vd5.adjective,''))<>''
              ) AS adjectives
       FROM movies m
       " . $leftJoinVotesForResults . "
       LEFT JOIN vote_details vd ON vd.vote_id = v.id" . $statusCondVd . "
+      " . $whereWindowClause . "
       GROUP BY m.id
       HAVING votes_count > 0
       ORDER BY avg_rating DESC, votes_count DESC
@@ -960,7 +975,7 @@ if (($sheet === 'votes') || ($sheet === 'raw' && function_exists('is_admin') && 
         JOIN users u ON u.id = v.user_id
         JOIN movies m ON m.id = v.movie_id
         LEFT JOIN vote_details vd ON vd.vote_id = v.id
-  " . $whereYearClause . $statusCondVd . "
+  " . $whereWindowClause . $statusCondVd . "
   ORDER BY v.created_at DESC";
     $rawRows = $mysqli->query($sqlRaw)->fetch_all(MYSQLI_ASSOC);
     ?>
@@ -1089,12 +1104,12 @@ if ($sheet === 'views') {
     foreach ($categories as $cat) {
         $catEsc = $mysqli->real_escape_string($cat);
     $q1 = $mysqli->query("SELECT COUNT(DISTINCT v.movie_id) AS uniq_titles, COUNT(v.id) AS views
-              FROM votes v LEFT JOIN vote_details vd ON vd.vote_id=v.id
-              WHERE COALESCE(vd.category,'Altro')='$catEsc'" . $yearCond . $statusCondVd);
+              FROM votes v JOIN movies m ON m.id = v.movie_id LEFT JOIN vote_details vd ON vd.vote_id=v.id
+              WHERE COALESCE(vd.category,'Altro')='$catEsc'" . $andWindowClause . $statusCondVd);
         $summary[$cat] = $q1 ? $q1->fetch_assoc() : ['uniq_titles'=>0,'views'=>0];
       }
     // Also totals across all
-  $qTot = $mysqli->query("SELECT COUNT(DISTINCT v.movie_id) AS uniq_titles, COUNT(v.id) AS views FROM votes v LEFT JOIN vote_details vd ON vd.vote_id = v.id " . $whereYearClause . $statusCondVd);
+  $qTot = $mysqli->query("SELECT COUNT(DISTINCT v.movie_id) AS uniq_titles, COUNT(v.id) AS views FROM votes v JOIN movies m ON m.id = v.movie_id LEFT JOIN vote_details vd ON vd.vote_id = v.id " . $whereWindowClause . $statusCondVd);
     $summaryTotal = $qTot ? $qTot->fetch_assoc() : ['uniq_titles'=>0,'views'=>0];
 
     // Platform x category metrics
@@ -1104,8 +1119,9 @@ if ($sheet === 'views') {
                    COUNT(v.id) AS views,
                    ROUND(AVG($ratingExpr),2) AS avg_rating
       FROM votes v
+      JOIN movies m ON m.id = v.movie_id
       LEFT JOIN vote_details vd ON vd.vote_id = v.id
-  " . $whereYearClause . $statusCondVd . "
+  " . $whereWindowClause . $statusCondVd . "
       GROUP BY platform, category
             ORDER BY platform, category";
     $pivot = $mysqli->query($sql)->fetch_all(MYSQLI_ASSOC);
@@ -1160,7 +1176,7 @@ if ($sheet === 'views') {
             <td><?= e($plat) ?></td>
             <?php
               // overall platform avg
-              $avg = $mysqli->query("SELECT ROUND(AVG($ratingExpr),2) AS a FROM votes v LEFT JOIN vote_details vd ON vd.vote_id=v.id WHERE COALESCE(NULLIF(TRIM(vd.where_watched),''),'Altro')='".$mysqli->real_escape_string($plat)."'" . $yearCond);
+              $avg = $mysqli->query("SELECT ROUND(AVG($ratingExpr),2) AS a FROM votes v JOIN movies m ON m.id = v.movie_id LEFT JOIN vote_details vd ON vd.vote_id=v.id WHERE COALESCE(NULLIF(TRIM(vd.where_watched),''),'Altro')='".$mysqli->real_escape_string($plat)."'" . $andWindowClause);
               $avgRow = $avg ? $avg->fetch_assoc() : ['a'=>null];
             ?>
             <td><?= $avgRow['a'] !== null ? number_format($avgRow['a'],2) : '' ?></td>
@@ -1335,7 +1351,7 @@ if ($sheet === 'judges' || $sheet === 'judges_comp') {
 
 // TITLES sheet (unique list like UNIQUE(SORT(...)))
 if ($sheet === 'titles') {
-  $rows = $mysqli->query("SELECT DISTINCT m.title FROM votes v JOIN movies m ON m.id=v.movie_id LEFT JOIN vote_details vd ON vd.vote_id=v.id " . $whereYearClause . $statusCondVd . " ORDER BY m.title ASC")->fetch_all(MYSQLI_ASSOC);
+  $rows = $mysqli->query("SELECT DISTINCT m.title FROM votes v JOIN movies m ON m.id=v.movie_id LEFT JOIN vote_details vd ON vd.vote_id=v.id " . $whereWindowClause . $statusCondVd . " ORDER BY m.title ASC")->fetch_all(MYSQLI_ASSOC);
     ?>
     
     <div class="table-container">
@@ -1388,14 +1404,14 @@ if ($sheet === 'adjectives') {
     FROM votes v
     JOIN movies m ON m.id=v.movie_id
     LEFT JOIN vote_details vd ON vd.vote_id=v.id
-    WHERE TRIM(COALESCE(vd.adjective,''))<>''" . $yearCond . $statusCondVd . "
+    WHERE TRIM(COALESCE(vd.adjective,''))<>''" . $andWindowClause . $statusCondVd . "
     ORDER BY m.title, vd.adjective")->fetch_all(MYSQLI_ASSOC);
         // aggregated list per movie
   $agg = $mysqli->query("SELECT m.title, GROUP_CONCAT(DISTINCT TRIM(vd.adjective) ORDER BY TRIM(vd.adjective) SEPARATOR ', ') AS adjectives
              FROM votes v
              JOIN movies m ON m.id=v.movie_id
              LEFT JOIN vote_details vd ON vd.vote_id=v.id
-             WHERE TRIM(COALESCE(vd.adjective,''))<>''" . $yearCond . $statusCondVd . "
+             WHERE TRIM(COALESCE(vd.adjective,''))<>''" . $andWindowClause . $statusCondVd . "
              GROUP BY m.title
              ORDER BY m.title")->fetch_all(MYSQLI_ASSOC);
         $aggMap = [];
@@ -1439,7 +1455,7 @@ if ($sheet === 'finalists') {
                FROM votes v
                JOIN movies m ON m.id=v.movie_id
                LEFT JOIN vote_details vd ON vd.vote_id=v.id
-               " . $whereYearClause . "
+               " . $whereWindowClause . "
                ORDER BY m.title")->fetch_all(MYSQLI_ASSOC);
     ?>
     
@@ -1451,7 +1467,7 @@ if ($sheet === 'finalists') {
       </div>
 
       <table class="table">
-        <thead><tr><th><?= e(t('finalists')) . ' ' . (int)$selected_year ?></th><th><?= t('category') ?></th></tr></thead>
+        <thead><tr><th><?= e(t('finalists')) . ' ' . e($competitionLabel) ?></th><th><?= t('category') ?></th></tr></thead>
         <tbody>
           <?php foreach ($rows as $r): ?>
             <tr><td><?= e($r['title']) ?></td><td><?= e($r['category']) ?></td></tr>
