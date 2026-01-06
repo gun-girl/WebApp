@@ -22,26 +22,58 @@ if (!empty($_SESSION['flash'])) {
 
 // Which sheet to show (multi-sheet UI like Excel). Default to compact lists view.
 $sheet = isset($_GET['sheet']) ? $_GET['sheet'] : 'lists';
-// Always default to actual current year, ignore stored settings
-$currentYear = (int)date('Y');
-// Use current year for all queries (no year selection)
-$selected_year = $currentYear;
-$viewYearInt = $currentYear;
+
+// Resolve active competition (id, window, name, and start-year) from DB
+$active_comp_id = function_exists('get_active_competition_id') ? get_active_competition_id() : null;
+$active_window_start = null; $active_window_end = null; $activeCompName = '';
+$activeYearNumber = (int)date('Y');
+try {
+  if ($active_comp_id) {
+    $stmtC = $mysqli->prepare("SELECT name, start, `end` FROM competitions WHERE id = ? LIMIT 1");
+    if ($stmtC) {
+      $stmtC->bind_param('i', $active_comp_id);
+      $stmtC->execute();
+      $rowC = $stmtC->get_result()->fetch_assoc();
+      if ($rowC) {
+        $activeCompName = $rowC['name'] ?? '';
+        $active_window_start = $rowC['start'];
+        $active_window_end = $rowC['end'];
+        $activeYearNumber = (int)date('Y', strtotime($active_window_start));
+      }
+    }
+  }
+  if (!$active_window_start || !$active_window_end) {
+    $rowF = $mysqli->query("SELECT name, start, `end` FROM competitions ORDER BY start DESC LIMIT 1")->fetch_assoc();
+    if ($rowF) {
+      $activeCompName = $rowF['name'] ?? '';
+      $active_window_start = $rowF['start'];
+      $active_window_end = $rowF['end'];
+      $activeYearNumber = (int)date('Y', strtotime($rowF['start']));
+    }
+  }
+} catch (Throwable $e) {
+  // keep defaults
+}
+
+// Use active competition by default (still allow legacy ?year=... for filtering by competition_year)
+$selectedYearNumber = isset($_GET['year']) ? (int)$_GET['year'] : $activeYearNumber;
+$viewYearInt = $selectedYearNumber;
+$competitionLabel = $activeCompName !== '' ? $activeCompName : (string)$viewYearInt;
 // Selected competition status filter ('all', 'in', 'out')
 $selected_status = isset($_GET['status']) ? $_GET['status'] : 'all';
-// Build list of available years - just use current year
-$years = [$currentYear];
+// Build list of available years - default to the active competition's start year (legacy)
+$years = [$viewYearInt];
 // Tab labels in the order matching the workbook
 $tabs = [
-  'votes' => str_replace('{year}', $selected_year, t('sheet_votes')),
-  'results' => str_replace('{year}', $selected_year, t('sheet_results')),
-  'views' => str_replace('{year}', $selected_year, t('sheet_views')),
+  'votes' => str_replace('{year}', $competitionLabel, t('sheet_votes')),
+  'results' => str_replace('{year}', $competitionLabel, t('sheet_results')),
+  'views' => str_replace('{year}', $competitionLabel, t('sheet_views')),
   'judges' => t('sheet_judges'),
   'judges_comp' => t('sheet_judges_comp'),
   'titles' => t('sheet_titles'),
   'adjectives' => t('sheet_adjectives'),
   // finalists should be per-selected-year rather than fixed to 2023
-  'finalists' => 'Finalists ' . $selected_year,
+  'finalists' => 'Finalists ' . $competitionLabel,
 ];
 
 // Global fixed bottom tabs styling for all sheets (keeps bottom tabs visible while scrolling)
@@ -65,12 +97,7 @@ $tabs = [
   // Display status details based on selection
   $statusDetail = '';
   if ($selected_status === 'in') {
-    // Determine which competition period based on current year
-    if ($currentYear >= 2026) {
-      $statusDetail = t('status_detail_in_2026');
-    } else {
-      $statusDetail = t('status_detail_in_2025');
-    }
+    $statusDetail = t('status_detail_in_2025'); // generic: within active window
   } elseif ($selected_status === 'out') {
     $statusDetail = t('status_detail_out');
   } elseif ($selected_status === 'all') {
@@ -107,17 +134,17 @@ $statusCond = '';
 $statusCondVd = ''; // for vote_details table
 $subStatusV2 = $subStatusV3 = $subStatusV4 = $subStatusV5 = '';
 if ($selected_status === 'in') {
-  $statusCondVd = " AND COALESCE(vd.competition_status,'') IN ('Concorso','In Competizione','In Competition','2026 In Competition')";
-  $subStatusV2 = " AND COALESCE(vd2.competition_status,'') IN ('Concorso','In Competizione','In Competition','2026 In Competition')";
-  $subStatusV3 = " AND COALESCE(vd3.competition_status,'') IN ('Concorso','In Competizione','In Competition','2026 In Competition')";
-  $subStatusV4 = " AND COALESCE(vd4.competition_status,'') IN ('Concorso','In Competizione','In Competition','2026 In Competition')";
-  $subStatusV5 = " AND COALESCE(vd5.competition_status,'') IN ('Concorso','In Competizione','In Competition','2026 In Competition')";
+  $statusCondVd = " AND COALESCE(vd.competition_status,'') IN ('Concorso','In Competizione','In Competition')";
+  $subStatusV2 = " AND COALESCE(vd2.competition_status,'') IN ('Concorso','In Competizione','In Competition')";
+  $subStatusV3 = " AND COALESCE(vd3.competition_status,'') IN ('Concorso','In Competizione','In Competition')";
+  $subStatusV4 = " AND COALESCE(vd4.competition_status,'') IN ('Concorso','In Competizione','In Competition')";
+  $subStatusV5 = " AND COALESCE(vd5.competition_status,'') IN ('Concorso','In Competizione','In Competition')";
 } elseif ($selected_status === 'out') {
-  $statusCondVd = " AND COALESCE(vd.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition','2026 In Competition') AND COALESCE(vd.competition_status,'') <> ''";
-  $subStatusV2 = " AND COALESCE(vd2.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition','2026 In Competition') AND COALESCE(vd2.competition_status,'') <> ''";
-  $subStatusV3 = " AND COALESCE(vd3.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition','2026 In Competition') AND COALESCE(vd3.competition_status,'') <> ''";
-  $subStatusV4 = " AND COALESCE(vd4.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition','2026 In Competition') AND COALESCE(vd4.competition_status,'') <> ''";
-  $subStatusV5 = " AND COALESCE(vd5.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition','2026 In Competition') AND COALESCE(vd5.competition_status,'') <> ''";
+  $statusCondVd = " AND COALESCE(vd.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition') AND COALESCE(vd.competition_status,'') <> ''";
+  $subStatusV2 = " AND COALESCE(vd2.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition') AND COALESCE(vd2.competition_status,'') <> ''";
+  $subStatusV3 = " AND COALESCE(vd3.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition') AND COALESCE(vd3.competition_status,'') <> ''";
+  $subStatusV4 = " AND COALESCE(vd4.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition') AND COALESCE(vd4.competition_status,'') <> ''";
+  $subStatusV5 = " AND COALESCE(vd5.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition') AND COALESCE(vd5.competition_status,'') <> ''";
 }
 
 // year filter fragments to reuse in queries (use selected/view year)

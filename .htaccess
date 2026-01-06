@@ -1,7 +1,44 @@
-DirectoryIndex index.php index.html
+# Force index.php ONLY as directory index
+DirectoryIndex index.php
 
 # Prevent directory listing
 Options -Indexes
 
 # Recommended: serve UTF-8 by default
 AddDefaultCharset utf-8
+
+# CRITICAL: AGGRESSIVE cache prevention for ALL PHP and root
+<IfModule mod_headers.c>
+    # Apply to all requests
+    Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0, post-check=0, pre-check=0, private"
+    Header always set Pragma "no-cache"
+    Header always set Expires "Thu, 01 Jan 1970 00:00:00 GMT"
+    Header always unset ETag
+    Header always unset Last-Modified
+    
+    # Additional headers for CDN/proxy
+    Header always set X-Accel-Expires "0"
+    Header always set Surrogate-Control "no-store"
+</IfModule>
+
+# Disable ETags completely
+FileETag None
+
+# For PHP files specifically
+<FilesMatch "\.php$">
+    <IfModule mod_headers.c>
+        Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0, post-check=0, pre-check=0, private"
+        Header always set Pragma "no-cache"
+        Header always set Expires "Thu, 01 Jan 1970 00:00:00 GMT"
+    </IfModule>
+</FilesMatch>
+
+# Disable mod_expires if it's interfering
+<IfModule mod_expires.c>
+    ExpiresActive Off
+</IfModule>
+
+# Force HTTPS if not already
+# RewriteEngine On
+# RewriteCond %{HTTPS} off
+# RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]

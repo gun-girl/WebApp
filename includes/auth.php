@@ -1,10 +1,55 @@
 <?php
 // auth.php
+
+// CRITICAL: Disable caching for all pages that include auth
+if (!headers_sent()) {
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0, post-check=0, pre-check=0');
+    header('Pragma: no-cache');
+    header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
+}
+
 require_once __DIR__ . '/../config.php'; // uses your DB connection
 require_once __DIR__ . '/helper.php';
-if (session_status() !== PHP_SESSION_ACTIVE) { session_start(); }
+
+// Start session with secure configuration
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    // Configure secure session settings
+    ini_set('session.use_strict_mode', '1');
+    ini_set('session.cookie_httponly', '1');
+    ini_set('session.cookie_samesite', 'Lax');
+    ini_set('session.use_only_cookies', '1');
+    ini_set('session.cookie_lifetime', '0'); // Session cookie only
+    
+    session_start();
+    
+    // Debug logging for session issues
+    error_log("[AUTH] Session started. ID: " . session_id() . ", Has user: " . (isset($_SESSION['user']) ? 'yes' : 'no'));
+    
+    // If session has user data but no explicit login marker, clear it (prevent contamination)
+    if (isset($_SESSION['user']) && !isset($_SESSION['login_timestamp'])) {
+        error_log("[AUTH] Clearing contaminated session without login timestamp");
+        unset($_SESSION['user']);
+    }
+}
 
 function current_user(): ?array {
+    // Validate session integrity
+    if (isset($_SESSION['user'])) {
+        // Verify user still exists in database
+        global $mysqli;
+        $userId = $_SESSION['user']['id'] ?? null;
+        if ($userId) {
+            $stmt = $mysqli->prepare("SELECT id FROM users WHERE id = ? LIMIT 1");
+            $stmt->bind_param('i', $userId);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if ($result->num_rows === 0) {
+                // User deleted or invalid session - clear it
+                unset($_SESSION['user']);
+                return null;
+            }
+        }
+    }
     return $_SESSION['user'] ?? null;
 }
 
@@ -15,12 +60,23 @@ function login_user(array $user): void {
         'email' => $user['email'] ?? '',
         'role' => $user['role'] ?? 'user',
     ];
+    $_SESSION['login_timestamp'] = time();
+    error_log("[AUTH] User logged in: " . $user['username'] . " (ID: " . $user['id'] . ")");
 }
 
-function logout_user(): void { session_destroy(); }
+function logout_user(): void { 
+    error_log("[AUTH] User logged out: " . ($_SESSION['user']['username'] ?? 'unknown'));
+    session_destroy(); 
+}
 
 function require_login(): void {
-    if (!current_user()) { redirect(ADDRESS.'/login.php'); }
+    $user = current_user();
+    if (!$user) {
+        error_log("[AUTH] No valid user, redirecting to login from: " . $_SERVER['REQUEST_URI']);
+        redirect(ADDRESS.'/login.php');
+    } else {
+        error_log("[AUTH] User authenticated: " . $user['username']);
+    }
 }
 
 function is_admin(): bool {

@@ -1,6 +1,10 @@
 <?php
 // Simple language loader and translator helper
-if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+// Session should already be started by auth.php, but check just in case
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    error_log("[LANG] Warning: Session not active, starting it (this should not happen)");
+    session_start();
+}
 
 // Persist language in a cookie for long-lived preference
 $langCookieName = 'lang_pref';

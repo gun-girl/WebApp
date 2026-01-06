@@ -1,16 +1,38 @@
 <?php
-require_once __DIR__ . '/includes/auth.php';
-require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/includes/lang.php';
-require_login();
-
-// Prevent caching so the login check always runs on protected pages
-header('Cache-Control: no-store, no-cache, must-revalidate, private');
+// CRITICAL: Set headers BEFORE any output or session start
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0, post-check=0, pre-check=0');
 header('Pragma: no-cache');
-header('Expires: 0');
+header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
+
+error_reporting(E_ALL);
+ini_set('display_errors', '1');
+ini_set('log_errors', '1');
+
+// Load config first
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/helper.php';
+require_once __DIR__ . '/includes/auth.php';
+
+// Session is already started by auth.php - check for contaminated session
+if (isset($_SESSION['user']) && !isset($_SESSION['login_timestamp'])) {
+    error_log("[INDEX] Destroying contaminated session");
+    session_unset();
+    session_destroy();
+    session_start();
+}
+
+// Check authentication - redirect if needed
+$user = current_user();
+if (!$user) {
+    error_log("[INDEX] No user - redirecting to login");
+    header('Location: ' . ADDRESS . '/login.php', true, 302);
+    exit;
+}
+
+error_log("[INDEX] User authenticated: " . $user['username']);
+require_once __DIR__ . '/includes/lang.php';
 
 require_once __DIR__ . '/includes/omdb.php';
-require_once __DIR__ . '/includes/helper.php';
 
 
 $user = current_user();

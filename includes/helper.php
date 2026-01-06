@@ -10,7 +10,21 @@ function e($s): string
 if (!function_exists('redirect')) {
     function redirect(string $path): void
     {
-        header("Location: $path");
+        error_log("[REDIRECT] Attempting redirect to: " . $path);
+        
+        // Check if output has been sent
+        if (headers_sent($file, $line)) {
+            error_log("[REDIRECT] ERROR: Headers already sent in $file on line $line");
+            echo '<!doctype html><html><head><meta http-equiv="refresh" content="0;url=' . htmlspecialchars($path, ENT_QUOTES, 'UTF-8') . '"></head><body>';
+            echo '<script>window.location.replace(' . json_encode($path) . ');</script>';
+            echo '<p>Redirecting to <a href="' . htmlspecialchars($path, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($path, ENT_QUOTES, 'UTF-8') . '</a>…</p>';
+            echo '</body></html>';
+            exit;
+        }
+        
+        // Send redirect header
+        error_log("[REDIRECT] Sending Location header");
+        header("Location: $path", true, 302);
         exit;
     }
 }
