@@ -177,4 +177,12 @@ return [
     , 'documentaries' => 'Documentari'
     , 'voted_titles' => 'Titoli Votati'
     , 'create_set_next_year' => "Crea e imposta l'anno successivo"
+    , 'start_competition_flow' => 'Nuova competizione'
+    , 'competition_name_label' => 'Nome'
+    , 'competition_start_label' => 'Inizio'
+    , 'competition_end_label' => 'Fine'
+    , 'create_competition_action' => 'Crea competizione'
+    , 'competition_placeholder' => 'Competizione'
+    , 'active_badge' => 'Corrente'
+    , 'set_active_competition' => 'Imposta competizione attiva'
 ];

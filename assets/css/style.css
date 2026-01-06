@@ -639,9 +639,14 @@ main{padding-bottom:140px}
 /* Competitions dropdown (header.php) */
 .competitions-dropdown-wrap { position: relative; display: inline-block; }
 .competitions-btn { background: transparent; border: none; padding: .5rem 1rem; cursor: pointer; }
-.competitions-menu { right: auto; left: 0; }
-.competition-year-row { display: flex; gap: .5rem; align-items: center; padding: .15rem 0.6rem; }
-.competition-year-link { flex: 1; text-decoration: none; }
+.competitions-menu { right: auto; left: 0; min-width: 280px; max-height: 280px; overflow-y: auto; }
+.competition-year-row { display: flex; gap: .5rem; align-items: center; padding: .35rem .6rem; }
+.competition-year-row.is-active { background: rgba(246,201,14,.08); }
+.competition-meta { display: flex; flex-direction: column; gap: .15rem; }
+.competition-year-link { flex: 1; text-decoration: none; color: #ddd; }
+.competition-dates { color: #888; font-size: .8rem; }
+.active-badge { background: #f6c90e; color: #000; font-size: .7rem; padding: .1rem .35rem; border-radius: .3rem; margin-left: .4rem; font-weight: 700; }
+.competitions-menu .dropdown-item { padding: .6rem .9rem; font-size: .9rem; }
 .admin-form-inline { margin: 0; }
 .admin-form-inline.inline-block { display: inline-block; }
 .admin-form-flex { margin: 0; padding: .25rem 0.6rem; display: flex; gap: .5rem; align-items: center; }

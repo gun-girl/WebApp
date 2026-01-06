@@ -41,10 +41,16 @@ if (!empty($_GET['lang'])) {
 // Default to Italian; use session, then cookie, else fallback to 'it'
 $currentLang = $_SESSION['lang'] ?? ($_COOKIE[$langCookieName] ?? 'it');
 $stringsFile = __DIR__ . "/strings/{$currentLang}.php";
-if (!file_exists($stringsFile)) {
-    $stringsFile = __DIR__ . "/strings/it.php"; // fallback to Italian
+
+// Load fallback (Italian) first, then override with selected language to avoid missing-key leaks
+$fallbackStrings = include __DIR__ . '/strings/it.php';
+$L = $fallbackStrings;
+if (file_exists($stringsFile)) {
+    $selected = include $stringsFile;
+    if (is_array($selected)) {
+        $L = array_merge($L, $selected);
+    }
 }
-$L = include $stringsFile;
 
 function t(string $key): string {
     global $L;

@@ -1,7 +1,7 @@
 <?php require_once __DIR__ . '/helper.php'; require_once __DIR__ . '/auth.php'; require_once __DIR__ . '/lang.php';
-// current active year for small admin controls in the header
-$header_active_year = function_exists('get_active_year') ? get_active_year() : (int)date('Y');
-// Treat the calendar year as the "current" active year for display and quick navigation
+// Active competition id for header highlighting and actions
+$header_active_comp_id = function_exists('get_active_competition_id') ? get_active_competition_id() : null;
+// Calendar year used for fallback links
 $calendar_year = (int)date('Y');
 ?>
 <!doctype html>
@@ -71,11 +71,11 @@ $calendar_year = (int)date('Y');
           <span class="dropdown-arrow">▼</span>
         </button>
           <div class="dropdown-menu" id="userDropdown">
-          <a href="<?= ADDRESS ?>/profile.php" class="dropdown-item">👤 <?= e(t('your_profile')) ?></a>
+          <!--<a href="<?= ADDRESS ?>/profile.php" class="dropdown-item">👤 <?= e(t('your_profile')) ?></a>-->
           
           <a href="<?= ADDRESS ?>/stats.php?mine=1" class="dropdown-item">⭐ <?= e(t('your_ratings')) ?></a>
           <a href="<?= ADDRESS ?>/profile.php?settings=1" class="dropdown-item">⚙️ <?= e(t('account_settings')) ?></a>
-          <div class="dropdown-divider mobile-lang-section"></div>
+          <!--<div class="dropdown-divider mobile-lang-section"></div>
           <?php
             $query_lang = $_GET;
             $query_en_menu = $query_lang;
@@ -89,7 +89,7 @@ $calendar_year = (int)date('Y');
           ?>
           <a href="<?= htmlspecialchars($url_en_menu) ?>" class="dropdown-item mobile-lang-item <?= current_lang() === 'en' ? 'active-lang' : '' ?>">🌐 English</a>
           <a href="<?= htmlspecialchars($url_it_menu) ?>" class="dropdown-item mobile-lang-item <?= current_lang() === 'it' ? 'active-lang' : '' ?>">🌐 Italiano</a>
-          <div class="dropdown-divider"></div>
+          <div class="dropdown-divider"></div>-->
           <a href="<?= ADDRESS ?>/logout.php" class="dropdown-item">🚪 <?= e(t('sign_out')) ?></a>
         </div>
       </div>
@@ -100,63 +100,96 @@ $calendar_year = (int)date('Y');
         <div id="competitionsMenu" class="dropdown-menu competitions-menu">
           <a class="dropdown-item" href="<?= ADDRESS ?>/stats.php?sheet=votes&year=<?= $calendar_year ?>"><?= e(t('all_competitions')) ?></a>
           <?php
-            // Build list of competition years from both `competitions` table AND distinct years seen in `votes`.
-            // This ensures the dropdown shows every year created on the site (either explicitly created or inferred from votes).
+            // Build list of competitions using date ranges (start, end, name)
             $competitions = [];
-            // from competitions table (if exists)
             $hasCompetitionsTable = $mysqli->query("SHOW TABLES LIKE 'competitions'")->fetch_all(MYSQLI_NUM);
             if ($hasCompetitionsTable) {
-              $rows = $mysqli->query("SELECT year FROM competitions")->fetch_all(MYSQLI_ASSOC);
-              foreach ($rows as $r) { $competitions[] = (int)$r['year']; }
+              $rows = $mysqli->query("SELECT id, name, start, end FROM competitions ORDER BY start DESC")->fetch_all(MYSQLI_ASSOC);
+              foreach ($rows as $r) {
+                $start = trim($r['start'] ?? '');
+                $end = trim($r['end'] ?? '');
+                // Skip invalid rows (missing or malformed dates)
+                if (!$start || !$end || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $start) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $end)) {
+                  continue;
+                }
+                $startYear = (int)date('Y', strtotime($start));
+                $nm = trim($r['name'] ?? '');
+                if ($nm === '') { $nm = t('competition_placeholder') . ' ' . $startYear; }
+                $competitions[] = [
+                  'id' => isset($r['id']) ? (int)$r['id'] : null,
+                  'name' => $nm,
+                  'start' => $start,
+                  'end' => $end,
+                  'year' => $startYear,
+                ];
+              }
             }
-            // from votes table: if competition_year column exists, use it (falling back to created_at year when null),
-            // otherwise fall back to YEAR(created_at). This preserves historical years even after creating a competitions table.
-            $hasVotesYearCol = $mysqli->query("SHOW COLUMNS FROM votes LIKE 'competition_year'")->fetch_all(MYSQLI_ASSOC);
-            if ($hasVotesYearCol) {
-              // use COALESCE(competition_year, YEAR(created_at)) to capture votes that may not have competition_year set
-              $rows2 = $mysqli->query("SELECT DISTINCT COALESCE(competition_year, YEAR(created_at)) AS y FROM votes WHERE (competition_year IS NOT NULL OR created_at IS NOT NULL)")->fetch_all(MYSQLI_ASSOC);
-              foreach ($rows2 as $r) { $competitions[] = (int)$r['y']; }
-            } else {
-              // no competition_year column: infer years from created_at
-              $rows2 = $mysqli->query("SELECT DISTINCT YEAR(created_at) AS y FROM votes WHERE created_at IS NOT NULL")->fetch_all(MYSQLI_ASSOC);
-              foreach ($rows2 as $r) { $competitions[] = (int)$r['y']; }
+            // fallback: keep historical years inferred from votes if no competitions are present yet
+            if (!$competitions) {
+              $years = [];
+              $hasVotesYearCol = $mysqli->query("SHOW COLUMNS FROM votes LIKE 'competition_year'")->fetch_all(MYSQLI_ASSOC);
+              if ($hasVotesYearCol) {
+                $rows2 = $mysqli->query("SELECT DISTINCT COALESCE(competition_year, YEAR(created_at)) AS y FROM votes WHERE (competition_year IS NOT NULL OR created_at IS NOT NULL)")->fetch_all(MYSQLI_ASSOC);
+              } else {
+                $rows2 = $mysqli->query("SELECT DISTINCT YEAR(created_at) AS y FROM votes WHERE created_at IS NOT NULL")->fetch_all(MYSQLI_ASSOC);
+              }
+              foreach ($rows2 as $r) { $years[] = (int)$r['y']; }
+              $years = array_values(array_unique(array_map('intval', $years)));
+              rsort($years, SORT_NUMERIC);
+              foreach ($years as $y) {
+                $competitions[] = [
+                  'name' => 'Competition ' . $y,
+                  'start' => $y . '-01-01',
+                  'end' => $y . '-12-31',
+                  'year' => $y,
+                ];
+              }
             }
-            // always include the active year (from settings) to avoid hiding it
-            // For display purposes, show the calendar/current year as active (per user request)
-            $act = $calendar_year;
-            if ($act) { $competitions[] = $act; }
-            // normalize: unique, numeric, sort descending
-            $competitions = array_map('intval', array_values(array_unique($competitions)));
-            rsort($competitions, SORT_NUMERIC);
+            $actId = $header_active_comp_id;
           ?>
-          <?php foreach ($competitions as $cy): ?>
-            <div class="competition-year-row">
-              <!-- Primary action: navigate to stats for the selected year -->
-              <a class="dropdown-item competition-year-link" href="<?= ADDRESS ?>/stats.php?year=<?= (int)$cy ?>"><?= (int)$cy ?><?= $cy === $act ? ' (active)' : '' ?></a>
+          <?php foreach ($competitions as $comp): ?>
+            <?php $isActive = (!empty($comp['id']) && $actId && (int)$comp['id'] === (int)$actId); ?>
+            <div class="competition-year-row<?= $isActive ? ' is-active' : '' ?>">
+              <div class="competition-meta">
+                <a class="dropdown-item competition-year-link" href="<?= ADDRESS ?>/stats.php?year=<?= (int)$comp['year'] ?>">
+                  <?= e($comp['name']) ?>
+                  <?php if ($isActive): ?><span class="active-badge"><?= e(t('active_badge')) ?></span><?php endif; ?>
+                </a>
+                <div class="competition-dates"><?= e($comp['start']) ?> → <?= e($comp['end']) ?></div>
+              </div>
               <?php if (function_exists('is_admin') && is_admin()): ?>
-                <!-- Admin controls: quick set-active, rename, delete -->
-                <form method="post" action="<?= ADDRESS ?>/admin_competitions.php" class="admin-form-inline">
-                  <?= csrf_field() ?>
-                  <input type="hidden" name="action" value="set_active">
-                  <input type="hidden" name="year" value="<?= (int)$cy ?>">
-                  <button type="submit" class="dropdown-item admin-btn admin-btn-star" title="Set active year">⭐</button>
-                </form>
-                <button type="button" class="dropdown-item admin-btn admin-btn-edit" onclick="renameCompetition(<?= (int)$cy ?>)">✏️</button>
+                <?php if (!empty($comp['id'])): ?>
+                  <form method="post" action="<?= ADDRESS ?>/admin_competitions.php" class="admin-form-inline">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="set_active">
+                    <input type="hidden" name="comp_id" value="<?= (int)$comp['id'] ?>">
+                    <button type="submit" class="dropdown-item admin-btn admin-btn-star" title="<?= e(t('set_active_competition')) ?>">⭐</button>
+                  </form>
+                <?php endif; ?>
                 <form method="post" action="<?= ADDRESS ?>/admin_competitions.php" class="admin-form-inline inline-block">
                   <?= csrf_field() ?>
                   <input type="hidden" name="action" value="delete">
-                  <input type="hidden" name="year" value="<?= (int)$cy ?>">
-                  <button type="submit" class="dropdown-item admin-btn admin-btn-delete" title="Delete year">🗑</button>
+                  <input type="hidden" name="start_date" value="<?= e($comp['start']) ?>">
+                  <button type="submit" class="dropdown-item admin-btn admin-btn-delete" title="Delete competition">🗑</button>
                 </form>
               <?php endif; ?>
             </div>
           <?php endforeach; ?>
           <?php if (function_exists('is_admin') && is_admin()): ?>
             <div class="dropdown-divider"></div>
-            <form method="post" action="<?= ADDRESS ?>/admin_competitions.php" class="admin-form-flex">
+            <button type="button" id="competitionStartFlowBtn" class="dropdown-item admin-btn-create">🎉 <?= e(t('start_competition_flow')) ?></button>
+            <form method="post" action="<?= ADDRESS ?>/admin_competitions.php" class="admin-form-flex competition-create" id="competitionCreateForm" style="display:none;">
               <?= csrf_field() ?>
               <input type="hidden" name="action" value="create">
-              <button type="submit" class="dropdown-item admin-btn-create">🎉 <?= e(t('create_set_next_year')) ?></button>
+              <div class="competition-create-fields">
+                <label class="competition-create-label"><?= e(t('competition_name_label')) ?></label>
+                <input type="text" name="name" id="competitionNameInput" placeholder="<?= e(t('competition_placeholder')) ?>" autocomplete="off">
+                <label class="competition-create-label"><?= e(t('competition_start_label')) ?></label>
+                <input type="date" name="start_date" id="competitionStartInput" required>
+                <label class="competition-create-label"><?= e(t('competition_end_label')) ?></label>
+                <input type="date" name="end_date" id="competitionEndInput" required>
+              </div>
+              <button type="submit" id="competitionCreateBtn" class="dropdown-item admin-btn-create">🎉 <?= e(t('create_competition_action')) ?></button>
             </form>
           <?php endif; ?>
         </div>
@@ -259,23 +292,48 @@ $calendar_year = (int)date('Y');
   }
 
 
-  // rename handler: prompt and submit hidden form
-  function renameCompetition(oldYear) {
-    const n = prompt('Enter new year for ' + oldYear + ':', oldYear+1);
-    if (!n) return;
-    const newYear = parseInt(n);
-    if (!newYear || newYear < 1900 || newYear > 3000) { alert('Invalid year'); return; }
-    if (!confirm('Rename ' + oldYear + ' to ' + newYear + '?')) return;
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = '<?= ADDRESS ?>/admin_competitions.php';
-    form.style.display = 'none';
-    const csrf = document.createElement('input'); csrf.type='hidden'; csrf.name='csrf_token'; csrf.value='<?= $_SESSION['csrf_token'] ?? '' ?>'; form.appendChild(csrf);
-    const a = document.createElement('input'); a.type='hidden'; a.name='action'; a.value='rename'; form.appendChild(a);
-    const b = document.createElement('input'); b.type='hidden'; b.name='year'; b.value=oldYear; form.appendChild(b);
-    const c = document.createElement('input'); c.type='hidden'; c.name='new_year'; c.value=newYear; form.appendChild(c);
-    document.body.appendChild(form);
-    form.submit();
+  // Competition creation form validation
+  const compStart = document.getElementById('competitionStartInput');
+  const compEnd = document.getElementById('competitionEndInput');
+  const compName = document.getElementById('competitionNameInput');
+  const compCreateBtn = document.getElementById('competitionCreateBtn');
+  const compForm = document.getElementById('competitionCreateForm');
+  const compStartFlowBtn = document.getElementById('competitionStartFlowBtn');
+
+  function updateCreateButtonState() {
+    if (!compStart || !compEnd || !compCreateBtn) return;
+    if (compStart.value) {
+      compEnd.min = compStart.value;
+    }
+    const hasDates = compStart.value && compEnd.value && compStart.value <= compEnd.value;
+    compCreateBtn.disabled = !hasDates;
+    if (compName && compName.value.trim() === '' && compStart.value) {
+      const yearGuess = compStart.value.split('-')[0];
+      compName.placeholder = 'Competition ' + yearGuess;
+    }
+  }
+
+  if (compStart && compEnd && compCreateBtn) {
+    compStart.addEventListener('change', () => {
+      updateCreateButtonState();
+      if (compStart.value && compEnd && !compEnd.value) {
+        compEnd.focus();
+      }
+    });
+    compEnd.addEventListener('change', updateCreateButtonState);
+    if (compName) {
+      compName.addEventListener('input', updateCreateButtonState);
+    }
+    updateCreateButtonState();
+  }
+
+  if (compStartFlowBtn && compForm) {
+    compStartFlowBtn.addEventListener('click', () => {
+      compForm.style.display = compForm.style.display === 'none' ? 'flex' : 'none';
+      if (compForm.style.display !== 'none' && compStart) {
+        compStart.focus();
+      }
+    });
   }
 </script>
 <main>

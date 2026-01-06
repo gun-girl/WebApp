@@ -134,3 +134,25 @@ function set_setting(string $key, $value): bool
     }
     return false;
 }
+
+/**
+ * Return the active competition id from settings or null if not set.
+ */
+function get_active_competition_id(): ?int
+{
+    global $mysqli;
+    if (!isset($mysqli) || !$mysqli) return null;
+    try {
+        $stmt = $mysqli->prepare("SELECT setting_value FROM settings WHERE setting_key = 'active_competition_id' LIMIT 1");
+        if ($stmt) {
+            $stmt->execute();
+            $res = $stmt->get_result()->fetch_assoc();
+            if ($res && is_numeric($res['setting_value'])) {
+                return (int)$res['setting_value'];
+            }
+        }
+    } catch (Exception $e) {
+        // ignore
+    }
+    return null;
+}

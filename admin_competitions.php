@@ -21,99 +21,111 @@ $action = $_POST['action'] ?? '';
 $year = isset($_POST['year']) ? (int)$_POST['year'] : 0;
 
 try {
-    // ensure competitions table exists
+    // ensure competitions table exists with date ranges
     $mysqli->query("CREATE TABLE IF NOT EXISTS competitions (
-        year INT PRIMARY KEY,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        name VARCHAR(255) NOT NULL,
+        start DATE NOT NULL,
+        end DATE NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_competitions_start_end (start, end)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
+    $name = trim($_POST['name'] ?? '');
+    $startRaw = trim($_POST['start_date'] ?? '');
+    $endRaw = trim($_POST['end_date'] ?? '');
+
+    $parseDate = static function (string $value): ?DateTime {
+        if (!$value) return null;
+        $dt = DateTime::createFromFormat('Y-m-d', $value);
+        return ($dt && $dt->format('Y-m-d') === $value) ? $dt : null;
+    };
+
+    $startDate = $parseDate($startRaw);
+    $endDate = $parseDate($endRaw);
+    $yearFromDates = $startDate ? (int)$startDate->format('Y') : 0;
+
     if ($action === 'create') {
-        // if year not provided, compute next as max(existing) + 1 or active+1
-        if (!$year) {
-            $row = $mysqli->query("SELECT MAX(year) AS m FROM competitions")->fetch_assoc();
-            $max = $row && $row['m'] ? (int)$row['m'] : (int)get_active_year();
-            $year = $max + 1;
+        if (!$startDate || !$endDate) {
+            if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+            $_SESSION['flash'] = 'Please provide start and end dates (YYYY-MM-DD).';
+        } elseif ($startDate > $endDate) {
+            if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+            $_SESSION['flash'] = 'Start date must be before or equal to end date.';
+        } else {
+            $year = $yearFromDates ?: (int)date('Y');
+            if ($name === '') {
+                $name = 'Competition ' . $year;
+            }
+            $stmt = $mysqli->prepare("INSERT INTO competitions (name, start, end) VALUES (?, ?, ?)");
+            if ($stmt) {
+                $s = $startDate->format('Y-m-d');
+                $e = $endDate->format('Y-m-d');
+                $stmt->bind_param('sss', $name, $s, $e);
+                $stmt->execute();
+                // set active competition id to the newly created
+                $newId = $mysqli->insert_id;
+                if ($newId) {
+                    $stmtId = $mysqli->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('active_competition_id', ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+                    if ($stmtId) { $valId=(string)$newId; $stmtId->bind_param('s',$valId); $stmtId->execute(); }
+                }
+            }
+            // also set active year derived from the start date (legacy support)
+            $stmt2 = $mysqli->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('active_year', ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+            if ($stmt2) { $val=(string)$year; $stmt2->bind_param('s',$val); $stmt2->execute(); }
+            if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+            $_SESSION['flash'] = 'Created competition "' . $name . '" (' . $startDate->format('Y-m-d') . ' to ' . $endDate->format('Y-m-d') . ') and set active year to ' . $year;
         }
-        $stmt = $mysqli->prepare("INSERT INTO competitions (year) VALUES (?)");
-        if ($stmt) {
-            $stmt->bind_param('i', $year);
-            $stmt->execute();
+
+    } elseif ($action === 'set_active') {
+        $compId = isset($_POST['comp_id']) ? (int)$_POST['comp_id'] : 0;
+        if ($compId) {
+            // save active competition id
+            $stmt = $mysqli->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('active_competition_id', ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+            if ($stmt) { $valId=(string)$compId; $stmt->bind_param('s',$valId); $stmt->execute(); }
+            // for legacy, also compute its start year and set active_year
+            $yrRow = $mysqli->query("SELECT start FROM competitions WHERE id = " . $compId)->fetch_assoc();
+            if ($yrRow && !empty($yrRow['start'])) {
+                $year = (int)date('Y', strtotime($yrRow['start']));
+                $stmt2 = $mysqli->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('active_year', ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+                if ($stmt2) { $val=(string)$year; $stmt2->bind_param('s',$val); $stmt2->execute(); }
+            }
+            if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+            $_SESSION['flash'] = 'Active competition updated';
+        } else {
+            if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+            $_SESSION['flash'] = 'Invalid competition id';
         }
-        // set active
-        $stmt2 = $mysqli->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('active_year', ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
-        if ($stmt2) { $val=(string)$year; $stmt2->bind_param('s',$val); $stmt2->execute(); }
-        if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-        $_SESSION['flash'] = 'Created competition year ' . $year . ' and set active';
 
-    } elseif ($action === 'set_active' && $year) {
-        $stmt = $mysqli->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('active_year', ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
-        if ($stmt) { $val=(string)$year; $stmt->bind_param('s',$val); $stmt->execute(); }
-        if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-        $_SESSION['flash'] = 'Active year updated to ' . $year;
-
-    } elseif ($action === 'delete' && $year) {
+    } elseif ($action === 'delete') {
+        $yearToDelete = $year ?: $yearFromDates;
         // prevent deletion if votes exist for that year
-        // first verify the votes table actually has competition_year column
         $hasCol = $mysqli->query("SHOW COLUMNS FROM votes LIKE 'competition_year'")->fetch_all(MYSQLI_ASSOC);
-        if ($hasCol) {
-            $countRow = $mysqli->query("SELECT COUNT(*) AS c FROM votes WHERE competition_year = " . (int)$year)->fetch_assoc();
+        if ($hasCol && $yearToDelete) {
+            $countRow = $mysqli->query("SELECT COUNT(*) AS c FROM votes WHERE competition_year = " . (int)$yearToDelete)->fetch_assoc();
             $c = $countRow ? (int)$countRow['c'] : 0;
         } else {
-            // no competition_year column => there are no year-scoped votes locally
+            // no competition_year column or no year provided => assume safe delete
             $c = 0;
         }
         if ($c > 0) {
             if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-            $_SESSION['flash'] = 'Cannot delete year ' . $year . ' because there are ' . $c . ' votes for it.';
+            $_SESSION['flash'] = 'Cannot delete competition for year ' . $yearToDelete . ' because there are ' . $c . ' votes for it.';
         } else {
-            $stmt = $mysqli->prepare("DELETE FROM competitions WHERE year = ?");
-            if ($stmt) { $stmt->bind_param('i',$year); $stmt->execute(); }
-            // if it was active, reset active to current year or previous
+            // delete by start date to match new schema
+            if ($startDate) {
+                $stmt = $mysqli->prepare("DELETE FROM competitions WHERE start = ? LIMIT 1");
+                if ($stmt) { $s = $startDate->format('Y-m-d'); $stmt->bind_param('s',$s); $stmt->execute(); }
+            }
+            // if it was active, reset active to most recent competition or current calendar year
             $active = get_active_year();
-            if ((int)$active === (int)$year) {
-                // pick a fallback: max remaining year or current calendar year
-                $row = $mysqli->query("SELECT MAX(year) AS m FROM competitions")->fetch_assoc();
-                $fallback = $row && $row['m'] ? (int)$row['m'] : (int)date('Y');
+            if ($yearToDelete && (int)$active === (int)$yearToDelete) {
+                $row = $mysqli->query("SELECT MAX(start) AS latest_start FROM competitions")->fetch_assoc();
+                $fallback = $row && $row['latest_start'] ? (int)date('Y', strtotime($row['latest_start'])) : (int)date('Y');
                 $stmt2 = $mysqli->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('active_year', ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
                 if ($stmt2) { $val=(string)$fallback; $stmt2->bind_param('s',$val); $stmt2->execute(); }
             }
             if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-            $_SESSION['flash'] = 'Deleted competition year ' . $year;
-        }
-    } elseif ($action === 'rename' && $year) {
-        $new = isset($_POST['new_year']) ? (int)$_POST['new_year'] : 0;
-        if (!$new) {
-            if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-            $_SESSION['flash'] = 'Invalid new year';
-        } else {
-            // only allow rename if no votes for the old year and new year not already present
-            // check for competition_year column before counting votes
-            $hasCol = $mysqli->query("SHOW COLUMNS FROM votes LIKE 'competition_year'")->fetch_all(MYSQLI_ASSOC);
-            if ($hasCol) {
-                $countRow = $mysqli->query("SELECT COUNT(*) AS c FROM votes WHERE competition_year = " . (int)$year)->fetch_assoc();
-                $c = $countRow ? (int)$countRow['c'] : 0;
-            } else {
-                $c = 0;
-            }
-            $exists = $mysqli->query("SELECT 1 FROM competitions WHERE year = " . (int)$new)->fetch_assoc();
-            if ($c > 0) {
-                if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-                $_SESSION['flash'] = 'Cannot rename year ' . $year . ' because there are ' . $c . ' votes for it.';
-            } elseif ($exists) {
-                if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-                $_SESSION['flash'] = 'Target year ' . $new . ' already exists.';
-            } else {
-                $stmt = $mysqli->prepare("UPDATE competitions SET year = ? WHERE year = ?");
-                if ($stmt) { $stmt->bind_param('ii', $new, $year); $stmt->execute(); }
-                // if it was active, update active setting
-                $active = get_active_year();
-                if ((int)$active === (int)$year) {
-                    $stmt2 = $mysqli->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('active_year', ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
-                    if ($stmt2) { $val=(string)$new; $stmt2->bind_param('s',$val); $stmt2->execute(); }
-                }
-                if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-                $_SESSION['flash'] = 'Renamed ' . $year . ' to ' . $new;
-            }
+            $_SESSION['flash'] = 'Deleted competition starting ' . ($startDate ? $startDate->format('Y-m-d') : 'unknown');
         }
     }
 } catch (mysqli_sql_exception $e) {

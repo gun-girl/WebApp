@@ -179,4 +179,12 @@ return [
     , 'documentaries' => 'Documentaries'
     , 'voted_titles' => 'Voted Titles'
     , 'create_set_next_year' => 'Create & set next year'
+    , 'start_competition_flow' => 'New competition'
+    , 'competition_name_label' => 'Name'
+    , 'competition_start_label' => 'Start'
+    , 'competition_end_label' => 'End'
+    , 'create_competition_action' => 'Create competition'
+    , 'competition_placeholder' => 'Competition'
+    , 'active_badge' => 'Active'
+    , 'set_active_competition' => 'Set active competition'
 ];
