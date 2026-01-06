@@ -51,7 +51,7 @@ return [
     'create_account' => 'Crea account',
     'invalid_credentials' => 'Email o password non validi',
     'forgot_password' => 'Password dimenticata?',
-    'footer_text' => '© IL DIVANO D\'ORO 2025 — Tutti i diritti riservati.',
+    'footer_text' => '© IL DIVANO D\'ORO — Tutti i diritti riservati.',
     'username' => 'Nome utente',
     'username_placeholder' => 'Scegli un nome utente',
     'already_have_account' => 'Hai già un account?',
@@ -95,9 +95,9 @@ return [
     'all_status' => 'Tutti',
     'filter_in_competition' => 'In Competizione',
     'filter_out_of_competition' => 'Fuori Competizione',
-    'status_detail_in_2025' => 'IN CONCORSO (dal 19 dicembre 2024 al 31 ottobre 2025)',
-    'status_detail_in_2026' => '2026 IN CONCORSO (dal 1 novembre 2025 a fine 2026)',
-    'status_detail_out' => 'FUORI CONCORSO (18 dicembre 2024 e precedenti)',
+    'status_detail_in_2025' => 'IN CONCORSO (nella finestra attiva)',
+    'status_detail_in_2026' => 'IN CONCORSO (nella finestra attiva)',
+    'status_detail_out' => 'FUORI CONCORSO (fuori dalla finestra attiva)',
     'status_detail_all' => 'Tutti i voti indipendentemente dallo stato',
     'your_rating' => 'Il tuo voto',
     'when' => 'Quando',
@@ -108,9 +108,8 @@ return [
     'official_voting_form' => 'Modulo di Voto Ufficiale',
     'competition_status' => 'Stato della competizione',
     'required' => '*',
-    'in_competition' => 'In Competizione (19 Dic 2024 - 31 Ott 2025)',
-    '2026_in_competition' => '2026 In Competizione (1 Nov 2025 - fine 2026)',
-    'out_of_competition' => 'Fuori Competizione (18 Dic 2024 e precedenti)',
+    'in_competition' => 'In Competizione',
+    'out_of_competition' => 'Fuori Competizione',
     'badge_in_competition' => 'In competizione',
     'badge_out_of_competition' => 'Fuori competizione',
     'category' => 'Categoria',
@@ -153,8 +152,8 @@ return [
     , 'season_episode_helper' => 'Per serie/miniserie indica solo la stagione che stai valutando (episodi non necessari).'
     , 'movie_results' => 'Risultati Film'
     , 'raw_votes' => 'Tutti i voti (grezzi)'
-    , 'sheet_movies' => 'Risultati 2024'
-    , 'sheet_raw' => 'Voti 2024'
+    , 'sheet_movies' => 'Risultati'
+    , 'sheet_raw' => 'Voti'
     , 'sheet_votes' => 'Votazioni {year}'
     , 'sheet_results' => 'Risultati {year}'
     , 'sheet_views' => 'Visioni {year}'
@@ -162,7 +161,7 @@ return [
     , 'sheet_judges_comp' => 'Giudici – Solo Concorso'
     , 'sheet_titles' => 'Elenco Titoli'
     , 'sheet_adjectives' => 'Elenco Aggettivi'
-    , 'sheet_finalists_2023' => 'Finalisti 2023'
+    , 'sheet_finalists_2023' => 'Finalisti'
     , 'already_voted_title' => 'Hai già votato'
     , 'already_voted_message' => 'Hai già inviato un voto per %s in questa competizione.'
     , 'already_voted_hint' => 'Puoi modificare il tuo voto finché la competizione non termina.'

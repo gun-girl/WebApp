@@ -98,34 +98,48 @@ try {
 
     } elseif ($action === 'delete') {
         $yearToDelete = $year ?: $yearFromDates;
-        // prevent deletion if votes exist for that year
+        // prevent deletion if votes exist for that year (legacy linkage)
         $hasCol = $mysqli->query("SHOW COLUMNS FROM votes LIKE 'competition_year'")->fetch_all(MYSQLI_ASSOC);
         if ($hasCol && $yearToDelete) {
             $countRow = $mysqli->query("SELECT COUNT(*) AS c FROM votes WHERE competition_year = " . (int)$yearToDelete)->fetch_assoc();
             $c = $countRow ? (int)$countRow['c'] : 0;
         } else {
-            // no competition_year column or no year provided => assume safe delete
             $c = 0;
         }
         if ($c > 0) {
             if (session_status() !== PHP_SESSION_ACTIVE) session_start();
             $_SESSION['flash'] = 'Cannot delete competition for year ' . $yearToDelete . ' because there are ' . $c . ' votes for it.';
         } else {
-            // delete by start date to match new schema
+            // resolve competition id from provided start_date
+            $compIdToDelete = null; $deleteStartStr = null;
             if ($startDate) {
-                $stmt = $mysqli->prepare("DELETE FROM competitions WHERE start = ? LIMIT 1");
-                if ($stmt) { $s = $startDate->format('Y-m-d'); $stmt->bind_param('s',$s); $stmt->execute(); }
+                $deleteStartStr = $startDate->format('Y-m-d');
+                $rowComp = $mysqli->query("SELECT id, start FROM competitions WHERE start = '" . $mysqli->real_escape_string($deleteStartStr) . "' LIMIT 1")->fetch_assoc();
+                if ($rowComp) { $compIdToDelete = (int)$rowComp['id']; }
             }
-            // if it was active, reset active to most recent competition or current calendar year
-            $active = get_active_year();
-            if ($yearToDelete && (int)$active === (int)$yearToDelete) {
-                $row = $mysqli->query("SELECT MAX(start) AS latest_start FROM competitions")->fetch_assoc();
-                $fallback = $row && $row['latest_start'] ? (int)date('Y', strtotime($row['latest_start'])) : (int)date('Y');
-                $stmt2 = $mysqli->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('active_year', ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
-                if ($stmt2) { $val=(string)$fallback; $stmt2->bind_param('s',$val); $stmt2->execute(); }
+            // delete by start date to match new schema
+            if ($deleteStartStr) {
+                $stmt = $mysqli->prepare("DELETE FROM competitions WHERE start = ? LIMIT 1");
+                if ($stmt) { $stmt->bind_param('s',$deleteStartStr); $stmt->execute(); }
+            }
+            // if it was active, reset active to most recent competition and sync legacy year
+            $activeId = function_exists('get_active_competition_id') ? get_active_competition_id() : null;
+            if ($compIdToDelete && $activeId && (int)$activeId === (int)$compIdToDelete) {
+                $row = $mysqli->query("SELECT id, start FROM competitions ORDER BY start DESC LIMIT 1")->fetch_assoc();
+                if ($row) {
+                    $newActiveId = (int)$row['id'];
+                    $fallbackYear = (int)date('Y', strtotime($row['start']));
+                    $stmtId = $mysqli->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('active_competition_id', ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+                    if ($stmtId) { $valId=(string)$newActiveId; $stmtId->bind_param('s',$valId); $stmtId->execute(); }
+                    $stmt2 = $mysqli->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('active_year', ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+                    if ($stmt2) { $val=(string)$fallbackYear; $stmt2->bind_param('s',$val); $stmt2->execute(); }
+                } else {
+                    // No competitions remain, clear active_competition_id
+                    $mysqli->query("DELETE FROM settings WHERE setting_key = 'active_competition_id'");
+                }
             }
             if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-            $_SESSION['flash'] = 'Deleted competition starting ' . ($startDate ? $startDate->format('Y-m-d') : 'unknown');
+            $_SESSION['flash'] = 'Deleted competition starting ' . ($deleteStartStr ?: 'unknown');
         }
     }
 } catch (mysqli_sql_exception $e) {

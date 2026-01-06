@@ -33,28 +33,54 @@ if (!function_exists('verify_csrf')) {
 }
 
 /**
- * Return the active competition year stored in settings table or current year as fallback.
+ * Return the NAME of the active competition.
+ * Prefers settings.active_competition_id -> competitions.name.
+ * Falls back to settings.active_year -> competitions with YEAR(start)=active_year -> name,
+ * otherwise returns "Competition <currentYear>".
  */
-function get_active_year(): int
+function get_active_year(): string
 {
     global $mysqli;
-    // Default to current actual year
-    $nowYear = (int)date('Y');
-    if (!isset($mysqli) || !$mysqli) return $nowYear;
-    // attempt to read from settings table
+    $fallbackName = 'Competition ' . date('Y');
+    if (!isset($mysqli) || !$mysqli) return $fallbackName;
     try {
-        $stmt = $mysqli->prepare("SELECT setting_value FROM settings WHERE setting_key = 'active_year' LIMIT 1");
+        // Prefer active_competition_id lookup
+        $stmt = $mysqli->prepare("SELECT setting_value FROM settings WHERE setting_key = 'active_competition_id' LIMIT 1");
         if ($stmt) {
             $stmt->execute();
-            $res = $stmt->get_result()->fetch_assoc();
-            if ($res && is_numeric($res['setting_value'])) {
-                return (int)$res['setting_value'];
+            $row = $stmt->get_result()->fetch_assoc();
+            if ($row && is_numeric($row['setting_value'])) {
+                $cid = (int)$row['setting_value'];
+                $stmt2 = $mysqli->prepare("SELECT name FROM competitions WHERE id = ? LIMIT 1");
+                if ($stmt2) {
+                    $stmt2->bind_param('i', $cid);
+                    $stmt2->execute();
+                    $r2 = $stmt2->get_result()->fetch_assoc();
+                    if ($r2 && isset($r2['name']) && $r2['name'] !== '') return (string)$r2['name'];
+                }
+            }
+        }
+        // Fallback via active_year to nearest competition name
+        $stmtY = $mysqli->prepare("SELECT setting_value FROM settings WHERE setting_key = 'active_year' LIMIT 1");
+        if ($stmtY) {
+            $stmtY->execute();
+            $rowY = $stmtY->get_result()->fetch_assoc();
+            if ($rowY && is_numeric($rowY['setting_value'])) {
+                $yr = (int)$rowY['setting_value'];
+                $stmt3 = $mysqli->prepare("SELECT name FROM competitions WHERE YEAR(start) = ? ORDER BY start DESC LIMIT 1");
+                if ($stmt3) {
+                    $stmt3->bind_param('i', $yr);
+                    $stmt3->execute();
+                    $r3 = $stmt3->get_result()->fetch_assoc();
+                    if ($r3 && isset($r3['name']) && $r3['name'] !== '') return (string)$r3['name'];
+                }
+                return 'Competition ' . $yr;
             }
         }
     } catch (Exception $e) {
-        // ignore and fall back
+        // ignore
     }
-    return $nowYear;
+    return $fallbackName;
 }
 
 /**
@@ -63,8 +89,9 @@ function get_active_year(): int
  * - Window A: 2024-12-19 to 2025-10-31 (inclusive)
  * - Window B: 2025-11-01 to 2026-12-31 (inclusive)
  */
-function is_in_competition(array $movie, ?int $activeYear = null): bool
+function is_in_competition(array $movie): bool
 {
+    global $mysqli;
     // Normalize a release date from 'released' (YYYY-MM-DD) or fall back to Jan 1 of year
     $releaseDate = null;
     $released = $movie['released'] ?? null;
@@ -79,14 +106,30 @@ function is_in_competition(array $movie, ?int $activeYear = null): bool
 
     if (!$releaseDate) return false;
 
-    // Competition windows
-    $windowAStart = '2024-12-19';
-    $windowAEnd   = '2025-10-31';
-    $windowBStart = '2025-11-01';
-    $windowBEnd   = '2026-12-31';
+    // Read active competition window from DB
+    $start = null; $end = null;
+    try {
+        $cid = get_active_competition_id();
+        if ($cid) {
+            $stmt = $mysqli->prepare("SELECT start, `end` FROM competitions WHERE id = ? LIMIT 1");
+            if ($stmt) {
+                $stmt->bind_param('i', $cid);
+                $stmt->execute();
+                $row = $stmt->get_result()->fetch_assoc();
+                if ($row && !empty($row['start']) && !empty($row['end'])) { $start = $row['start']; $end = $row['end']; }
+            }
+        }
+        // Fallback: latest competition
+        if (!$start || !$end) {
+            $row2 = $mysqli->query("SELECT start, `end` FROM competitions ORDER BY start DESC LIMIT 1")->fetch_assoc();
+            if ($row2 && !empty($row2['start']) && !empty($row2['end'])) { $start = $row2['start']; $end = $row2['end']; }
+        }
+    } catch (Exception $e) {
+        // ignore
+    }
 
-    return ($releaseDate >= $windowAStart && $releaseDate <= $windowAEnd)
-        || ($releaseDate >= $windowBStart && $releaseDate <= $windowBEnd);
+    if (!$start || !$end) return false;
+    return ($releaseDate >= $start && $releaseDate <= $end);
 }
 
 /**
@@ -94,7 +137,7 @@ function is_in_competition(array $movie, ?int $activeYear = null): bool
  */
 function competition_badge_key(array $movie, ?int $activeYear = null): string
 {
-    return is_in_competition($movie, $activeYear) ? 'badge_in_competition' : 'badge_out_of_competition';
+    return is_in_competition($movie) ? 'badge_in_competition' : 'badge_out_of_competition';
 }
 
 /** Read a setting value from the settings table (or return default). */

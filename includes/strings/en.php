@@ -23,7 +23,7 @@ return [
     'create_account' => 'Create account',
     'invalid_credentials' => 'Invalid email or password',
     'forgot_password' => 'Forgot Password?',
-    'footer_text' => '© IL DIVANO D\'ORO 2025 — All rights reserved.',
+    'footer_text' => '© IL DIVANO D\'ORO — All rights reserved.',
     'username' => 'Username',
     'username_placeholder' => 'Choose a username',
     'already_have_account' => 'Already have an account?',
@@ -95,9 +95,9 @@ return [
     'all_status' => 'All',
     'filter_in_competition' => 'In Competition',
     'filter_out_of_competition' => 'Out of Competition',
-    'status_detail_in_2025' => 'IN COMPETITION (Dec 19, 2024 - Oct 31, 2025)',
-    'status_detail_in_2026' => '2026 IN COMPETITION (Nov 1, 2025 - end 2026)',
-    'status_detail_out' => 'OUT OF COMPETITION (Dec 18, 2024 and earlier)',
+    'status_detail_in_2025' => 'IN COMPETITION (within the active window)',
+    'status_detail_in_2026' => 'IN COMPETITION (within the active window)',
+    'status_detail_out' => 'OUT OF COMPETITION (outside the active window)',
     'status_detail_all' => 'All votes regardless of competition status',
     'your_rating' => 'Your Rating',
     'when' => 'When',
@@ -108,9 +108,8 @@ return [
     'official_voting_form' => 'Official Voting Form',
     'competition_status' => 'Competition Status',
     'required' => '*',
-    'in_competition' => 'In Competition (Dec 19, 2024 - Oct 31, 2025)',
-    '2026_in_competition' => '2026 In Competition (Nov 1, 2025 - end 2026)',
-    'out_of_competition' => 'Out of Competition (Dec 18, 2024 and earlier)',
+    'in_competition' => 'In Competition',
+    'out_of_competition' => 'Out of Competition',
     'badge_in_competition' => 'In competition',
     'badge_out_of_competition' => 'Out of competition',
     'category' => 'Category',
@@ -147,7 +146,7 @@ return [
     'sheet_judges_comp' => 'Judges – Competition Only',
     'sheet_titles' => 'Title List',
     'sheet_adjectives' => 'Adjective List',
-    'sheet_finalists_2023' => 'Finalists 2023',
+    'sheet_finalists_2023' => 'Finalists',
     'raw_votes' => 'Raw Votes',
     'top_voted' => 'Top Voted on Divano d\'Oro',
     'imdb_top_week_note' => 'Top 10 in competition from IMDb this week'
@@ -163,8 +162,8 @@ return [
     , 'season_episode_helper' => 'For series/miniseries, enter the season you are rating (episodes not needed).'
     , 'movie_results' => 'Movie Results'
     , 'raw_votes' => 'All Votes (raw)'
-    , 'sheet_movies' => 'Results 2024'
-    , 'sheet_raw' => 'Votes 2024'
+    , 'sheet_movies' => 'Results'
+    , 'sheet_raw' => 'Votes'
     , 'already_voted_title' => "You've Already Voted"
     , 'already_voted_message' => 'You have already submitted a vote for %s in this competition.'
     , 'already_voted_hint' => 'You can edit your vote until the competition ends.'

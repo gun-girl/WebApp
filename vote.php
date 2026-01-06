@@ -5,8 +5,35 @@ require_once __DIR__.'/includes/omdb.php';
 require_login();
 
 $user = current_user();
-// Determine competition year early (before any queries use it)
-$active_year = function_exists('get_active_year') ? get_active_year() : (int)date('Y');
+// Resolve active competition (id, window, and year) from DB
+$active_comp_id = function_exists('get_active_competition_id') ? get_active_competition_id() : null;
+$active_window_start = null; $active_window_end = null; $active_year = (int)date('Y');
+try {
+  if ($active_comp_id) {
+    $stmtC = $mysqli->prepare("SELECT start, `end` FROM competitions WHERE id = ? LIMIT 1");
+    if ($stmtC) {
+      $stmtC->bind_param('i', $active_comp_id);
+      $stmtC->execute();
+      $rowC = $stmtC->get_result()->fetch_assoc();
+      if ($rowC) {
+        $active_window_start = $rowC['start'];
+        $active_window_end = $rowC['end'];
+        $active_year = (int)date('Y', strtotime($active_window_start));
+      }
+    }
+  }
+  if (!$active_window_start || !$active_window_end) {
+    // fallback: latest competition
+    $rowF = $mysqli->query("SELECT start, `end` FROM competitions ORDER BY start DESC LIMIT 1")->fetch_assoc();
+    if ($rowF) {
+      $active_window_start = $rowF['start'];
+      $active_window_end = $rowF['end'];
+      $active_year = (int)date('Y', strtotime($rowF['start']));
+    }
+  }
+} catch (Throwable $e) {
+  // keep defaults
+}
 // Detect whether the votes table already has competition_year column (backwards compatibility)
 $hasCompetitionYear = false;
 $hasVoteValue = false;
@@ -206,7 +233,7 @@ if ($url_season && in_array($movie['type'], ['series', 'miniseries']) && !empty(
   error_log("[VOTE DEBUG] Final seasonReleaseDate: " . ($seasonReleaseDate ?? 'NULL'));
 }
 
-// Auto-determine competition status based on release date windows
+// Auto-determine competition status based on the active competition window from DB
 $auto_competition_status = 'Out of Competition';
 // Use season-specific date if available, otherwise use movie's general release date
 $releaseDate = $seasonReleaseDate ?? ($movie['released'] ?? null);
@@ -220,22 +247,11 @@ if (!$releaseDate || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $releaseDate)) {
   }
 }
 
-if ($releaseDate) {
-  $windowAStart = '2024-12-19';
-  $windowAEnd   = '2025-10-31';
-  $windowBStart = '2025-11-01';
-  $windowBEnd   = '2026-12-31';
-  
-  error_log("[VOTE DEBUG] Checking date $releaseDate against windows");
-  error_log("[VOTE DEBUG] Window A: $windowAStart to $windowAEnd");
-  error_log("[VOTE DEBUG] Window B: $windowBStart to $windowBEnd");
-  
-  if ($releaseDate >= $windowAStart && $releaseDate <= $windowAEnd) {
+if ($releaseDate && $active_window_start && $active_window_end) {
+  error_log("[VOTE DEBUG] Checking date $releaseDate against active window $active_window_start to $active_window_end");
+  if ($releaseDate >= $active_window_start && $releaseDate <= $active_window_end) {
     $auto_competition_status = 'In Competition';
     error_log("[VOTE DEBUG] Result: In Competition");
-  } elseif ($releaseDate >= $windowBStart && $releaseDate <= $windowBEnd) {
-    $auto_competition_status = '2026 In Competition';
-    error_log("[VOTE DEBUG] Result: 2026 In Competition");
   } else {
     error_log("[VOTE DEBUG] Result: Out of Competition");
   }
@@ -498,8 +514,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <?php
             if ($comp_status === 'In Competition') {
               echo t('in_competition');
-            } elseif ($comp_status === '2026 In Competition') {
-              echo t('2026_in_competition');
             } else {
               echo t('out_of_competition');
             }
@@ -512,7 +526,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <label for="category"><?= t('category') ?> <span class="required"><?= t('required') ?></span></label>
         <select name="category" id="category" required>
           <option value=""><?= t('choose') ?></option>
-          <?php $catVal = $old('category', $existing_vote['category'] ?? ''); ?>
+          <?php
+            // Derive a sensible default category from the movie type when creating a new vote
+            $derivedCategory = '';
+            if (empty($existing_vote)) {
+              $typeMap = [
+                'movie' => 'Film',
+                'film' => 'Film',
+                'series' => 'Series',
+                'miniseries' => 'Miniseries',
+                'documentary' => 'Documentary',
+                'animation' => 'Animation',
+                'anime' => 'Animation',
+              ];
+              $mt = strtolower($movie['type'] ?? '');
+              if (isset($typeMap[$mt])) { $derivedCategory = $typeMap[$mt]; }
+            }
+            $catVal = $old('category', $existing_vote['category'] ?? ($derivedCategory ?: ''));
+          ?>
           <option value="Film" <?= $catVal === 'Film' ? 'selected' : '' ?>><?= t('film') ?></option>
           <option value="Series" <?= $catVal === 'Series' ? 'selected' : '' ?>><?= t('series') ?></option>
           <option value="Miniseries" <?= $catVal === 'Miniseries' ? 'selected' : '' ?>><?= t('miniseries') ?></option>

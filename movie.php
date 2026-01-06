@@ -14,16 +14,10 @@ if ($movieId <= 0) {
 }
 
 $stmt = $mysqli->prepare(
-    "SELECT m.*,
-            (SELECT vd.competition_status
-             FROM vote_details vd
-             JOIN votes v2 ON vd.vote_id = v2.id
-             WHERE v2.movie_id = m.id
-             ORDER BY vd.competition_status IS NULL ASC, v2.id DESC
-             LIMIT 1) AS competition_status
-     FROM movies m
-     WHERE m.id = ?
-     LIMIT 1"
+  "SELECT m.*
+   FROM movies m
+   WHERE m.id = ?
+   LIMIT 1"
 );
 $stmt->bind_param('i', $movieId);
 $stmt->execute();
@@ -56,10 +50,8 @@ if (!$isReleased) {
 $currentUser = current_user();
 $canAdmin = $currentUser && (($currentUser['role'] ?? 'user') === 'admin');
 
-$currentStatus = $movie['competition_status'] ?? null;
-if (!$currentStatus) {
-    $currentStatus = is_in_competition($movie) ? 'In Competition' : 'Out of Competition';
-}
+// Always compute status dynamically from active competition window
+$currentStatus = is_in_competition($movie) ? 'In Competition' : 'Out of Competition';
 
 $yearLabel = ($movie['type'] === 'series' && !empty($movie['start_year']))
     ? htmlspecialchars($movie['start_year']) . ((!empty($movie['end_year']) && $movie['end_year'] != $movie['start_year']) ? ' - ' . htmlspecialchars($movie['end_year']) : '')
@@ -72,9 +64,8 @@ if (!$poster || $poster === 'N/A') {
 
 // Map status to label
 function status_label(string $status): string {
-    if ($status === 'In Competition') return t('in_competition');
-    if ($status === '2026 In Competition') return t('2026_in_competition');
-    return t('out_of_competition');
+  if ($status === 'In Competition') return t('in_competition');
+  return t('out_of_competition');
 }
 
 include __DIR__ . '/includes/header.php';
@@ -86,7 +77,7 @@ include __DIR__ . '/includes/header.php';
   .badge { display:inline-block; padding:0.35rem 0.7rem; border-radius:999px; font-weight:700; font-size:0.9rem; }
   .badge.in { background:#1f6b3b; color:#d2ffd2; }
   .badge.out { background:#5a1f1f; color:#ffd6d6; }
-  .badge.y2026 { background:#2f3d75; color:#d6e3ff; }
+  /* removed legacy 2026-specific badge */
   .admin-panel { margin-top:1.5rem; padding:1rem; border:1px solid #444; border-radius:8px; background:#0b0b0b; }
   .admin-panel h3 { margin-top:0; color:#f6c90e; }
   .btn { display:inline-block; padding:0.65rem 1.2rem; border:none; border-radius:6px; cursor:pointer; font-weight:700; }
@@ -110,9 +101,7 @@ include __DIR__ . '/includes/header.php';
       <?php endif; ?>
       <div style="margin:0.5rem 0 1rem 0;">
         <?php
-          $cls = 'out';
-          if ($currentStatus === 'In Competition') { $cls = 'in'; }
-          elseif ($currentStatus === '2026 In Competition') { $cls = 'y2026'; }
+          $cls = ($currentStatus === 'In Competition') ? 'in' : 'out';
         ?>
         <span id="compStatusBadge" class="badge <?= $cls ?>"><?= status_label($currentStatus) ?></span>
       </div>
@@ -129,10 +118,9 @@ include __DIR__ . '/includes/header.php';
       <div style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:center;">
         <select id="adminCompStatus" style="padding:0.5rem; border-radius:6px; border:1px solid #555; background:#1a1a1a; color:#fff; min-width:200px;">
           <option value="In Competition" <?= $currentStatus === 'In Competition' ? 'selected' : '' ?>>In Competition</option>
-          <option value="2026 In Competition" <?= $currentStatus === '2026 In Competition' ? 'selected' : '' ?>>2026 In Competition</option>
           <option value="Out of Competition" <?= $currentStatus === 'Out of Competition' ? 'selected' : '' ?>>Out of Competition</option>
         </select>
-        <button class="btn btn-primary" onclick="saveAdminCompStatus()">Save</button>
+        <button class="btn btn-primary" onclick="saveAdminCompStatus()"><?= t('save_changes') ?></button>
         <span id="adminStatusMessage" style="color:#aaa;"></span>
       </div>
     </div>
@@ -180,13 +168,11 @@ include __DIR__ . '/includes/header.php';
 
   function statusLabel(status) {
     if (status === 'In Competition') return '<?= t('in_competition') ?>';
-    if (status === '2026 In Competition') return '<?= t('2026_in_competition') ?>';
     return '<?= t('out_of_competition') ?>';
   }
 
   function statusClass(status) {
     if (status === 'In Competition') return 'badge in';
-    if (status === '2026 In Competition') return 'badge y2026';
     return 'badge out';
   }
 </script>
