@@ -27,11 +27,11 @@ $calendar_year = (int)date('Y');
 <?php $show_search = !in_array(basename($_SERVER['PHP_SELF']), ['login.php','register.php']); ?>
 <header>
   <!-- Global header -->
-  <div class="header-logo">
-    <img src="<?= ADDRESS ?>/assets/img/logo.png" alt="<?= e(t('site_title')) ?>" onerror="this.onerror=null;this.src=ADDRESS.'/assets/img/no-poster.svg';">
+  <a class="header-logo" href="<?= ADDRESS ?>/index.php" aria-label="<?= e(t('home')) ?>" style="text-decoration: none;">
+    <img src="<?= ADDRESS ?>/assets/img/logo.png" alt="<?= e(t('site_title')) ?>" onerror="this.onerror=null;this.src='<?= ADDRESS ?>/assets/img/no-poster.svg';">
     <span class="logo-text logo-text-desktop">DIVANO D'ORO</span>
-  </div>
-  <span class="logo-text logo-text-mobile">DIVANO D'ORO</span>
+  </a>
+  <a class="logo-text logo-text-mobile" href="<?= ADDRESS ?>/index.php" aria-label="<?= e(t('home')) ?>" style="text-decoration: none;">DIVANO D'ORO</a>
   <?php if ($show_search): ?>
     <div class="header-center">
       <form class="global-search" method="get" action="<?= ADDRESS ?>/index.php">

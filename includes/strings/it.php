@@ -140,7 +140,7 @@ return [
     'release_year' => 'Anno di uscita'
     , 'in_competition_section' => 'In Competizione'
     , 'top_voted' => 'Più votati su Divano d\'oro'
-    , 'imdb_top_week_note' => 'Top 10 in competizione su imdb questa settimana'
+    , 'imdb_top_week_note' => 'Top 10 in competizione da IMDb questa settimana'
     , 'in_theatres' => 'Al Cinema'
     , 'recently_added' => 'Aggiunti di recente'
     , 'season' => 'Stagione'

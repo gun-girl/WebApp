@@ -4,9 +4,10 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/lang.php';
 require_login();
 
-// Set aggressive caching headers for search results
-header('Cache-Control: public, max-age=604800'); // Cache for 7 days
-header('Expires: ' . gmdate('D, d M Y H:i:s', time() + 604800) . ' GMT');
+// Prevent caching so the login check always runs on protected pages
+header('Cache-Control: no-store, no-cache, must-revalidate, private');
+header('Pragma: no-cache');
+header('Expires: 0');
 
 require_once __DIR__ . '/includes/omdb.php';
 require_once __DIR__ . '/includes/helper.php';
