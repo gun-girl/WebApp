@@ -290,12 +290,13 @@ if ($sheet === 'lists') {
     }
   }
 
-  // Most viewed: ordered by view count
+  // Most viewed: ordered by view count (filter by vote date, not movie release date)
   $viewsSql = "SELECT m.id, m.title, m.year, m.poster_url, vd.season_number, COUNT(v.id) AS views
                FROM movies m
                JOIN votes v ON v.movie_id = m.id
                LEFT JOIN vote_details vd ON vd.vote_id = v.id
-               " . $whereWindowClause . $statusCondVd . "
+               WHERE v.created_at >= '" . $mysqli->real_escape_string($windowStart . ' 00:00:00') . "' 
+                 AND v.created_at <= '" . $mysqli->real_escape_string($windowEnd . ' 23:59:59') . "'" . $statusCondVd . "
                GROUP BY m.id, vd.season_number
                ORDER BY views DESC, m.title ASC
                LIMIT 25";
