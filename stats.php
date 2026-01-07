@@ -307,7 +307,8 @@ if ($sheet === 'lists') {
                 JOIN users u ON u.id = v.user_id
                 JOIN movies m ON m.id = v.movie_id
                 LEFT JOIN vote_details vd ON vd.vote_id = v.id
-                " . $whereWindowClause . $statusCondVd . "
+                WHERE v.created_at >= '" . $mysqli->real_escape_string($windowStart . ' 00:00:00') . "' 
+                  AND v.created_at <= '" . $mysqli->real_escape_string($windowEnd . ' 23:59:59') . "'" . $statusCondVd . "
                 GROUP BY u.id, u.username
                 ORDER BY votes_count DESC, u.username ASC";
   $judgesRows = $mysqli->query($judgesSql)->fetch_all(MYSQLI_ASSOC);
@@ -322,7 +323,9 @@ if ($sheet === 'lists') {
                   FROM votes v
                   JOIN movies m ON m.id = v.movie_id
                   LEFT JOIN vote_details vd ON vd.vote_id = v.id
-            WHERE v.user_id = ? " . $andWindowClause . $statusCondVd . "
+            WHERE v.user_id = ? 
+              AND v.created_at >= '" . $mysqli->real_escape_string($windowStart . ' 00:00:00') . "' 
+              AND v.created_at <= '" . $mysqli->real_escape_string($windowEnd . ' 23:59:59') . "'" . $statusCondVd . "
                   ORDER BY rating DESC, m.title ASC";
     $stmt = $mysqli->prepare($titlesSql);
     $stmt->bind_param('i', $jurorId);
