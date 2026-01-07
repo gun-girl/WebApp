@@ -186,16 +186,28 @@ $ratingExprGlobal = $numExprGlobal ? "($numExprGlobal)" : 'NULL';
 
 // COMPACT LISTS sheet (mobile-friendly dropdown lists)
 if ($sheet === 'lists') {
-  // Type-to-category mapping (same as in vote.php)
-  $typeMap = [
-    'movie' => 'Film',
-    'film' => 'Film',
-    'series' => 'Series',
-    'miniseries' => 'Miniseries',
-    'documentary' => 'Documentary',
-    'animation' => 'Animation',
-    'anime' => 'Animation',
-  ];
+  // Load category-to-type mappings from database
+  $typeMap = [];
+  try {
+    $catResult = $mysqli->query("SELECT category, type FROM category_types ORDER BY category ASC");
+    if ($catResult) {
+      $catRows = $catResult->fetch_all(MYSQLI_ASSOC);
+      foreach ($catRows as $row) {
+        $typeMap[strtolower($row['type'])] = $row['category'];
+      }
+    }
+  } catch (Throwable $e) {
+    // Fallback to hardcoded if query fails
+    $typeMap = [
+      'movie' => 'Film',
+      'film' => 'Film',
+      'series' => 'Series',
+      'miniseries' => 'Miniseries',
+      'documentary' => 'Documentary',
+      'animation' => 'Animation',
+      'anime' => 'Animation',
+    ];
+  }
   
   // Helper function to build a type filter (filters by m.type, not by hardcoded categories)
   $buildTypeFilter = function($movieTypes) use ($whereWindowClause, $statusCondVd) {

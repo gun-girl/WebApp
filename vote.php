@@ -527,9 +527,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <select name="category" id="category" required>
           <option value=""><?= t('choose') ?></option>
           <?php
-            // Derive a sensible default category from the movie type when creating a new vote
+            // Load category-to-type mappings from database and derive default category from movie type
             $derivedCategory = '';
-            if (empty($existing_vote)) {
+            $typeMap = [];
+            try {
+              $catResult = $mysqli->query("SELECT category, type FROM category_types ORDER BY category ASC");
+              if ($catResult) {
+                $catRows = $catResult->fetch_all(MYSQLI_ASSOC);
+                foreach ($catRows as $row) {
+                  $typeMap[strtolower($row['type'])] = $row['category'];
+                }
+              }
+            } catch (Throwable $e) {
+              // Fallback to hardcoded if query fails
               $typeMap = [
                 'movie' => 'Film',
                 'film' => 'Film',
@@ -539,6 +549,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'animation' => 'Animation',
                 'anime' => 'Animation',
               ];
+            }
+            if (empty($existing_vote)) {
               $mt = strtolower($movie['type'] ?? '');
               if (isset($typeMap[$mt])) { $derivedCategory = $typeMap[$mt]; }
             }
