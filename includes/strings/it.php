@@ -139,7 +139,7 @@ return [
     'release_year' => 'Anno di uscita'
     , 'in_competition_section' => 'In Competizione'
     , 'top_voted' => 'Più votati su DIVANO D\'ORO'
-    , 'imdb_top_week_note' => 'Top 10 in competizione da IMDb questa settimana'
+    , 'imdb_top_week_note' => 'Top 10 da IMDb questa settimana'
     , 'in_theatres' => 'Al Cinema'
     , 'recently_added' => 'Aggiunti di recente'
     , 'season' => 'Stagione'
