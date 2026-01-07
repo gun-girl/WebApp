@@ -47,4 +47,35 @@
   </nav>
 </footer>
 <?php endif; ?>
+<script>
+  // Initialize starfield effect with slower and subtler settings
+  (function() {
+    if (typeof Starfield === 'undefined') {
+      console.error('Starfield library not loaded');
+      return;
+    }
+    
+    try {
+      Starfield.setup({
+        numStars: 150,              // Fewer stars for subtlety
+        baseSpeed: 0.3,             // Much slower base speed
+        trailLength: 0.9,           // Longer trails for smoother effect
+        starColor: 'rgb(200, 200, 220)',  // Subtle bluish-white stars
+        canvasColor: 'rgb(0, 0, 0)',
+        hueJitter: 10,              // Slight color variation
+        maxAcceleration: 3,         // Lower max acceleration
+        accelerationRate: 0.03,     // Much slower acceleration
+        decelerationRate: 0.03,     // Much slower deceleration
+        minSpawnRadius: 100,
+        maxSpawnRadius: 600,
+        auto: false,                // Manual mode - no hover effects
+        originX: null,              // Center of screen
+        originY: null
+      });
+      console.log('Starfield initialized successfully');
+    } catch (error) {
+      console.error('Error initializing starfield:', error);
+    }
+  })();
+</script>
 </body></html>

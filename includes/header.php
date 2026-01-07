@@ -17,6 +17,8 @@ $calendar_year = (int)date('Y');
 <link rel="apple-touch-icon" href="<?= ADDRESS ?>/assets/img/logo.png">
 <?php $cssPath = __DIR__ . '/../assets/css/style.css'; $cssVer = @filemtime($cssPath) ?: time(); ?>
 <link rel="stylesheet" href="<?= ADDRESS ?>/assets/css/style.css?v=<?= $cssVer ?>">
+<?php $starfieldPath = __DIR__ . '/../assets/js/starfield.js'; $starfieldVer = @filemtime($starfieldPath) ?: time(); ?>
+<script src="<?= ADDRESS ?>/assets/js/starfield.js?v=<?= $starfieldVer ?>"></script>
 </head>
 <?php
   $bodyClasses = [];
@@ -24,6 +26,9 @@ $calendar_year = (int)date('Y');
   if (function_exists('current_user') && current_user()) { $bodyClasses[] = 'logged-in'; }
 ?>
 <body class="<?= e(implode(' ', $bodyClasses)) ?>">
+<div class="starfield">
+  <div class="starfield-origin" style="display: none;"></div>
+</div>
 <?php $show_search = !in_array(basename($_SERVER['PHP_SELF']), ['login.php','register.php']); ?>
 <header>
   <!-- Global header -->

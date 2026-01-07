@@ -1,8 +1,8 @@
 :root{--gap:1rem;--bg:#111;--fg:#f5f5f5;--card:#1b1b1b;--accent:#ffc107;--accent-hover:#e0a800}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font-family:'Futura LT BT','Futura','Trebuchet MS',system-ui,sans-serif}
+body{margin:0;background:black;color:var(--fg);font-family:'Futura LT BT','Futura','Trebuchet MS',system-ui,sans-serif}
 header{max-width:none;width:100%;margin:0;padding:1rem 6rem 1rem 2rem;box-sizing:border-box}
-main,footer{max-width:1200px;margin:auto;padding:1rem}
+main,footer{max-width:1200px;margin:auto}
 nav a{color:#9ad;margin-right:.5rem;text-decoration:none}
 nav a:hover{color:#bce}
 form.search{margin:.5rem 0;display:flex;gap:.5rem}
@@ -60,12 +60,40 @@ button:hover{background:var(--accent-hover)}
 
 /* === Moved from header.php inline styles (2025-11-16) === */
 * { box-sizing: border-box; margin: 0; padding: 0; }
-	body {
+html, body {
+	height: 100%;
+	width: 100%;
+}
+body {
 	font-family: 'Futura LT BT','Futura','Trebuchet MS',system-ui,sans-serif;
-	background: radial-gradient(circle at top, #0c0c0c, #000);
+	background: black;
 	color: #eee;
 	min-height: 100vh;
+	position: relative;
+	z-index: 1;
 }
+
+/* Starfield background */
+.starfield {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100vw;
+	height: 100vh;
+	z-index: -1;
+	pointer-events: none;
+	background: #000;
+}
+.starfield-origin {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 1px;
+	height: 1px;
+	opacity: 0;
+	pointer-events: none;
+}
+
 header {
 	background: rgba(0,0,0,0.8);
 	backdrop-filter: blur(8px); 
@@ -165,7 +193,14 @@ nav a:hover { color: #f6c90e; }
 .lang-option.active { background: rgba(246,201,14,.2); color: #f6c90e; font-weight: 600; }
 .hello-only { display: none; }
 .badge-admin { display: none; }
-main { padding-top: 110px; }
+main { 
+	width: 100%;
+	padding-top: 110px;   
+	position: absolute;
+	top: 0;
+	left: 50%;
+	transform: translate(-50%);
+}
 
 /* Increase padding on mobile to account for browser chrome */
 @media (max-width: 640px) {
@@ -184,6 +219,11 @@ main { padding-top: 110px; }
 	.auth-shell{padding:1.5rem;}
 	.auth-card,.login-box,.register-box{width:100%;padding:2rem 1.5rem;box-shadow:0 10px 32px rgba(0,0,0,.45);}
 	.auth-card button[type="submit"],.login-box button[type="submit"],.register-box button[type="submit"]{font-size:1rem;padding:.9rem 1.5rem;}
+}
+
+
+@media (max-width: 600px) {
+	main { padding-top: 80px; padding-left: .75rem; padding-right: .75rem; }
 }
 
 
