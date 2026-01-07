@@ -1110,8 +1110,21 @@ if ($sheet === 'views') {
     // Per-vote total for averaging across views/platforms
     $ratingExpr = $numExpr ? "($numExpr)" : 'NULL';
 
-    // Summary counts per category
-    $categories = ['Film','Serie','Miniserie','Documentario','Animazione'];
+    // Load category names from database
+    $categories = [];
+    try {
+      $catResult = $mysqli->query("SELECT DISTINCT category FROM category_types ORDER BY category ASC");
+      if ($catResult) {
+        $catRows = $catResult->fetch_all(MYSQLI_ASSOC);
+        foreach ($catRows as $row) {
+          $categories[] = $row['category'];
+        }
+      }
+    } catch (Throwable $e) {
+      // Fallback to hardcoded if query fails
+      $categories = ['Film','Series','Miniseries','Documentary','Animation'];
+    }
+    
     $summary = [];
     foreach ($categories as $cat) {
         $catEsc = $mysqli->real_escape_string($cat);
