@@ -527,7 +527,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <select name="category" id="category" required>
           <option value=""><?= t('choose') ?></option>
           <?php
-            // Load category-to-type mappings from database and derive default category from movie type
+            // Load all category-to-type mappings from database
+            $allCategories = [];
             $derivedCategory = '';
             $typeMap = [];
             try {
@@ -535,11 +536,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               if ($catResult) {
                 $catRows = $catResult->fetch_all(MYSQLI_ASSOC);
                 foreach ($catRows as $row) {
+                  $allCategories[] = $row['category'];
                   $typeMap[strtolower($row['type'])] = $row['category'];
                 }
               }
             } catch (Throwable $e) {
               // Fallback to hardcoded if query fails
+              $allCategories = ['Film', 'Series', 'Miniseries', 'Documentary', 'Animation'];
               $typeMap = [
                 'movie' => 'Film',
                 'film' => 'Film',
@@ -550,17 +553,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'anime' => 'Animation',
               ];
             }
+            // Derive default category from movie type
             if (empty($existing_vote)) {
               $mt = strtolower($movie['type'] ?? '');
               if (isset($typeMap[$mt])) { $derivedCategory = $typeMap[$mt]; }
             }
             $catVal = $old('category', $existing_vote['category'] ?? ($derivedCategory ?: ''));
+            
+            // Render all categories dynamically
+            foreach ($allCategories as $cat): ?>
+              <option value="<?= htmlspecialchars($cat) ?>" <?= $catVal === $cat ? 'selected' : '' ?>><?= htmlspecialchars($cat) ?></option>
+            <?php endforeach;
           ?>
-          <option value="Film" <?= $catVal === 'Film' ? 'selected' : '' ?>><?= t('film') ?></option>
-          <option value="Series" <?= $catVal === 'Series' ? 'selected' : '' ?>><?= t('series') ?></option>
-          <option value="Miniseries" <?= $catVal === 'Miniseries' ? 'selected' : '' ?>><?= t('miniseries') ?></option>
-          <option value="Documentary" <?= $catVal === 'Documentary' ? 'selected' : '' ?>><?= t('documentary') ?></option>
-          <option value="Animation" <?= $catVal === 'Animation' ? 'selected' : '' ?>><?= t('animation') ?></option>
         </select>
         <?php if (isset($errorFields['category'])): ?><p class="error-hint"><?= htmlspecialchars($errorFields['category']) ?></p><?php endif; ?>
       </div>

@@ -37,7 +37,14 @@ class OmdbApiClient {
       $startYear = $year;
     }
 
-    $type = $m['Type'] ?? $typeHint;
+    // Determine type: Check Genre field for Animation, then fall back to OMDB Type
+    $type = $typeHint;
+    $genres = isset($m['Genre']) ? $m['Genre'] : '';
+    if (stripos($genres, 'Animation') !== false) {
+      $type = 'animation';
+    } elseif (!empty($m['Type'])) {
+      $type = $m['Type'];
+    }
     $poster = $m['Poster'] ?? null;
     $releasedYmd = null;
     $totalSeasons = null;

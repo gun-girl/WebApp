@@ -79,6 +79,8 @@ $competitionLabel = $activeCompName !== '' ? $activeCompName : (string)$viewYear
 $selected_year = $viewYearInt;
 // Selected competition status filter ('all', 'in', 'out')
 $selected_status = isset($_GET['status']) ? $_GET['status'] : 'all';
+// Date scope for filtering: 'release' (movie release date) or 'votes' (vote created_at)
+$selected_scope = isset($_GET['scope']) && in_array($_GET['scope'], ['release','votes'], true) ? $_GET['scope'] : 'release';
 // Build list of available years - default to the active competition's start year (legacy)
 $years = [$viewYearInt];
 // Tab labels in the order matching the workbook
@@ -105,8 +107,14 @@ $tabs = [
       <option value="in" <?= $selected_status === 'in' ? 'selected' : '' ?>><?= e(t('filter_in_competition')) ?></option>
       <option value="out" <?= $selected_status === 'out' ? 'selected' : '' ?>><?= e(t('filter_out_of_competition')) ?></option>
     </select>
+
+    <label for="scopeSelect" class="year-selector-label" style="margin-left:12px;">Filter by:</label>
+    <select id="scopeSelect" name="scope" class="year-selector-select">
+      <option value="release" <?= $selected_scope === 'release' ? 'selected' : '' ?>>Releases</option>
+      <option value="votes" <?= $selected_scope === 'votes' ? 'selected' : '' ?>>Votes</option>
+    </select>
     <?php // Preserve other GET params (sheet, lang, etc.) when switching status ?>
-    <?php foreach ($_GET as $k=>$v): if ($k === 'status') continue; if (is_array($v)) continue; ?>
+    <?php foreach ($_GET as $k=>$v): if ($k === 'status' || $k === 'scope') continue; if (is_array($v)) continue; ?>
       <input type="hidden" name="<?= htmlspecialchars($k) ?>" value="<?= htmlspecialchars($v) ?>">
     <?php endforeach; ?>
   </form>
@@ -130,6 +138,8 @@ $tabs = [
   (function(){
     var statusSel = document.getElementById('statusSelect');
     if (statusSel) statusSel.addEventListener('change', function(){ document.getElementById('statusForm').submit(); });
+    var scopeSel = document.getElementById('scopeSelect');
+    if (scopeSel) scopeSel.addEventListener('change', function(){ document.getElementById('statusForm').submit(); });
   })();
 </script>
 <?php
@@ -138,6 +148,8 @@ $tabs = [
 $cols = $mysqli->query("SHOW COLUMNS FROM votes")->fetch_all(MYSQLI_ASSOC);
 $fields = array_column($cols, 'Field');
 $hasRating = in_array('rating', $fields);
+// Detect optional competition year column (used in Judges sheet filtering)
+$hasCompetitionYear = in_array('competition_year', $fields);
 // competition status filter fragments
 $statusCond = '';
 $statusCondVd = ''; // for vote_details table
@@ -169,6 +181,18 @@ if ($windowStart && $windowEnd) {
   $subWindowV2 = $subWindowV3 = $subWindowV4 = $subWindowV5 = $andWindowClause;
 }
 
+// Alternative vote-date window fragments for use where appropriate (use vote created_at)
+$whereVoteWindowClause = '';
+$andVoteWindowClause = '';
+$subVoteWindowV2 = $subVoteWindowV3 = $subVoteWindowV4 = $subVoteWindowV5 = '';
+if ($windowStart && $windowEnd) {
+  $startTs = $mysqli->real_escape_string($windowStart . ' 00:00:00');
+  $endTs = $mysqli->real_escape_string($windowEnd . ' 23:59:59');
+  $whereVoteWindowClause = "WHERE v.created_at >= '" . $startTs . "' AND v.created_at <= '" . $endTs . "'";
+  $andVoteWindowClause = " AND v.created_at >= '" . $startTs . "' AND v.created_at <= '" . $endTs . "'";
+  $subVoteWindowV2 = $subVoteWindowV3 = $subVoteWindowV4 = $subVoteWindowV5 = $andVoteWindowClause;
+}
+
 // Reusable rating expression for compact stats (fallback to average of detail columns when rating is absent)
 $vdColsGlobal = $mysqli->query("SHOW COLUMNS FROM vote_details")->fetch_all(MYSQLI_ASSOC);
 $scoreCandidatesGlobal = ['writing','direction','acting_or_doc_theme','emotional_involvement','novelty','casting_research_art','sound'];
@@ -186,121 +210,84 @@ $ratingExprGlobal = $numExprGlobal ? "($numExprGlobal)" : 'NULL';
 
 // COMPACT LISTS sheet (mobile-friendly dropdown lists)
 if ($sheet === 'lists') {
-  // Load category-to-type mappings from database
-  $typeMap = [];
+  // Use vote-date window for all LISTS queries (show votes in date range, regardless of movie release date)
+  // This ensures old movies with recent votes still appear
+  $listsWhereClause = $whereVoteWindowClause ? $whereVoteWindowClause : '';
+  // If no vote window available, fall back to release window (shouldn't happen, but safe)
+  if (!$listsWhereClause && $whereWindowClause) {
+    $listsWhereClause = $whereWindowClause;
+  }
+
+  // Load categories dynamically from DB and what voters actually used in the window
+  $allCategories = [];
   try {
-    $catResult = $mysqli->query("SELECT category, type FROM category_types ORDER BY category ASC");
-    if ($catResult) {
-      $catRows = $catResult->fetch_all(MYSQLI_ASSOC);
-      foreach ($catRows as $row) {
-        $typeMap[strtolower($row['type'])] = $row['category'];
-      }
+    // Admin-configured categories (preserve DB order, not alphabetical)
+    $catConfigured = [];
+    $resCfg = $mysqli->query("SELECT category FROM category_types ORDER BY id ASC");
+    if ($resCfg) {
+      foreach ($resCfg->fetch_all(MYSQLI_ASSOC) as $row) { $catConfigured[] = $row['category']; }
     }
+    error_log('[STATS DEBUG] Configured categories: ' . json_encode($catConfigured));
+    
+    // Categories used by votes in the selected window (ensures custom labels appear)
+    $catUsed = [];
+    if ($selected_scope === 'votes' && $whereVoteWindowClause) {
+      $usedSql = "SELECT TRIM(COALESCE(vd.category,'')) AS c
+                  FROM votes v LEFT JOIN vote_details vd ON vd.vote_id = v.id
+                  " . $whereVoteWindowClause . $statusCondVd . " GROUP BY TRIM(COALESCE(vd.category,'')) HAVING c<>''";
+      $resUsed = $mysqli->query($usedSql);
+      if ($resUsed) { foreach ($resUsed->fetch_all(MYSQLI_ASSOC) as $row) { $catUsed[] = $row['c']; } }
+    } else {
+      $usedSql = "SELECT TRIM(COALESCE(vd.category,'')) AS c
+                  FROM votes v JOIN movies m ON m.id = v.movie_id
+                  LEFT JOIN vote_details vd ON vd.vote_id = v.id
+                  " . $whereWindowClause . $statusCondVd . " GROUP BY TRIM(COALESCE(vd.category,'')) HAVING c<>''";
+      $resUsed = $mysqli->query($usedSql);
+      if ($resUsed) { foreach ($resUsed->fetch_all(MYSQLI_ASSOC) as $row) { $catUsed[] = $row['c']; } }
+    }
+    error_log('[STATS DEBUG] Categories used in window: ' . json_encode($catUsed));
+    
+    // Merge, keeping configured order, then any additional used ones
+    $allCategories = array_values(array_unique(array_merge($catConfigured, $catUsed)));
+    error_log('[STATS DEBUG] Final $allCategories: ' . json_encode($allCategories));
   } catch (Throwable $e) {
-    // Fallback to hardcoded if query fails
-    $typeMap = [
-      'movie' => 'Film',
-      'film' => 'Film',
-      'series' => 'Series',
-      'miniseries' => 'Miniseries',
-      'documentary' => 'Documentary',
-      'animation' => 'Animation',
-      'anime' => 'Animation',
-    ];
+    // Fallback: distinct categories from votes in window
+    $fallbackSql = ($selected_scope === 'votes' && $whereVoteWindowClause)
+      ? "SELECT TRIM(COALESCE(vd.category,'')) AS c FROM votes v LEFT JOIN vote_details vd ON vd.vote_id=v.id " . $whereVoteWindowClause . $statusCondVd . " GROUP BY TRIM(COALESCE(vd.category,'')) HAVING c<>''"
+      : "SELECT TRIM(COALESCE(vd.category,'')) AS c FROM votes v JOIN movies m ON m.id=v.movie_id LEFT JOIN vote_details vd ON vd.vote_id=v.id " . $whereWindowClause . $statusCondVd . " GROUP BY TRIM(COALESCE(vd.category,'')) HAVING c<>''";
+    $fallback = $mysqli->query($fallbackSql);
+    if ($fallback) { foreach ($fallback->fetch_all(MYSQLI_ASSOC) as $row) { $allCategories[] = $row['c']; } }
   }
   
-  // Helper function to build a type filter (filters by m.type, not by hardcoded categories)
-  $buildTypeFilter = function($movieTypes) use ($whereWindowClause, $statusCondVd) {
-    $typeList = "'" . implode("','", array_map(function($t) { return addslashes($t); }, $movieTypes)) . "'";
-    return $whereWindowClause . $statusCondVd . " AND m.type IN ($typeList)";
+  // Helper function to build a category filter (filters by voted category vd.category, respecting user choice and scope)
+  $buildCategoryFilter = function($categoryNames) use ($listsWhereClause, $statusCondVd) {
+    $categoryList = "'" . implode("','", array_map(function($c) { return addslashes($c); }, $categoryNames)) . "'";
+    return $listsWhereClause . $statusCondVd . " AND COALESCE(vd.category,'') IN ($categoryList)";
   };
   
-  // Best of by type: Movies, Series, Documentaries, etc.
-  $bestMoviesSql = "SELECT m.id, m.title, m.year, m.type, m.poster_url, vd.season_number, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
-              FROM movies m
-              JOIN votes v ON v.movie_id = m.id
-              LEFT JOIN vote_details vd ON vd.vote_id = v.id
-              " . $buildTypeFilter(['movie']) . "
-              GROUP BY m.id, vd.season_number
-              HAVING votes_count > 0
-              ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
-              LIMIT 25";
-  error_log("[STATS DEBUG] bestMoviesSql: " . $bestMoviesSql);
-  $result = $mysqli->query($bestMoviesSql);
-  if (!$result) {
-    error_log("[STATS ERROR] Movies query failed: " . $mysqli->error);
-    $bestMoviesRows = [];
-  } else {
-    $bestMoviesRows = $result->fetch_all(MYSQLI_ASSOC);
-  }
-
-  $bestSeriesSql = "SELECT m.id, m.title, m.year, m.type, m.poster_url, vd.season_number, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
-              FROM movies m
-              JOIN votes v ON v.movie_id = m.id
-              LEFT JOIN vote_details vd ON vd.vote_id = v.id
-              " . $buildTypeFilter(['series']) . "
-              GROUP BY m.id, vd.season_number
-              HAVING votes_count > 0
-              ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
-              LIMIT 25";
-  $result = $mysqli->query($bestSeriesSql);
-  if (!$result) {
-    error_log("[STATS ERROR] Series query failed: " . $mysqli->error);
-    $bestSeriesRows = [];
-  } else {
-    $bestSeriesRows = $result->fetch_all(MYSQLI_ASSOC);
-  }
-
-  // Documentaries filter by type
-  $bestDocsSql = "SELECT m.id, m.title, m.year, m.type, m.poster_url, vd.season_number, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
-              FROM movies m
-              JOIN votes v ON v.movie_id = m.id
-              LEFT JOIN vote_details vd ON vd.vote_id = v.id
-              " . $buildTypeFilter(['documentary']) . "
-              GROUP BY m.id, vd.season_number
-              HAVING votes_count > 0
-              ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
-              LIMIT 25";
-  $result = $mysqli->query($bestDocsSql);
-  if (!$result) {
-    error_log("[STATS ERROR] Docs query failed: " . $mysqli->error);
-    $bestDocsRows = [];
-  } else {
-    $bestDocsRows = $result->fetch_all(MYSQLI_ASSOC);
-  }
-
-  $bestMiniseriesSql = "SELECT m.id, m.title, m.year, m.type, m.poster_url, vd.season_number, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
-              FROM movies m
-              JOIN votes v ON v.movie_id = m.id
-              LEFT JOIN vote_details vd ON vd.vote_id = v.id
-              " . $buildTypeFilter(['miniseries']) . "
-              GROUP BY m.id, vd.season_number
-              HAVING votes_count > 0
-              ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
-              LIMIT 25";
-  $result = $mysqli->query($bestMiniseriesSql);
-  if (!$result) {
-    error_log("[STATS ERROR] Miniseries query failed: " . $mysqli->error);
-    $bestMiniseriesRows = [];
-  } else {
-    $bestMiniseriesRows = $result->fetch_all(MYSQLI_ASSOC);
-  }
-
-  $bestAnimationSql = "SELECT m.id, m.title, m.year, m.type, m.poster_url, vd.season_number, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
-              FROM movies m
-              JOIN votes v ON v.movie_id = m.id
-              LEFT JOIN vote_details vd ON vd.vote_id = v.id
-              " . $buildTypeFilter(['animation', 'anime']) . "
-              GROUP BY m.id, vd.season_number
-              HAVING votes_count > 0
-              ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
-              LIMIT 25";
-  $result = $mysqli->query($bestAnimationSql);
-  if (!$result) {
-    error_log("[STATS ERROR] Animation query failed: " . $mysqli->error);
-    $bestAnimationRows = [];
-  } else {
-    $bestAnimationRows = $result->fetch_all(MYSQLI_ASSOC);
+  // Best of by category: dynamically query for each category voted by users
+  // Filter by vote date (not movie release date) so all voted movies appear
+  $bestByCategory = [];
+  foreach ($allCategories as $cat) {
+    $catEsc = addslashes($cat);
+    $sql = "SELECT m.id, m.title, m.year, m.type, m.poster_url, vd.season_number,
+                   COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
+            FROM movies m
+            JOIN votes v ON v.movie_id = m.id
+            LEFT JOIN vote_details vd ON vd.vote_id = v.id
+            WHERE v.created_at >= '" . $mysqli->real_escape_string($windowStart . ' 00:00:00') . "' 
+              AND v.created_at <= '" . $mysqli->real_escape_string($windowEnd . ' 23:59:59') . "'
+              AND COALESCE(vd.category,'') = '$catEsc'
+            GROUP BY m.id, vd.season_number
+            HAVING votes_count > 0
+            ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
+            LIMIT 25";
+    $res = $mysqli->query($sql);
+    if (!$res) {
+      $bestByCategory[$cat] = [];
+    } else {
+      $bestByCategory[$cat] = $res->fetch_all(MYSQLI_ASSOC);
+    }
   }
 
   // Most viewed: ordered by view count
@@ -397,16 +384,16 @@ if ($sheet === 'lists') {
           <span class="chevron">▾</span>
         </button>
         <div id="stat-best" class="stat-content open">
-          <!-- Nested: Movies -->
+          <?php foreach ($bestByCategory as $cat => $rows): $secId = 'stat-best-' . md5($cat); ?>
           <div class="stat-nested-card">
-            <button class="stat-nested-toggle" data-target="stat-best-movies" aria-expanded="false">
-              <span>🎬 <?= t('movies') ?></span>
+            <button class="stat-nested-toggle" data-target="<?= $secId ?>" aria-expanded="false">
+              <span><?= e($cat) ?></span>
               <span class="chevron">▾</span>
             </button>
-            <div id="stat-best-movies" class="stat-nested-content">
-              <?php if ($bestMoviesRows): ?>
+            <div id="<?= $secId ?>" class="stat-nested-content">
+              <?php if ($rows): ?>
                 <ol class="ranked-list">
-                  <?php foreach ($bestMoviesRows as $idx => $row): ?>
+                  <?php foreach ($rows as $idx => $row): ?>
                     <li>
                       <a href="?sheet=lists&year=<?= $viewYearInt ?>&view_movie=<?= $row['id'] ?>" class="stat-line stat-line-with-poster movie-link" data-movie-id="<?= $row['id'] ?>">
                         <span class="rank">#<?= $idx + 1 ?></span>
@@ -434,158 +421,7 @@ if ($sheet === 'lists') {
               <?php endif; ?>
             </div>
           </div>
-
-          <!-- Nested: TV Series -->
-          <div class="stat-nested-card">
-            <button class="stat-nested-toggle" data-target="stat-best-series" aria-expanded="false">
-              <span>📺 <?= t('series') ?></span>
-              <span class="chevron">▾</span>
-            </button>
-            <div id="stat-best-series" class="stat-nested-content">
-              <?php if ($bestSeriesRows): ?>
-                <ol class="ranked-list">
-                  <?php foreach ($bestSeriesRows as $idx => $row): ?>
-                    <li>
-                      <a href="?sheet=lists&year=<?= $viewYearInt ?>&view_movie=<?= $row['id'] ?>" class="stat-line stat-line-with-poster movie-link" data-movie-id="<?= $row['id'] ?>">
-                        <span class="rank">#<?= $idx + 1 ?></span>
-                        <?php if ($row['poster_url'] && $row['poster_url'] !== 'N/A'): ?>
-                          <img src="<?= htmlspecialchars($row['poster_url']) ?>" alt="<?= e($row['title']) ?>" class="stat-poster" loading="lazy">
-                        <?php else: ?>
-                          <div class="stat-poster stat-poster-empty">📺</div>
-                        <?php endif; ?>
-                        <div class="stat-main">
-                          <div class="stat-title">
-                            <?= e($row['title']) ?>
-                            <?php if (!empty($row['season_number'])): ?>
-                              <span style="color:#f6c90e;font-weight:600;"> - Season <?= (int)$row['season_number'] ?></span>
-                            <?php endif; ?>
-                            <span class="muted">(<?= e($row['year']) ?>)</span>
-                          </div>
-                          <div class="stat-meta"><?= t('average_rating') ?>: <strong><?= $row['avg_rating'] !== null ? number_format($row['avg_rating'],2) : '' ?></strong> · <?= (int)$row['votes_count'] ?> <?= t('votes') ?></div>
-                        </div>
-                      </a>
-                    </li>
-                  <?php endforeach; ?>
-                </ol>
-              <?php else: ?>
-                <p class="stat-empty"><?= e(t('no_data_yet')) ?></p>
-              <?php endif; ?>
-            </div>
-          </div>
-
-          <!-- Nested: Documentaries -->
-          <div class="stat-nested-card">
-            <button class="stat-nested-toggle" data-target="stat-best-docs" aria-expanded="false">
-              <span>🎥 <?= t('documentaries') ?></span>
-              <span class="chevron">▾</span>
-            </button>
-            <div id="stat-best-docs" class="stat-nested-content">
-              <?php if ($bestDocsRows): ?>
-                <ol class="ranked-list">
-                  <?php foreach ($bestDocsRows as $idx => $row): ?>
-                    <li>
-                      <a href="?sheet=lists&year=<?= $viewYearInt ?>&view_movie=<?= $row['id'] ?>" class="stat-line stat-line-with-poster movie-link" data-movie-id="<?= $row['id'] ?>">
-                        <span class="rank">#<?= $idx + 1 ?></span>
-                        <?php if ($row['poster_url'] && $row['poster_url'] !== 'N/A'): ?>
-                          <img src="<?= htmlspecialchars($row['poster_url']) ?>" alt="<?= e($row['title']) ?>" class="stat-poster" loading="lazy">
-                        <?php else: ?>
-                          <div class="stat-poster stat-poster-empty">🎥</div>
-                        <?php endif; ?>
-                        <div class="stat-main">
-                          <div class="stat-title">
-                            <?= e($row['title']) ?>
-                            <?php if (!empty($row['season_number'])): ?>
-                              <span style="color:#f6c90e;font-weight:600;"> - Season <?= (int)$row['season_number'] ?></span>
-                            <?php endif; ?>
-                            <span class="muted">(<?= e($row['year']) ?>)</span>
-                          </div>
-                          <div class="stat-meta"><?= t('average_rating') ?>: <strong><?= $row['avg_rating'] !== null ? number_format($row['avg_rating'],2) : '' ?></strong> · <?= (int)$row['votes_count'] ?> <?= t('votes') ?></div>
-                        </div>
-                      </a>
-                    </li>
-                  <?php endforeach; ?>
-                </ol>
-              <?php else: ?>
-                <p class="stat-empty"><?= e(t('no_data_yet')) ?></p>
-              <?php endif; ?>
-            </div>
-          </div>
-
-          <!-- Nested: Miniseries -->
-          <div class="stat-nested-card">
-            <button class="stat-nested-toggle" data-target="stat-best-miniseries" aria-expanded="false">
-              <span>📺 <?= t('miniseries') ?></span>
-              <span class="chevron">▾</span>
-            </button>
-            <div id="stat-best-miniseries" class="stat-nested-content">
-              <?php if ($bestMiniseriesRows): ?>
-                <ol class="ranked-list">
-                  <?php foreach ($bestMiniseriesRows as $idx => $row): ?>
-                    <li>
-                      <a href="?sheet=lists&year=<?= $viewYearInt ?>&view_movie=<?= $row['id'] ?>" class="stat-line stat-line-with-poster movie-link" data-movie-id="<?= $row['id'] ?>">
-                        <span class="rank">#<?= $idx + 1 ?></span>
-                        <?php if ($row['poster_url'] && $row['poster_url'] !== 'N/A'): ?>
-                          <img src="<?= htmlspecialchars($row['poster_url']) ?>" alt="<?= e($row['title']) ?>" class="stat-poster" loading="lazy">
-                        <?php else: ?>
-                          <div class="stat-poster stat-poster-empty">📺</div>
-                        <?php endif; ?>
-                        <div class="stat-main">
-                          <div class="stat-title">
-                            <?= e($row['title']) ?>
-                            <?php if (!empty($row['season_number'])): ?>
-                              <span style="color:#f6c90e;font-weight:600;"> - Season <?= (int)$row['season_number'] ?></span>
-                            <?php endif; ?>
-                            <span class="muted">(<?= e($row['year']) ?>)</span>
-                          </div>
-                          <div class="stat-meta"><?= t('average_rating') ?>: <strong><?= $row['avg_rating'] !== null ? number_format($row['avg_rating'],2) : '' ?></strong> · <?= (int)$row['votes_count'] ?> <?= t('votes') ?></div>
-                        </div>
-                      </a>
-                    </li>
-                  <?php endforeach; ?>
-                </ol>
-              <?php else: ?>
-                <p class="stat-empty"><?= e(t('no_data_yet')) ?></p>
-              <?php endif; ?>
-            </div>
-          </div>
-
-          <!-- Nested: Animation -->
-          <div class="stat-nested-card">
-            <button class="stat-nested-toggle" data-target="stat-best-animation" aria-expanded="false">
-              <span>🎨 <?= t('animation') ?></span>
-              <span class="chevron">▾</span>
-            </button>
-            <div id="stat-best-animation" class="stat-nested-content">
-              <?php if ($bestAnimationRows): ?>
-                <ol class="ranked-list">
-                  <?php foreach ($bestAnimationRows as $idx => $row): ?>
-                    <li>
-                      <a href="?sheet=lists&year=<?= $viewYearInt ?>&view_movie=<?= $row['id'] ?>" class="stat-line stat-line-with-poster movie-link" data-movie-id="<?= $row['id'] ?>">
-                        <span class="rank">#<?= $idx + 1 ?></span>
-                        <?php if ($row['poster_url'] && $row['poster_url'] !== 'N/A'): ?>
-                          <img src="<?= htmlspecialchars($row['poster_url']) ?>" alt="<?= e($row['title']) ?>" class="stat-poster" loading="lazy">
-                        <?php else: ?>
-                          <div class="stat-poster stat-poster-empty">🎨</div>
-                        <?php endif; ?>
-                        <div class="stat-main">
-                          <div class="stat-title">
-                            <?= e($row['title']) ?>
-                            <?php if (!empty($row['season_number'])): ?>
-                              <span style="color:#f6c90e;font-weight:600;"> - Season <?= (int)$row['season_number'] ?></span>
-                            <?php endif; ?>
-                            <span class="muted">(<?= e($row['year']) ?>)</span>
-                          </div>
-                          <div class="stat-meta"><?= t('average_rating') ?>: <strong><?= $row['avg_rating'] !== null ? number_format($row['avg_rating'],2) : '' ?></strong> · <?= (int)$row['votes_count'] ?> <?= t('votes') ?></div>
-                        </div>
-                      </a>
-                    </li>
-                  <?php endforeach; ?>
-                </ol>
-              <?php else: ?>
-                <p class="stat-empty"><?= e(t('no_data_yet')) ?></p>
-              <?php endif; ?>
-            </div>
-          </div>
+          <?php endforeach; ?>
         </div>
       </div>
 
@@ -1247,13 +1083,27 @@ if ($sheet === 'judges' || $sheet === 'judges_comp') {
     // Per-judge average of total scores (sum of categories per vote)
     $ratingExpr = $numExpr ? "($numExpr)" : 'NULL';
 
+    // Build dynamic category count columns
+    $catRows = $mysqli->query("SELECT category FROM category_types ORDER BY category ASC");
+    $categories = [];
+    if ($catRows) { foreach ($catRows->fetch_all(MYSQLI_ASSOC) as $r) { $categories[] = $r['category']; } }
+    if (!$categories) {
+      $res = $mysqli->query("SELECT DISTINCT TRIM(COALESCE(vd.category,'')) AS c FROM vote_details vd WHERE TRIM(COALESCE(vd.category,''))<>'' ORDER BY c");
+      if ($res) { foreach ($res->fetch_all(MYSQLI_ASSOC) as $r) { $categories[] = $r['c']; } }
+    }
+    $countSelects = [];
+    $categoryAliases = [];
+    foreach ($categories as $cat) {
+      $catEsc = $mysqli->real_escape_string($cat);
+      $alias = 'cnt_' . preg_replace('/[^a-z0-9]+/i','_', strtolower($cat));
+      $categoryAliases[] = $alias;
+      $countSelects[] = "SUM(COALESCE(vd.category,'')='{$catEsc}') AS {$alias}";
+    }
+    $categoryCountsSelect = $countSelects ? (",\n                   " . implode(",\n                   ", $countSelects)) : "";
+
     $sql = "SELECT u.username AS judge,
-                   COUNT(v.id) AS votes,
-                   SUM(COALESCE(vd.category,'')='Film') AS film_count,
-                   SUM(COALESCE(vd.category,'')='Serie') AS series_count,
-                   SUM(COALESCE(vd.category,'')='Miniserie') AS miniseries_count,
-                   SUM(COALESCE(vd.category,'')='Documentario') AS doc_count,
-                   SUM(COALESCE(vd.category,'')='Animazione') AS anim_count,
+                   COUNT(v.id) AS votes
+                   $categoryCountsSelect,
                    ROUND(AVG($ratingExpr),2) AS media_totale,
                    " . (in_array('writing',$detailCols)?'ROUND(AVG(vd.writing),2)':'NULL') . " AS media_sceneggiatura,
                    " . (in_array('direction',$detailCols)?'ROUND(AVG(vd.direction),2)':'NULL') . " AS media_regia,
@@ -1320,11 +1170,9 @@ if ($sheet === 'judges' || $sheet === 'judges_comp') {
         <tr>
           <th><?= t('judge') ?></th>
           <th><?= t('votes') ?></th>
-          <th><?= t('film') ?></th>
-          <th><?= t('series') ?></th>
-          <th><?= t('miniseries') ?></th>
-          <th><?= t('documentary') ?></th>
-          <th><?= t('animation') ?></th>
+          <?php if (!empty($categories)): foreach ($categories as $cat): ?>
+            <th><?= e($cat) ?></th>
+          <?php endforeach; endif; ?>
           <th><?= t('avg_total') ?></th>
           <th><?= t('avg_writing') ?></th>
           <th><?= t('avg_direction') ?></th>
@@ -1342,11 +1190,9 @@ if ($sheet === 'judges' || $sheet === 'judges_comp') {
           <tr>
             <td><?= e($r['judge']) ?></td>
             <td><?= (int)$r['votes'] ?></td>
-            <td><?= (int)$r['film_count'] ?></td>
-            <td><?= (int)$r['series_count'] ?></td>
-            <td><?= (int)$r['miniseries_count'] ?></td>
-            <td><?= (int)$r['doc_count'] ?></td>
-            <td><?= (int)$r['anim_count'] ?></td>
+            <?php if (!empty($categoryAliases)): foreach ($categoryAliases as $alias): ?>
+              <td><?= isset($r[$alias]) ? (int)$r[$alias] : 0 ?></td>
+            <?php endforeach; endif; ?>
             <td><?= $r['media_totale']!==null ? number_format($r['media_totale'],2) : '' ?></td>
             <td><?= isset($r['media_sceneggiatura']) ? number_format($r['media_sceneggiatura'],2) : '' ?></td>
             <td><?= isset($r['media_regia']) ? number_format($r['media_regia'],2) : '' ?></td>
