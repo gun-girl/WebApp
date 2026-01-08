@@ -10,6 +10,14 @@ ob_start();
 require_once __DIR__.'/includes/auth.php';
 require_once __DIR__.'/includes/lang.php';
 
+// Force export labels to Italian regardless of UI language, but keep them centralized in translations
+if (function_exists('current_lang')) {
+    $itStrings = include __DIR__ . '/includes/strings/it.php';
+    if (is_array($itStrings)) {
+        $L = $itStrings; // override runtime dictionary for this request
+    }
+}
+
 // Get current year for filename and headers
 // Use active competition year if available
 $currentYear = function_exists('get_active_year') ? get_active_year() : (int)date('Y');
@@ -56,15 +64,38 @@ foreach ($vdColsAll as $c) {
     }
 }
 
-// Build headers for Votazioni (votes) sheet - Italian labels
+// Localized sheet names
+$sheetVotesName = str_replace('{year}', $exportYear, t('sheet_votes'));
+$sheetViewsName = str_replace('{year}', $exportYear, t('sheet_views'));
+$sheetResultsName = str_replace('{year}', $exportYear, t('sheet_results'));
+$sheetJudgesName = t('sheet_judges');
+$sheetJudgesCompName = t('sheet_judges_comp');
+$sheetTitlesName = t('sheet_titles');
+$sheetAdjectivesName = t('sheet_adjectives');
+$sheetFinalistsName = t('sheet_finalists_2023');
+
+// Build headers for Votazioni (votes) sheet using translations
 $headers = [
-    'S', 'Giurato/a', 'Cosa hai guardato? (Utilizzare il titolo tradotto in Italiano)',
-    'A quale categoria appartien e il titolo?', 'Dove lo hai visto?', 'Scrittura', 'Regia',
-    'Recitazione/ Scelta del tema (documentari)', 'Coinvolgimento Emotivo', 'Senso Di Nuovo',
-    'Casting/Ricerca (documentari)/ Artwork', 'Sonoro', 'Ripens.', 'Aggettivi',
-    'Giurato', 'Anno', 'Stagione', 'Episodio'
+    t('header_timestamp'),
+    t('juror'),
+    t('header_title_question'),
+    t('header_category_question'),
+    t('header_where_watched'),
+    t('writing'),
+    t('direction'),
+    t('acting_or_doc_theme'),
+    t('emotional_involvement'),
+    t('novelty'),
+    t('casting_research_art'),
+    t('sound'),
+    t('header_rethink'),
+    t('adjectives'),
+    t('juror'),
+    t('year'),
+    t('season'),
+    t('episode')
 ];
-foreach ($extraVd as $ex) $headers[] = $ex;
+foreach ($extraVd as $ex) { $headers[] = $ex; }
 
 // Load detailed votes for Votazioni sheet
 $sqlVotes = "SELECT v.*, m.title AS title, u.username AS username, vd.* FROM votes v LEFT JOIN vote_details vd ON vd.vote_id = v.id LEFT JOIN movies m ON m.id=v.movie_id LEFT JOIN users u ON u.id=v.user_id WHERE " . $whereYear . " ORDER BY m.title, u.username";
@@ -123,8 +154,8 @@ echo '<Style ss:ID="Number"><NumberFormat ss:Format="General"/></Style>';
 echo '<Style ss:ID="Formula"><NumberFormat ss:Format="General"/></Style>';
 echo '</Styles>';
 
-// Votazioni 2024 (detailed votes with proper Italian headers)
-echo '<Worksheet ss:Name="Votazioni ' . $exportYear . '">';
+// Votazioni (detailed votes)
+echo '<Worksheet ss:Name="' . htmlspecialchars($sheetVotesName) . '">';
 echo '<Table>';
 echo '<Row>';
 foreach ($headers as $h) emit_cell($h,'String','Header');
@@ -165,7 +196,7 @@ echo '</Table>';
 echo '</Worksheet>';
 
 // Visioni (Views)
-echo '<Worksheet ss:Name="Visioni ' . $exportYear . '">';
+echo '<Worksheet ss:Name="' . htmlspecialchars($sheetViewsName) . '">';
 echo '<Table>';
 echo '<Row>';
 emit_cell('PIATTAFORMA','String','Header'); emit_cell('Categoria','String','Header'); emit_cell('Titoli Unici','String','Header'); emit_cell('Visioni','String','Header'); emit_cell('Media Totale','String','Header');
@@ -182,10 +213,10 @@ echo '</Table>';
 echo '</Worksheet>';
 
 // Giudici (all judges)
-echo '<Worksheet ss:Name="Giudici">';
+echo '<Worksheet ss:Name="' . htmlspecialchars($sheetJudgesName) . '">';
 echo '<Table>';
 echo '<Row>';
-foreach (['Giudice','Voti','Film','Serie','Miniserie','Documentario','Animazione','Media Tot Votazioni'] as $hc) emit_cell($hc,'String','Header');
+foreach ([t('judge'), t('votes'), t('film'), t('series'), t('miniseries'), t('documentary'), t('animation'), t('avg_total')] as $hc) { emit_cell($hc,'String','Header'); }
 echo '</Row>';
 $sqlJudges = "SELECT u.username AS judge, COUNT(v.id) AS votes, SUM(COALESCE(vd.category,'')='Film') AS film_count, SUM(COALESCE(vd.category,'')='Serie') AS series_count, SUM(COALESCE(vd.category,'')='Miniserie') AS miniseries_count, SUM(COALESCE(vd.category,'')='Documentario') AS doc_count, SUM(COALESCE(vd.category,'')='Animazione') AS anim_count, ROUND(AVG($ratingExpr),2) AS avg_rating FROM votes v JOIN users u ON u.id = v.user_id LEFT JOIN vote_details vd ON vd.vote_id = v.id WHERE " . $whereYear . " GROUP BY u.username ORDER BY votes DESC";
 $judges = $mysqli->query($sqlJudges)->fetch_all(MYSQLI_ASSOC);
@@ -197,10 +228,10 @@ foreach ($judges as $j) {
 echo '</Table>'; echo '</Worksheet>';
 
 // Giudici Solo Concorso (Competition judges only)
-echo '<Worksheet ss:Name="Giudici Solo Concorso">';
+echo '<Worksheet ss:Name="' . htmlspecialchars($sheetJudgesCompName) . '">';
 echo '<Table>';
 echo '<Row>';
-foreach (['Giudice','Voti','Film','Serie','Miniserie','Documentario','Animazione'] as $hc) emit_cell($hc,'String','Header');
+foreach ([t('judge'), t('votes'), t('film'), t('series'), t('miniseries'), t('documentary'), t('animation')] as $hc) { emit_cell($hc,'String','Header'); }
 echo '</Row>';
 $sqlJudComp = "SELECT u.username AS judge, COUNT(v.id) AS votes, SUM(COALESCE(vd.category,'')='Film') AS film_count, SUM(COALESCE(vd.category,'')='Serie') AS series_count, SUM(COALESCE(vd.category,'')='Miniserie') AS miniseries_count, SUM(COALESCE(vd.category,'')='Documentario') AS doc_count, SUM(COALESCE(vd.category,'')='Animazione') AS anim_count FROM votes v JOIN users u ON u.id = v.user_id LEFT JOIN vote_details vd ON vd.vote_id = v.id WHERE (COALESCE(vd.competition_status,'') IN ('Concorso','In Competizione','In Competition','2023-2024')) AND " . $whereYear . " GROUP BY u.username ORDER BY votes DESC";
 $judcomp = $mysqli->query($sqlJudComp)->fetch_all(MYSQLI_ASSOC);
@@ -218,60 +249,60 @@ foreach ($judcomp as $jc) {
 echo '</Table>'; echo '</Worksheet>';
 
 // Elenco Titoli (Title List)
-echo '<Worksheet ss:Name="Elenco Titoli">';
+echo '<Worksheet ss:Name="' . htmlspecialchars($sheetTitlesName) . '">';
 echo '<Table>';
 echo '<Row>';
-emit_cell('TITOLO','String','Header');
+emit_cell(t('title'),'String','Header');
 echo '</Row>';
 $rowsTitles = $mysqli->query("SELECT DISTINCT m.title FROM votes v JOIN movies m ON m.id=v.movie_id WHERE " . $whereYear . " ORDER BY m.title ASC")->fetch_all(MYSQLI_ASSOC);
 foreach ($rowsTitles as $rt) { echo '<Row>'; emit_cell($rt['title']); echo '</Row>'; }
 echo '</Table>'; echo '</Worksheet>';
 
 // Elenco Aggettivi (Adjective List)
-echo '<Worksheet ss:Name="Elenco Aggettivi">';
+echo '<Worksheet ss:Name="' . htmlspecialchars($sheetAdjectivesName) . '">';
 echo '<Table>';
 echo '<Row>';
-emit_cell('FILM','String','Header');
-emit_cell('AGGETTIVO','String','Header');
-emit_cell('Lista Film','String','Header');
-emit_cell('Aggettivi','String','Header');
+emit_cell(t('movie'),'String','Header');
+emit_cell(t('adjective'),'String','Header');
+emit_cell(t('titles'),'String','Header');
+emit_cell(t('adjectives'),'String','Header');
 echo '</Row>';
 $rowsAdj = $mysqli->query("SELECT m.title, GROUP_CONCAT(DISTINCT TRIM(vd.adjective) ORDER BY TRIM(vd.adjective) SEPARATOR ', ') AS adjectives FROM votes v JOIN movies m ON m.id=v.movie_id LEFT JOIN vote_details vd ON vd.vote_id=v.id WHERE TRIM(COALESCE(vd.adjective,''))<>'' AND " . $whereYear . " GROUP BY m.title ORDER BY m.title")->fetch_all(MYSQLI_ASSOC);
 foreach ($rowsAdj as $a) { echo '<Row>'; emit_cell($a['title']); emit_cell(''); emit_cell($a['title']); emit_cell($a['adjectives']); echo '</Row>'; }
 echo '</Table>'; echo '</Worksheet>';
 
-// Finalisti 2023 (Finalists)
-echo '<Worksheet ss:Name="Finalisti 2023">';
+// Finalisti
+echo '<Worksheet ss:Name="' . htmlspecialchars($sheetFinalistsName) . '">';
 echo '<Table>';
 echo '<Row>';
-emit_cell('Titolo','String','Header');
-emit_cell('Altro','String','Header');
+emit_cell(t('title'),'String','Header');
+emit_cell(t('category'),'String','Header');
 echo '</Row>';
 $rowsFinal = $mysqli->query("SELECT DISTINCT m.title, COALESCE(vd.category,'') AS category FROM votes v JOIN movies m ON m.id=v.movie_id LEFT JOIN vote_details vd ON vd.vote_id=v.id WHERE " . $whereYear . " ORDER BY m.title")->fetch_all(MYSQLI_ASSOC);
 foreach ($rowsFinal as $f) { echo '<Row>'; emit_cell($f['title']); emit_cell($f['category']); echo '</Row>'; }
 echo '</Table>'; echo '</Worksheet>';
 
 // Risultati (Aggregated Results)
-echo '<Worksheet ss:Name="Risultati ' . $exportYear . '">';
+echo '<Worksheet ss:Name="' . htmlspecialchars($sheetResultsName) . '">';
 echo '<Table>';
 
 // Header row for Risultati
 $resultsHeaders = [
-    'TITOLO',
-    'Categoria',
-    'PIATTAFORMA',
-    'Concorso',
-    'Visioni',
-    'Totale',
-    'Scrittura',
-    'Regia',
-    'Recit. / Tema',
-    'Coinv. Emotivo',
-    'S. di Nuovo',
-    'Casting / Ricerca / Artwork',
-    'Sonoro',
-    'Ripens.',
-    'Aggettivi'
+    t('title'),
+    t('category'),
+    t('platform'),
+    t('competition_status'),
+    t('views'),
+    t('total'),
+    t('writing'),
+    t('direction'),
+    t('acting_or_doc_theme'),
+    t('emotional_involvement'),
+    t('novelty'),
+    t('casting_research_art'),
+    t('sound'),
+    t('header_rethink'),
+    t('adjectives')
 ];
 
 echo '<Row>';

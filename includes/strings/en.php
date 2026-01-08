@@ -132,6 +132,12 @@ return [
     'adjective' => 'Describe what you just watched with one adjective',
     'adjective_placeholder' => 'e.g., Captivating, Boring, Inspiring...',
     'adjective_helper' => 'Optional: One word that summarizes your experience',
+    'header_timestamp' => 'Timestamp',
+    'header_title_question' => 'What did you watch? (use translated title)',
+    'header_category_question' => 'Which category does the title belong to?',
+    'header_where_watched' => 'Where did you watch it?',
+    'header_rethink' => 'Rewatch?',
+    'title' => 'Title',
     // Column headers for vote details
     'acting_or_doc_theme' => 'Acting / Theme',
     'casting_research_art' => 'Casting / Research / Artwork',

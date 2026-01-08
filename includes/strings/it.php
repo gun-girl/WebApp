@@ -132,6 +132,12 @@ return [
     'adjective' => 'Descrivi ciò che hai appena visto con un aggettivo',
     'adjective_placeholder' => 'es. Avvincente, Noioso, Ispirante...',
     'adjective_helper' => 'Facoltativo: Una parola che riassume la tua esperienza',
+    'header_timestamp' => 'Data/Ora',
+    'header_title_question' => 'Cosa hai guardato? (titolo in italiano)',
+    'header_category_question' => 'A quale categoria appartiene il titolo?',
+    'header_where_watched' => 'Dove lo hai visto?',
+    'header_rethink' => 'Ripens.',
+    'title' => 'Titolo',
     // Column headers for vote details
     'acting_or_doc_theme' => 'Recitazione / Tema',
     'casting_research_art' => 'Casting / Ricerca / Artwork',
