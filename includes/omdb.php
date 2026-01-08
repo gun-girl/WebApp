@@ -479,10 +479,15 @@ class OmdbApiClient {
     
     if ($cached && $cached['poster_url'] && $cached['released'] !== '0000-00-00') {
       error_log("[OmdbApiClient] Movie details for $imdbId loaded from DATABASE CACHE");
-      // Return cached data in OMDb format
+      // Return cached data in OMDb format (include title/year/type so upserts stay healthy)
       $result = [
         'Response' => 'True',
         'imdbID' => $imdbId,
+        'Title' => $cached['title'] ?? '',
+        'Year' => (string)($cached['year'] ?? ''),
+        'Type' => $cached['type'] ?? '',
+        'start_year' => $cached['start_year'] ?? null,
+        'end_year' => $cached['end_year'] ?? null,
         'Poster' => $cached['poster_url'],
         'Released' => $cached['released']
       ];
@@ -829,11 +834,11 @@ function upsert_movie_from_detail(array $detail): ?int {
     "INSERT INTO movies (imdb_id, title, year, type, start_year, end_year, poster_url, released, total_seasons, last_fetched_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
      ON DUPLICATE KEY UPDATE
-       title=VALUES(title),
-       year=VALUES(year),
-       type=VALUES(type),
-       start_year=VALUES(start_year),
-       end_year=VALUES(end_year),
+       title=COALESCE(NULLIF(VALUES(title), ''), title),
+       year=COALESCE(NULLIF(VALUES(year), 0), year),
+       type=COALESCE(NULLIF(VALUES(type), ''), type),
+       start_year=COALESCE(NULLIF(VALUES(start_year), 0), start_year),
+       end_year=COALESCE(NULLIF(VALUES(end_year), 0), end_year),
        poster_url=COALESCE(VALUES(poster_url), poster_url),
        released=COALESCE(VALUES(released), released),
        total_seasons=COALESCE(VALUES(total_seasons), total_seasons),
