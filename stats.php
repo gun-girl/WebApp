@@ -150,22 +150,51 @@ $fields = array_column($cols, 'Field');
 $hasRating = in_array('rating', $fields);
 // Detect optional competition year column (used in Judges sheet filtering)
 $hasCompetitionYear = in_array('competition_year', $fields);
-// competition status filter fragments
+
+// Get all unique competition_status values that should be considered "in competition"
+$inCompetitionStatuses = [];
+$compStatusResult = $mysqli->query("SELECT DISTINCT COALESCE(vd.competition_status,'') AS status FROM vote_details vd WHERE TRIM(COALESCE(vd.competition_status,'')) <> '' ORDER BY status");
+if ($compStatusResult) {
+  $allStatuses = $compStatusResult->fetch_all(MYSQLI_ASSOC);
+  // Try to identify "in competition" statuses by common patterns
+  foreach ($allStatuses as $row) {
+    $status = trim($row['status']);
+    if (!empty($status)) {
+      // Check if this looks like a competition status (contains 'concorso' or 'competition' or matches year pattern like 2025-2026)
+      $statusLower = strtolower($status);
+      if (strpos($statusLower, 'concorso') !== false || 
+          strpos($statusLower, 'competition') !== false ||
+          preg_match('/^\d{4}-\d{4}$/', $status)) { // year ranges like 2025-2026
+        $inCompetitionStatuses[] = $status;
+      }
+    }
+  }
+}
+
+// If no statuses were found, fall back to legacy hardcoded values
+if (empty($inCompetitionStatuses)) {
+  $inCompetitionStatuses = ['Concorso', 'In Competizione', 'In Competition'];
+}
+
+// Build SQL filter conditions based on selected status and discovered in-competition statuses
 $statusCond = '';
-$statusCondVd = ''; // for vote_details table
+$statusCondVd = '';
 $subStatusV2 = $subStatusV3 = $subStatusV4 = $subStatusV5 = '';
+
 if ($selected_status === 'in') {
-  $statusCondVd = " AND COALESCE(vd.competition_status,'') IN ('Concorso','In Competizione','In Competition')";
-  $subStatusV2 = " AND COALESCE(vd2.competition_status,'') IN ('Concorso','In Competizione','In Competition')";
-  $subStatusV3 = " AND COALESCE(vd3.competition_status,'') IN ('Concorso','In Competizione','In Competition')";
-  $subStatusV4 = " AND COALESCE(vd4.competition_status,'') IN ('Concorso','In Competizione','In Competition')";
-  $subStatusV5 = " AND COALESCE(vd5.competition_status,'') IN ('Concorso','In Competizione','In Competition')";
+  $statusList = "'" . implode("','", array_map(function($s) use ($mysqli) { return $mysqli->real_escape_string($s); }, $inCompetitionStatuses)) . "'";
+  $statusCondVd = " AND COALESCE(vd.competition_status,'') IN ($statusList)";
+  $subStatusV2 = " AND COALESCE(vd2.competition_status,'') IN ($statusList)";
+  $subStatusV3 = " AND COALESCE(vd3.competition_status,'') IN ($statusList)";
+  $subStatusV4 = " AND COALESCE(vd4.competition_status,'') IN ($statusList)";
+  $subStatusV5 = " AND COALESCE(vd5.competition_status,'') IN ($statusList)";
 } elseif ($selected_status === 'out') {
-  $statusCondVd = " AND COALESCE(vd.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition') AND COALESCE(vd.competition_status,'') <> ''";
-  $subStatusV2 = " AND COALESCE(vd2.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition') AND COALESCE(vd2.competition_status,'') <> ''";
-  $subStatusV3 = " AND COALESCE(vd3.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition') AND COALESCE(vd3.competition_status,'') <> ''";
-  $subStatusV4 = " AND COALESCE(vd4.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition') AND COALESCE(vd4.competition_status,'') <> ''";
-  $subStatusV5 = " AND COALESCE(vd5.competition_status,'') NOT IN ('Concorso','In Competizione','In Competition') AND COALESCE(vd5.competition_status,'') <> ''";
+  $statusList = "'" . implode("','", array_map(function($s) use ($mysqli) { return $mysqli->real_escape_string($s); }, $inCompetitionStatuses)) . "'";
+  $statusCondVd = " AND COALESCE(vd.competition_status,'') NOT IN ($statusList) AND COALESCE(vd.competition_status,'') <> ''";
+  $subStatusV2 = " AND COALESCE(vd2.competition_status,'') NOT IN ($statusList) AND COALESCE(vd2.competition_status,'') <> ''";
+  $subStatusV3 = " AND COALESCE(vd3.competition_status,'') NOT IN ($statusList) AND COALESCE(vd3.competition_status,'') <> ''";
+  $subStatusV4 = " AND COALESCE(vd4.competition_status,'') NOT IN ($statusList) AND COALESCE(vd4.competition_status,'') <> ''";
+  $subStatusV5 = " AND COALESCE(vd5.competition_status,'') NOT IN ($statusList) AND COALESCE(vd5.competition_status,'') <> ''";
 }
 
 // competition window fragments to reuse in queries (use movie release date)
@@ -277,7 +306,7 @@ if ($sheet === 'lists') {
             LEFT JOIN vote_details vd ON vd.vote_id = v.id
             WHERE v.created_at >= '" . $mysqli->real_escape_string($windowStart . ' 00:00:00') . "' 
               AND v.created_at <= '" . $mysqli->real_escape_string($windowEnd . ' 23:59:59') . "'
-              AND COALESCE(vd.category,'') = '$catEsc'
+              AND COALESCE(vd.category,'') = '$catEsc'" . $statusCondVd . "
             GROUP BY m.id, vd.season_number
             HAVING votes_count > 0
             ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
@@ -1070,8 +1099,9 @@ if ($sheet === 'views') {
 if ($sheet === 'judges' || $sheet === 'judges_comp') {
     $compWhere = '';
     if ($sheet === 'judges_comp') {
-      // Try to include common labels a user could have saved for competition
-      $compWhere = "WHERE COALESCE(vd.competition_status,'') IN ('Concorso','In Competizione','In Competition')";
+      // Use dynamically discovered competition statuses instead of hardcoding
+      $statusList = "'" . implode("','", array_map(function($s) use ($mysqli) { return $mysqli->real_escape_string($s); }, $inCompetitionStatuses)) . "'";
+      $compWhere = "WHERE COALESCE(vd.competition_status,'') IN ($statusList)";
     }
     // Rating expression
     $vdCols = $mysqli->query("SHOW COLUMNS FROM vote_details")->fetch_all(MYSQLI_ASSOC);
