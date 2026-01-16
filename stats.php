@@ -107,39 +107,17 @@ $tabs = [
       <option value="in" <?= $selected_status === 'in' ? 'selected' : '' ?>><?= e(t('filter_in_competition')) ?></option>
       <option value="out" <?= $selected_status === 'out' ? 'selected' : '' ?>><?= e(t('filter_out_of_competition')) ?></option>
     </select>
-
-    <label for="scopeSelect" class="year-selector-label" style="margin-left:12px;">Filter by:</label>
-    <select id="scopeSelect" name="scope" class="year-selector-select">
-      <option value="release" <?= $selected_scope === 'release' ? 'selected' : '' ?>>Releases</option>
-      <option value="votes" <?= $selected_scope === 'votes' ? 'selected' : '' ?>>Votes</option>
-    </select>
     <?php // Preserve other GET params (sheet, lang, etc.) when switching status ?>
     <?php foreach ($_GET as $k=>$v): if ($k === 'status' || $k === 'scope') continue; if (is_array($v)) continue; ?>
       <input type="hidden" name="<?= htmlspecialchars($k) ?>" value="<?= htmlspecialchars($v) ?>">
     <?php endforeach; ?>
   </form>
-  
-  <?php
-  // Display status details based on selection
-  $statusDetail = '';
-  if ($selected_status === 'in') {
-    $statusDetail = t('status_detail_in_2025'); // generic: within active window
-  } elseif ($selected_status === 'out') {
-    $statusDetail = t('status_detail_out');
-  } elseif ($selected_status === 'all') {
-    $statusDetail = t('status_detail_all');
-  }
-  if ($statusDetail): ?>
-    <div class="status-detail-text"><?= e($statusDetail) ?></div>
-  <?php endif; ?>
 </div>
 <script>
   // Auto-submit the form when status selection changes
   (function(){
     var statusSel = document.getElementById('statusSelect');
     if (statusSel) statusSel.addEventListener('change', function(){ document.getElementById('statusForm').submit(); });
-    var scopeSel = document.getElementById('scopeSelect');
-    if (scopeSel) scopeSel.addEventListener('change', function(){ document.getElementById('statusForm').submit(); });
   })();
 </script>
 <?php
@@ -398,18 +376,11 @@ if ($sheet === 'lists') {
   ?>
 
   <div class="stats-dashboard">
-    <div class="stats-header">
-      <div>
-        <h2 class="stats-title"><?= e(t('stats_compact_title')) ?></h2>
-        <p class="stats-sub"><?= e(str_replace('{year}', $competitionLabel, t('sheet_results'))) ?></p>
-      </div>
-      <div class="nav-buttons">
-        <?php if (function_exists('is_admin') && is_admin()): ?>
-          <a href="export_results.php?year=<?= $viewYearInt ?>&status=<?= urlencode($selected_status) ?>" class="btn">⬇ <?= t('download_excel') ?></a>
-        <?php endif; ?>
-      </div>
+    <div class="nav-buttons" style="margin-bottom: 1rem;">
+      <?php if (function_exists('is_admin') && is_admin()): ?>
+        <a href="export_results.php?year=<?= $viewYearInt ?>&status=<?= urlencode($selected_status) ?>" class="btn">⬇ <?= t('download_excel') ?></a>
+      <?php endif; ?>
     </div>
-
     <div class="stats-accordion">
       <div class="stat-card">
         <button class="stat-toggle" data-target="stat-best" aria-expanded="true">
