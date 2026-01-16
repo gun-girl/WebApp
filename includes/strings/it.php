@@ -93,8 +93,8 @@ return [
     'select_year' => 'Seleziona anno',
     'select_competition_status' => 'Filtra per stato',
     'all_status' => 'Tutti',
-    'filter_in_competition' => 'In Competizione',
-    'filter_out_of_competition' => 'Fuori Competizione',
+    'filter_in_competition' => 'In Concorso',
+    'filter_out_of_competition' => 'Fuori Concorso',
     'status_detail_in_2025' => 'IN CONCORSO (nella finestra attiva)',
     'status_detail_in_2026' => 'IN CONCORSO (nella finestra attiva)',
     'status_detail_out' => 'FUORI CONCORSO (fuori dalla finestra attiva)',
@@ -108,10 +108,10 @@ return [
     'official_voting_form' => 'Modulo di Voto Ufficiale',
     'competition_status' => 'Stato della competizione',
     'required' => '*',
-    'in_competition' => 'In Competizione',
-    'out_of_competition' => 'Fuori Competizione',
-    'badge_in_competition' => 'In competizione',
-    'badge_out_of_competition' => 'Fuori competizione',
+    'in_competition' => 'In Concorso',
+    'out_of_competition' => 'Fuori Concorso',
+    'badge_in_competition' => 'In Concorso',
+    'badge_out_of_competition' => 'Fuori Concorso',
     'category' => 'Categoria',
     'choose' => 'Scegli...',
     'film' => 'Film',
@@ -143,7 +143,7 @@ return [
     'casting_research_art' => 'Casting / Ricerca / Artwork',
     'vote_id' => 'ID Voto',
     'release_year' => 'Anno di uscita'
-    , 'in_competition_section' => 'In Competizione'
+    , 'in_competition_section' => 'In Concorso'
     , 'top_voted' => 'Più votati su DIVANO D\'ORO'
     , 'imdb_top_week_note' => 'Top 10 da IMDb questa settimana'
     , 'in_theatres' => 'Al Cinema'
