@@ -39,6 +39,66 @@ if (PHP_SAPI === 'cli') {
 if (!$bypass_admin && !is_admin()) {
     redirect(ADDRESS.'/index.php');
 }
+
+// Get competition status filter from URL parameter
+$selected_status = isset($_GET['status']) ? $_GET['status'] : 'all';
+
+// Query database for competition statuses dynamically and classify
+$inCompetitionStatuses = [];
+$outCompetitionStatuses = [];
+$compStatusResult = $mysqli->query("SELECT DISTINCT TRIM(COALESCE(vd.competition_status,'')) AS status FROM vote_details vd WHERE TRIM(COALESCE(vd.competition_status,'')) <> '' ORDER BY status");
+if ($compStatusResult) {
+    foreach ($compStatusResult->fetch_all(MYSQLI_ASSOC) as $row) {
+        $status = trim($row['status']);
+        $low = strtolower($status);
+        if ($status === '') continue;
+        // Heuristics: treat strings containing 'fuori' or 'out' as OUT of competition
+        if (strpos($low, 'fuori') !== false || strpos($low, 'out') !== false) {
+                $outCompetitionStatuses[] = $status;
+                continue;
+        }
+        // Treat strings containing 'concor' or 'competit' or year range as IN competition
+        if (strpos($low, 'concor') !== false || strpos($low, 'competit') !== false || preg_match('/^\d{4}-\d{4}$/', $status)) {
+                $inCompetitionStatuses[] = $status;
+                continue;
+        }
+        // Unknown labels default to IN to avoid excluding legitimate in-window statuses
+        $inCompetitionStatuses[] = $status;
+    }
+}
+
+// Fallback to legacy values if none found
+if (empty($inCompetitionStatuses)) {
+    $inCompetitionStatuses = ['Concorso', 'In Competizione', 'In Competition'];
+}
+if (empty($outCompetitionStatuses)) {
+    $outCompetitionStatuses = ['Fuori Concorso', 'Out of Competition'];
+}
+
+// Build status filter for queries
+$statusFilter = '';
+if ($selected_status === 'in') {
+    $statusList = "'" . implode("','", array_map(function($s) use ($mysqli) { return $mysqli->real_escape_string($s); }, $inCompetitionStatuses)) . "'";
+    $statusFilter = " AND COALESCE(vd.competition_status,'') IN ($statusList)";
+} elseif ($selected_status === 'out') {
+    $statusListOut = "'" . implode("','", array_map(function($s) use ($mysqli) { return $mysqli->real_escape_string($s); }, $outCompetitionStatuses)) . "'";
+    $statusFilter = " AND COALESCE(vd.competition_status,'') IN ($statusListOut)";
+}
+
+// Get all unique categories from database dynamically
+$allCategories = [];
+$catResult = $mysqli->query("SELECT DISTINCT COALESCE(vd.category,'') AS cat FROM vote_details vd WHERE TRIM(COALESCE(vd.category,'')) <> '' ORDER BY cat");
+if ($catResult) {
+  foreach ($catResult->fetch_all(MYSQLI_ASSOC) as $row) {
+    if (!empty(trim($row['cat']))) {
+      $allCategories[] = trim($row['cat']);
+    }
+  }
+}
+if (empty($allCategories)) {
+  $allCategories = ['Film', 'Serie', 'Miniserie', 'Documentario', 'Animazione'];
+}
+
 // Prepare year filtering and detect available columns
 $voteCols = $mysqli->query("SHOW COLUMNS FROM votes")->fetch_all(MYSQLI_ASSOC);
 $hasCompetitionYear = false;
@@ -48,10 +108,19 @@ foreach ($voteCols as $c) {
     if ($c['Field'] === 'rating') $hasRating = true;
 }
 
-if ($hasCompetitionYear) {
-    $whereYear = "v.competition_year = " . (int)$exportYear;
-} else {
-    $whereYear = "YEAR(v.created_at) = " . (int)$exportYear;
+// Build year filter - robust and dynamic
+// If year param is provided:
+//  - Use competition_year when present
+//  - Include fallback to created_at year for rows with NULL/0 competition_year
+// If no year param: do not filter by year
+$whereYear = "1=1"; // Default to no year filtering
+if (isset($_GET['year'])) {
+    $ey = (int)$exportYear;
+    if ($hasCompetitionYear) {
+        $whereYear = "(v.competition_year = " . $ey . " OR (v.competition_year IS NULL OR v.competition_year = 0) AND YEAR(v.created_at) = " . $ey . ")";
+    } else {
+        $whereYear = "YEAR(v.created_at) = " . $ey;
+    }
 }
 
 // Inspect vote_details to find extra columns to include in exports
@@ -64,7 +133,7 @@ foreach ($vdColsAll as $c) {
     }
 }
 
-// Localized sheet names
+// Localized sheet names - use dynamic year substitution for all sheets
 $sheetVotesName = str_replace('{year}', $exportYear, t('sheet_votes'));
 $sheetViewsName = str_replace('{year}', $exportYear, t('sheet_views'));
 $sheetResultsName = str_replace('{year}', $exportYear, t('sheet_results'));
@@ -72,7 +141,8 @@ $sheetJudgesName = t('sheet_judges');
 $sheetJudgesCompName = t('sheet_judges_comp');
 $sheetTitlesName = t('sheet_titles');
 $sheetAdjectivesName = t('sheet_adjectives');
-$sheetFinalistsName = t('sheet_finalists_2023');
+// Dynamic finalists sheet name based on export year
+$sheetFinalistsName = 'Finalists ' . $exportYear;
 
 // Build headers for Votazioni (votes) sheet using translations
 $headers = [
@@ -98,11 +168,19 @@ $headers = [
 foreach ($extraVd as $ex) { $headers[] = $ex; }
 
 // Load detailed votes for Votazioni sheet
-$sqlVotes = "SELECT v.*, m.title AS title, u.username AS username, vd.* FROM votes v LEFT JOIN vote_details vd ON vd.vote_id = v.id LEFT JOIN movies m ON m.id=v.movie_id LEFT JOIN users u ON u.id=v.user_id WHERE " . $whereYear . " ORDER BY m.title, u.username";
+$sqlVotes = "SELECT v.*, m.title AS title, u.username AS username, vd.* FROM votes v LEFT JOIN vote_details vd ON vd.vote_id = v.id LEFT JOIN movies m ON m.id=v.movie_id LEFT JOIN users u ON u.id=v.user_id WHERE " . $whereYear . $statusFilter . " ORDER BY m.title, u.username";
 $votes = $mysqli->query($sqlVotes)->fetch_all(MYSQLI_ASSOC);
 
+// DEBUG: Log query and result count for troubleshooting
+if (PHP_SAPI === 'cli' || (isset($_GET['debug']) && is_admin())) {
+    error_log("Export SQL: " . $sqlVotes);
+    error_log("Votes found: " . count($votes));
+    error_log("Year filter: " . $whereYear);
+    error_log("Status filter: " . $statusFilter);
+}
+
 // Build aggregated results (Risultati)
-$sqlResults = "SELECT m.title AS title, COALESCE(vd.category,'') AS category, COALESCE(NULLIF(TRIM(vd.where_watched),''),'') AS where_watched, COALESCE(vd.competition_status,'') AS competition_status, COUNT(v.id) AS vote_count, ROUND(AVG(vd.writing),2) AS avg_writing, ROUND(AVG(vd.direction),2) AS avg_direction, ROUND(AVG(vd.acting_or_doc_theme),2) AS avg_acting, ROUND(AVG(vd.emotional_involvement),2) AS avg_emotional, ROUND(AVG(vd.novelty),2) AS avg_novelty, ROUND(AVG(vd.casting_research_art),2) AS avg_casting, ROUND(AVG(vd.sound),2) AS avg_sound, GROUP_CONCAT(DISTINCT TRIM(vd.adjective) SEPARATOR ', ') AS adjectives FROM votes v LEFT JOIN vote_details vd ON vd.vote_id = v.id LEFT JOIN movies m ON m.id=v.movie_id WHERE " . $whereYear . " GROUP BY m.title, vd.category, vd.where_watched, vd.competition_status ORDER BY m.title";
+$sqlResults = "SELECT m.title AS title, COALESCE(vd.category,'') AS category, COALESCE(NULLIF(TRIM(vd.where_watched),''),'') AS where_watched, COALESCE(vd.competition_status,'') AS competition_status, COUNT(v.id) AS vote_count, ROUND(AVG(vd.writing),2) AS avg_writing, ROUND(AVG(vd.direction),2) AS avg_direction, ROUND(AVG(vd.acting_or_doc_theme),2) AS avg_acting, ROUND(AVG(vd.emotional_involvement),2) AS avg_emotional, ROUND(AVG(vd.novelty),2) AS avg_novelty, ROUND(AVG(vd.casting_research_art),2) AS avg_casting, ROUND(AVG(vd.sound),2) AS avg_sound, GROUP_CONCAT(DISTINCT TRIM(vd.adjective) SEPARATOR ', ') AS adjectives FROM votes v LEFT JOIN vote_details vd ON vd.vote_id = v.id LEFT JOIN movies m ON m.id=v.movie_id WHERE " . $whereYear . $statusFilter . " GROUP BY m.title, vd.category, vd.where_watched, vd.competition_status ORDER BY m.title";
 $results = $mysqli->query($sqlResults)->fetch_all(MYSQLI_ASSOC);
 // Re-add the remaining sheets to match UI tabs: Views, Judges, Judges - Competition Only, Title List, Adjective List, Finalists, RAW
 
@@ -201,7 +279,7 @@ echo '<Table>';
 echo '<Row>';
 emit_cell('PIATTAFORMA','String','Header'); emit_cell('Categoria','String','Header'); emit_cell('Titoli Unici','String','Header'); emit_cell('Visioni','String','Header'); emit_cell('Media Totale','String','Header');
 echo '</Row>';
-$sqlViews = "SELECT COALESCE(NULLIF(TRIM(vd.where_watched),''),'Altro') AS platform, COALESCE(NULLIF(TRIM(vd.category),''),'Altro') AS category, COUNT(DISTINCT v.movie_id) AS uniq_titles, COUNT(v.id) AS views, ROUND(AVG($ratingExpr),2) AS avg_rating FROM votes v LEFT JOIN vote_details vd ON vd.vote_id = v.id WHERE " . $whereYear . " GROUP BY platform, category ORDER BY platform, category";
+$sqlViews = "SELECT COALESCE(NULLIF(TRIM(vd.where_watched),''),'Altro') AS platform, COALESCE(NULLIF(TRIM(vd.category),''),'Altro') AS category, COUNT(DISTINCT v.movie_id) AS uniq_titles, COUNT(v.id) AS views, ROUND(AVG($ratingExpr),2) AS avg_rating FROM votes v LEFT JOIN vote_details vd ON vd.vote_id = v.id WHERE " . $whereYear . $statusFilter . " GROUP BY platform, category ORDER BY platform, category";
 $views = $mysqli->query($sqlViews)->fetch_all(MYSQLI_ASSOC);
 foreach ($views as $r) {
     echo '<Row>';
@@ -216,13 +294,28 @@ echo '</Worksheet>';
 echo '<Worksheet ss:Name="' . htmlspecialchars($sheetJudgesName) . '">';
 echo '<Table>';
 echo '<Row>';
-foreach ([t('judge'), t('votes'), t('film'), t('series'), t('miniseries'), t('documentary'), t('animation'), t('avg_total')] as $hc) { emit_cell($hc,'String','Header'); }
+$judgeHeaders = [t('judge'), t('votes')];
+foreach ($allCategories as $cat) { $judgeHeaders[] = $cat; }
+$judgeHeaders[] = t('avg_total');
+foreach ($judgeHeaders as $hc) { emit_cell($hc,'String','Header'); }
 echo '</Row>';
-$sqlJudges = "SELECT u.username AS judge, COUNT(v.id) AS votes, SUM(COALESCE(vd.category,'')='Film') AS film_count, SUM(COALESCE(vd.category,'')='Serie') AS series_count, SUM(COALESCE(vd.category,'')='Miniserie') AS miniseries_count, SUM(COALESCE(vd.category,'')='Documentario') AS doc_count, SUM(COALESCE(vd.category,'')='Animazione') AS anim_count, ROUND(AVG($ratingExpr),2) AS avg_rating FROM votes v JOIN users u ON u.id = v.user_id LEFT JOIN vote_details vd ON vd.vote_id = v.id WHERE " . $whereYear . " GROUP BY u.username ORDER BY votes DESC";
+$catSums = [];
+foreach ($allCategories as $cat) {
+  $catEsc = $mysqli->real_escape_string($cat);
+  $catSums[] = "SUM(COALESCE(vd.category,'')='$catEsc') AS cat_" . md5($cat);
+}
+$catSumsStr = implode(', ', $catSums);
+$sqlJudges = "SELECT u.username AS judge, COUNT(v.id) AS votes, $catSumsStr, ROUND(AVG($ratingExpr),2) AS avg_rating FROM votes v JOIN users u ON u.id = v.user_id LEFT JOIN vote_details vd ON vd.vote_id = v.id WHERE " . $whereYear . $statusFilter . " GROUP BY u.username ORDER BY votes DESC";
 $judges = $mysqli->query($sqlJudges)->fetch_all(MYSQLI_ASSOC);
 foreach ($judges as $j) {
     echo '<Row>';
-    emit_cell($j['judge']); emit_cell((int)$j['votes'],'Number'); emit_cell((int)$j['film_count'],'Number'); emit_cell((int)$j['series_count'],'Number'); emit_cell((int)$j['miniseries_count'],'Number'); emit_cell((int)$j['doc_count'],'Number'); emit_cell((int)$j['anim_count'],'Number'); emit_cell(isset($j['avg_rating']) ? $j['avg_rating'] : '','Number');
+    emit_cell($j['judge']); 
+    emit_cell((int)$j['votes'],'Number');
+    foreach ($allCategories as $cat) {
+      $key = 'cat_' . md5($cat);
+      emit_cell((int)($j[$key] ?? 0),'Number');
+    }
+    emit_cell(isset($j['avg_rating']) ? $j['avg_rating'] : '','Number');
     echo '</Row>';
 }
 echo '</Table>'; echo '</Worksheet>';
@@ -231,19 +324,21 @@ echo '</Table>'; echo '</Worksheet>';
 echo '<Worksheet ss:Name="' . htmlspecialchars($sheetJudgesCompName) . '">';
 echo '<Table>';
 echo '<Row>';
-foreach ([t('judge'), t('votes'), t('film'), t('series'), t('miniseries'), t('documentary'), t('animation')] as $hc) { emit_cell($hc,'String','Header'); }
+$judgeCompHeaders = [t('judge'), t('votes')];
+foreach ($allCategories as $cat) { $judgeCompHeaders[] = $cat; }
+foreach ($judgeCompHeaders as $hc) { emit_cell($hc,'String','Header'); }
 echo '</Row>';
-$sqlJudComp = "SELECT u.username AS judge, COUNT(v.id) AS votes, SUM(COALESCE(vd.category,'')='Film') AS film_count, SUM(COALESCE(vd.category,'')='Serie') AS series_count, SUM(COALESCE(vd.category,'')='Miniserie') AS miniseries_count, SUM(COALESCE(vd.category,'')='Documentario') AS doc_count, SUM(COALESCE(vd.category,'')='Animazione') AS anim_count FROM votes v JOIN users u ON u.id = v.user_id LEFT JOIN vote_details vd ON vd.vote_id = v.id WHERE (COALESCE(vd.competition_status,'') IN ('Concorso','In Competizione','In Competition','2023-2024')) AND " . $whereYear . " GROUP BY u.username ORDER BY votes DESC";
+$statusListComp = "'" . implode("','", array_map(function($s) use ($mysqli) { return $mysqli->real_escape_string($s); }, $inCompetitionStatuses)) . "'";
+$sqlJudComp = "SELECT u.username AS judge, COUNT(v.id) AS votes, $catSumsStr FROM votes v JOIN users u ON u.id = v.user_id LEFT JOIN vote_details vd ON vd.vote_id = v.id WHERE COALESCE(vd.competition_status,'') IN ($statusListComp) AND " . $whereYear . " GROUP BY u.username ORDER BY votes DESC";
 $judcomp = $mysqli->query($sqlJudComp)->fetch_all(MYSQLI_ASSOC);
 foreach ($judcomp as $jc) { 
     echo '<Row>'; 
     emit_cell($jc['judge']); 
-    emit_cell((int)$jc['votes'],'Number'); 
-    emit_cell((int)$jc['film_count'],'Number');
-    emit_cell((int)$jc['series_count'],'Number');
-    emit_cell((int)$jc['miniseries_count'],'Number');
-    emit_cell((int)$jc['doc_count'],'Number');
-    emit_cell((int)$jc['anim_count'],'Number');
+    emit_cell((int)$jc['votes'],'Number');
+    foreach ($allCategories as $cat) {
+      $key = 'cat_' . md5($cat);
+      emit_cell((int)($jc[$key] ?? 0),'Number');
+    }
     echo '</Row>'; 
 }
 echo '</Table>'; echo '</Worksheet>';
@@ -254,7 +349,7 @@ echo '<Table>';
 echo '<Row>';
 emit_cell(t('title'),'String','Header');
 echo '</Row>';
-$rowsTitles = $mysqli->query("SELECT DISTINCT m.title FROM votes v JOIN movies m ON m.id=v.movie_id WHERE " . $whereYear . " ORDER BY m.title ASC")->fetch_all(MYSQLI_ASSOC);
+$rowsTitles = $mysqli->query("SELECT DISTINCT m.title FROM votes v JOIN movies m ON m.id=v.movie_id LEFT JOIN vote_details vd ON vd.vote_id=v.id WHERE " . $whereYear . $statusFilter . " ORDER BY m.title ASC")->fetch_all(MYSQLI_ASSOC);
 foreach ($rowsTitles as $rt) { echo '<Row>'; emit_cell($rt['title']); echo '</Row>'; }
 echo '</Table>'; echo '</Worksheet>';
 
@@ -267,7 +362,7 @@ emit_cell(t('adjective'),'String','Header');
 emit_cell(t('titles'),'String','Header');
 emit_cell(t('adjectives'),'String','Header');
 echo '</Row>';
-$rowsAdj = $mysqli->query("SELECT m.title, GROUP_CONCAT(DISTINCT TRIM(vd.adjective) ORDER BY TRIM(vd.adjective) SEPARATOR ', ') AS adjectives FROM votes v JOIN movies m ON m.id=v.movie_id LEFT JOIN vote_details vd ON vd.vote_id=v.id WHERE TRIM(COALESCE(vd.adjective,''))<>'' AND " . $whereYear . " GROUP BY m.title ORDER BY m.title")->fetch_all(MYSQLI_ASSOC);
+$rowsAdj = $mysqli->query("SELECT m.title, GROUP_CONCAT(DISTINCT TRIM(vd.adjective) ORDER BY TRIM(vd.adjective) SEPARATOR ', ') AS adjectives FROM votes v JOIN movies m ON m.id=v.movie_id LEFT JOIN vote_details vd ON vd.vote_id=v.id WHERE TRIM(COALESCE(vd.adjective,''))<>'' AND " . $whereYear . $statusFilter . " GROUP BY m.title ORDER BY m.title")->fetch_all(MYSQLI_ASSOC);
 foreach ($rowsAdj as $a) { echo '<Row>'; emit_cell($a['title']); emit_cell(''); emit_cell($a['title']); emit_cell($a['adjectives']); echo '</Row>'; }
 echo '</Table>'; echo '</Worksheet>';
 
@@ -278,7 +373,7 @@ echo '<Row>';
 emit_cell(t('title'),'String','Header');
 emit_cell(t('category'),'String','Header');
 echo '</Row>';
-$rowsFinal = $mysqli->query("SELECT DISTINCT m.title, COALESCE(vd.category,'') AS category FROM votes v JOIN movies m ON m.id=v.movie_id LEFT JOIN vote_details vd ON vd.vote_id=v.id WHERE " . $whereYear . " ORDER BY m.title")->fetch_all(MYSQLI_ASSOC);
+$rowsFinal = $mysqli->query("SELECT DISTINCT m.title, COALESCE(vd.category,'') AS category FROM votes v JOIN movies m ON m.id=v.movie_id LEFT JOIN vote_details vd ON vd.vote_id=v.id WHERE " . $whereYear . $statusFilter . " ORDER BY m.title")->fetch_all(MYSQLI_ASSOC);
 foreach ($rowsFinal as $f) { echo '<Row>'; emit_cell($f['title']); emit_cell($f['category']); echo '</Row>'; }
 echo '</Table>'; echo '</Worksheet>';
 
