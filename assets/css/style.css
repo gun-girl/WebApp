@@ -571,6 +571,7 @@ main{padding-bottom:140px}
 .rating-input input[type=number]{width:100%;text-align:center;font-size:1rem;padding:.8rem;border:1px solid #333;border-radius:.3rem;background:#1a1a1a;color:#fff;font-family:inherit;height:48px;min-width:90px}
 .rating-hint{color:#888;font-size:.9rem;font-style:italic}
 .submit-section{margin-top:2.5rem;display:flex;gap:1rem}
+.submit-section button,.submit-section .btn{text-align:center;flex:1}
 .btn.secondary{background:#444;color:#fff}
 .btn.secondary:hover{background:#555}
 .helper-text{color:#888;font-size:.85rem;margin-top:.3rem}
