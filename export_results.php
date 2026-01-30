@@ -247,7 +247,7 @@ foreach ($votes as $vote) {
     // Cosa hai guardato
     emit_cell($vote['title']);
     // A quale categoria
-    emit_cell($vote['category'] ?? '');
+    emit_cell(translate_category($vote['category'] ?? ''));
     // Dove lo hai visto
     emit_cell($vote['where_watched'] ?? '');
     // Numeric scores
@@ -277,13 +277,13 @@ echo '</Worksheet>';
 echo '<Worksheet ss:Name="' . htmlspecialchars($sheetViewsName) . '">';
 echo '<Table>';
 echo '<Row>';
-emit_cell('PIATTAFORMA','String','Header'); emit_cell('Categoria','String','Header'); emit_cell('Titoli Unici','String','Header'); emit_cell('Visioni','String','Header'); emit_cell('Media Totale','String','Header');
+emit_cell(t('platform'),'String','Header'); emit_cell(t('category'),'String','Header'); emit_cell(t('unique_titles'),'String','Header'); emit_cell(t('views'),'String','Header'); emit_cell(t('avg_rating_total'),'String','Header');
 echo '</Row>';
 $sqlViews = "SELECT COALESCE(NULLIF(TRIM(vd.where_watched),''),'Altro') AS platform, COALESCE(NULLIF(TRIM(vd.category),''),'Altro') AS category, COUNT(DISTINCT v.movie_id) AS uniq_titles, COUNT(v.id) AS views, ROUND(AVG($ratingExpr),2) AS avg_rating FROM votes v LEFT JOIN vote_details vd ON vd.vote_id = v.id WHERE " . $whereYear . $statusFilter . " GROUP BY platform, category ORDER BY platform, category";
 $views = $mysqli->query($sqlViews)->fetch_all(MYSQLI_ASSOC);
 foreach ($views as $r) {
     echo '<Row>';
-    emit_cell($r['platform']); emit_cell($r['category']); emit_cell((int)$r['uniq_titles'],'Number'); emit_cell((int)$r['views'],'Number');
+    emit_cell($r['platform']); emit_cell(translate_category($r['category'])); emit_cell((int)$r['uniq_titles'],'Number'); emit_cell((int)$r['views'],'Number');
     emit_cell(isset($r['avg_rating']) ? $r['avg_rating'] : '','Number');
     echo '</Row>';
 }
@@ -295,7 +295,7 @@ echo '<Worksheet ss:Name="' . htmlspecialchars($sheetJudgesName) . '">';
 echo '<Table>';
 echo '<Row>';
 $judgeHeaders = [t('judge'), t('votes')];
-foreach ($allCategories as $cat) { $judgeHeaders[] = $cat; }
+foreach ($allCategories as $cat) { $judgeHeaders[] = translate_category($cat); }
 $judgeHeaders[] = t('avg_total');
 foreach ($judgeHeaders as $hc) { emit_cell($hc,'String','Header'); }
 echo '</Row>';
@@ -325,7 +325,7 @@ echo '<Worksheet ss:Name="' . htmlspecialchars($sheetJudgesCompName) . '">';
 echo '<Table>';
 echo '<Row>';
 $judgeCompHeaders = [t('judge'), t('votes')];
-foreach ($allCategories as $cat) { $judgeCompHeaders[] = $cat; }
+foreach ($allCategories as $cat) { $judgeCompHeaders[] = translate_category($cat); }
 foreach ($judgeCompHeaders as $hc) { emit_cell($hc,'String','Header'); }
 echo '</Row>';
 $statusListComp = "'" . implode("','", array_map(function($s) use ($mysqli) { return $mysqli->real_escape_string($s); }, $inCompetitionStatuses)) . "'";
@@ -374,7 +374,7 @@ emit_cell(t('title'),'String','Header');
 emit_cell(t('category'),'String','Header');
 echo '</Row>';
 $rowsFinal = $mysqli->query("SELECT DISTINCT m.title, COALESCE(vd.category,'') AS category FROM votes v JOIN movies m ON m.id=v.movie_id LEFT JOIN vote_details vd ON vd.vote_id=v.id WHERE " . $whereYear . $statusFilter . " ORDER BY m.title")->fetch_all(MYSQLI_ASSOC);
-foreach ($rowsFinal as $f) { echo '<Row>'; emit_cell($f['title']); emit_cell($f['category']); echo '</Row>'; }
+foreach ($rowsFinal as $f) { echo '<Row>'; emit_cell($f['title']); emit_cell(translate_category($f['category'])); echo '</Row>'; }
 echo '</Table>'; echo '</Worksheet>';
 
 // Risultati (Aggregated Results)
@@ -412,7 +412,7 @@ foreach ($results as $result) {
     // TITOLO
     emit_cell($result['title'] ?? '');
     // Categoria
-    emit_cell($result['category'] ?? '');
+    emit_cell(translate_category($result['category'] ?? ''));
     // PIATTAFORMA
     emit_cell($result['where_watched'] ?? '');
     // Concorso

@@ -190,4 +190,7 @@ return [
     , 'competition_placeholder' => 'Competizione'
     , 'active_badge' => 'Corrente'
     , 'set_active_competition' => 'Imposta competizione attiva'
+    , 'platform' => 'Piattaforma'
+    , 'unique_titles' => 'Titoli Unici'
+    , 'avg_rating_total' => 'Media Totale'
 ];

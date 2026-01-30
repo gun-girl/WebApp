@@ -192,4 +192,7 @@ return [
     , 'competition_placeholder' => 'Competition'
     , 'active_badge' => 'Active'
     , 'set_active_competition' => 'Set active competition'
+    , 'platform' => 'Platform'
+    , 'unique_titles' => 'Unique Titles'
+    , 'avg_rating_total' => 'Average Total'
 ];

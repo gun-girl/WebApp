@@ -305,7 +305,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($novelty < 1 || $novelty > 10) { $errors[] = 'Novelty score must be between 1-10'; $errorFields['novelty'] = 'Must be between 1 and 10'; }
     if ($casting_research < 1 || $casting_research > 10) { $errors[] = 'Casting/Research score must be between 1-10'; $errorFields['casting_research'] = 'Must be between 1 and 10'; }
     if ($sound < 1 || $sound > 10) { $errors[] = 'Sound score must be between 1-10'; $errorFields['sound'] = 'Must be between 1 and 10'; }
-    if (in_array($category, ['Series','Miniseries'])) {
+    if (in_array($category, ['Serie','Miniserie'])) {
       if ($season_number === null || $season_number < 1) { $errors[] = 'Season number required for series/miniseries'; $errorFields['season_number'] = 'Season required'; }
     }
     
@@ -541,16 +541,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
               }
             } catch (Throwable $e) {
-              // Fallback to hardcoded if query fails
-              $allCategories = ['Film', 'Series', 'Miniseries', 'Documentary', 'Animation'];
+              // Fallback to Italian values (stored in database)
+              $allCategories = ['Film', 'Serie', 'Miniserie', 'Documentario', 'Animazione'];
               $typeMap = [
                 'movie' => 'Film',
                 'film' => 'Film',
-                'series' => 'Series',
-                'miniseries' => 'Miniseries',
-                'documentary' => 'Documentary',
-                'animation' => 'Animation',
-                'anime' => 'Animation',
+                'series' => 'Serie',
+                'miniseries' => 'Miniserie',
+                'documentary' => 'Documentario',
+                'animation' => 'Animazione',
+                'anime' => 'Animazione',
               ];
             }
             // Derive default category from movie type
@@ -698,7 +698,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   const seasonEpisodeGroup = document.getElementById('seasonEpisodeGroup');
   function toggleSeasonEpisode(){
     const v = categorySelect.value;
-    if(v === 'Series' || v === 'Miniseries') {
+    if(v === 'Serie' || v === 'Miniserie') {
       seasonEpisodeGroup.style.display = 'block';
     } else {
       seasonEpisodeGroup.style.display = 'none';

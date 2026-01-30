@@ -229,10 +229,13 @@ if ($sheet === 'lists') {
   $allCategories = [];
   try {
     // Admin-configured categories (preserve DB order, not alphabetical)
+    // Keep original values from DB for accurate queries
     $catConfigured = [];
     $resCfg = $mysqli->query("SELECT category FROM category_types ORDER BY id ASC");
     if ($resCfg) {
-      foreach ($resCfg->fetch_all(MYSQLI_ASSOC) as $row) { $catConfigured[] = $row['category']; }
+      foreach ($resCfg->fetch_all(MYSQLI_ASSOC) as $row) { 
+        $catConfigured[] = $row['category'];
+      }
     }
     error_log('[STATS DEBUG] Configured categories: ' . json_encode($catConfigured));
     
@@ -275,8 +278,28 @@ if ($sheet === 'lists') {
   // Best of by category: dynamically query for each category voted by users
   // Filter by vote date (not movie release date) so all voted movies appear
   $bestByCategory = [];
+  // Load translations for category mapping
+  $enStrings = @include __DIR__ . '/includes/strings/en.php';
+  $itStrings = @include __DIR__ . '/includes/strings/it.php';
+  $categoryKeys = ['film', 'series', 'miniseries', 'documentary', 'animation'];
+  
   foreach ($allCategories as $cat) {
-    $catEsc = addslashes($cat);
+    // Build a list of all category variants (English + Italian) that map to the same translation key
+    $categoryVariants = [$cat];
+    if (is_array($enStrings) && is_array($itStrings)) {
+      foreach ($categoryKeys as $key) {
+        $enVal = $enStrings[$key] ?? null;
+        $itVal = $itStrings[$key] ?? null;
+        // If current category matches any variant, add all variants
+        if (($enVal === $cat || $itVal === $cat) && $enVal && $itVal) {
+          $categoryVariants = array_unique([$enVal, $itVal]);
+          break;
+        }
+      }
+    }
+    
+    // Query for all variants of this category
+    $catList = "'" . implode("','", array_map(function($c) { return addslashes($c); }, $categoryVariants)) . "'";
     $sql = "SELECT m.id, m.title, m.year, m.type, m.poster_url, vd.season_number,
                    COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
             FROM movies m
@@ -284,7 +307,7 @@ if ($sheet === 'lists') {
             LEFT JOIN vote_details vd ON vd.vote_id = v.id
             WHERE v.created_at >= '" . $mysqli->real_escape_string($windowStart . ' 00:00:00') . "' 
               AND v.created_at <= '" . $mysqli->real_escape_string($windowEnd . ' 23:59:59') . "'
-              AND COALESCE(vd.category,'') = '$catEsc'" . $statusCondVd . "
+              AND COALESCE(vd.category,'') IN ($catList)" . $statusCondVd . "
             GROUP BY m.id, vd.season_number
             HAVING votes_count > 0
             ORDER BY avg_rating DESC, votes_count DESC, m.title ASC
@@ -391,7 +414,7 @@ if ($sheet === 'lists') {
           <?php foreach ($bestByCategory as $cat => $rows): $secId = 'stat-best-' . md5($cat); ?>
           <div class="stat-nested-card">
             <button class="stat-nested-toggle" data-target="<?= $secId ?>" aria-expanded="false">
-              <span><?= e($cat) ?></span>
+              <span><?= e(translate_category($cat)) ?></span>
               <span class="chevron">▾</span>
             </button>
             <div id="<?= $secId ?>" class="stat-nested-content">
@@ -410,7 +433,7 @@ if ($sheet === 'lists') {
                           <div class="stat-title">
                             <?= e($row['title']) ?>
                             <?php if (!empty($row['season_number'])): ?>
-                              <span style="color:#f6c90e;font-weight:600;"> - Season <?= (int)$row['season_number'] ?></span>
+                              <span style="color:#f6c90e;font-weight:600;"> - <?= t('season') ?> <?= (int)$row['season_number'] ?></span>
                             <?php endif; ?>
                             <span class="muted">(<?= e($row['year']) ?>)</span>
                           </div>
@@ -450,7 +473,7 @@ if ($sheet === 'lists') {
                       <div class="stat-title">
                         <?= e($row['title']) ?>
                         <?php if (!empty($row['season_number'])): ?>
-                          <span style="color:#f6c90e;font-weight:600;"> - Season <?= (int)$row['season_number'] ?></span>
+                          <span style="color:#f6c90e;font-weight:600;"> - <?= t('season') ?> <?= (int)$row['season_number'] ?></span>
                         <?php endif; ?>
                         <span class="muted">(<?= e($row['year']) ?>)</span>
                       </div>
@@ -513,7 +536,7 @@ if ($sheet === 'lists') {
                                 <span class="title-name">
                                   <?= e($title['title']) ?>
                                   <?php if (!empty($title['season_number'])): ?>
-                                    <span style="color:#f6c90e;font-weight:600;"> - Season <?= (int)$title['season_number'] ?></span>
+                                    <span style="color:#f6c90e;font-weight:600;"> - <?= t('season') ?> <?= (int)$title['season_number'] ?></span>
                                   <?php endif; ?>
                                   <span class="muted">(<?= e($title['year']) ?>)</span>
                                 </span>
@@ -961,8 +984,8 @@ if ($sheet === 'views') {
         }
       }
     } catch (Throwable $e) {
-      // Fallback to hardcoded if query fails
-      $categories = ['Film','Series','Miniseries','Documentary','Animation'];
+      // Fallback to Italian values (stored in database)
+      $categories = ['Film','Serie','Miniserie','Documentario','Animazione'];
     }
     
     $summary = [];
@@ -1007,11 +1030,11 @@ if ($sheet === 'views') {
       <h3><?= e(t('sheet_views')) ?></h3>
       <div class="summary-grid">
         <?php foreach ($categories as $cat): $s=$summary[$cat]; ?>
-          <div class="summary-item"><strong><?= e($cat) ?> — <?= e(t('unique_titles')) ?></strong><?= (int)$s['uniq_titles'] ?></div>
+          <div class="summary-item"><strong><?= e(translate_category($cat)) ?> — <?= e(t('unique_titles')) ?></strong><?= (int)$s['uniq_titles'] ?></div>
         <?php endforeach; ?>
         <div class="summary-item"><strong><?= e(t('total')) ?> — <?= e(t('unique_titles')) ?></strong><?= (int)$summaryTotal['uniq_titles'] ?></div>
         <?php foreach ($categories as $cat): $s=$summary[$cat]; ?>
-          <div class="summary-item"><strong><?= e($cat) ?> — <?= e(t('total_views')) ?></strong><?= (int)$s['views'] ?></div>
+          <div class="summary-item"><strong><?= e(translate_category($cat)) ?> — <?= e(t('total_views')) ?></strong><?= (int)$s['views'] ?></div>
         <?php endforeach; ?>
         <div class="summary-item"><strong><?= e(t('total_views')) ?></strong><?= (int)$summaryTotal['views'] ?></div>
       </div>
@@ -1030,8 +1053,8 @@ if ($sheet === 'views') {
           <th><?= t('platform') ?></th>
           <th><?= t('qualitative_average') ?></th>
           <?php foreach ($categories as $cat): ?>
-            <th><?= e($cat) ?> <?= t('titles') ?></th>
-            <th><?= e($cat) ?> <?= t('average_rating') ?></th>
+            <th><?= e(translate_category($cat)) ?> <?= t('titles') ?></th>
+            <th><?= e(translate_category($cat)) ?> <?= t('average_rating') ?></th>
           <?php endforeach; ?>
         </tr>
       </thead>
@@ -1176,7 +1199,7 @@ if ($sheet === 'judges' || $sheet === 'judges_comp') {
           <th><?= t('judge') ?></th>
           <th><?= t('votes') ?></th>
           <?php if (!empty($categories)): foreach ($categories as $cat): ?>
-            <th><?= e($cat) ?></th>
+            <th><?= e(translate_category($cat)) ?></th>
           <?php endforeach; endif; ?>
           <th><?= t('avg_total') ?></th>
           <th><?= t('avg_writing') ?></th>

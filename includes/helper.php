@@ -191,7 +191,45 @@ function set_setting(string $key, $value): bool
     }
     return false;
 }
-
+/**
+ * Translate a category name to the current language.
+ * Handles both English and Italian input values without hardcoding.
+ */
+function translate_category(string $category): string
+{
+    if (!function_exists('t')) {
+        return $category;
+    }
+    
+    // Load language files dynamically
+    $enStrings = @include __DIR__ . '/strings/en.php';
+    $itStrings = @include __DIR__ . '/strings/it.php';
+    if (!is_array($enStrings) || !is_array($itStrings)) {
+        return $category;
+    }
+    
+    // Build bidirectional mapping: both English and Italian values map to keys
+    $categoryKeys = ['film', 'series', 'miniseries', 'documentary', 'animation'];
+    $valueToKeyMap = [];
+    
+    foreach ($categoryKeys as $key) {
+        if (isset($enStrings[$key])) {
+            $valueToKeyMap[$enStrings[$key]] = $key;  // English value => key
+        }
+        if (isset($itStrings[$key])) {
+            $valueToKeyMap[$itStrings[$key]] = $key;  // Italian value => key
+        }
+    }
+    
+    // Find the key for this category (works for both English and Italian inputs)
+    if (isset($valueToKeyMap[$category])) {
+        $key = $valueToKeyMap[$category];
+        return t($key);  // Translate using the found key
+    }
+    
+    // Fallback: return as-is if no match found
+    return $category;
+}
 /**
  * Return the active competition id from settings or null if not set.
  */
