@@ -126,7 +126,7 @@ return [
     'acting_theme' => 'Recitazione / Scelta del tema (documentari)',
     'emotional_involvement' => 'Coinvolgimento emotivo',
     'novelty' => 'Senso di nuovo',
-    'casting_research' => 'Casting / Ricerca (documentari) / Design personaggi (animazione)',
+    'casting_research' => 'Casting / Ricerca (documentari) / Artwork personaggi (animazione)',
     'sound' => 'Sonoro',
     'vote_1_to_10' => 'Vota da 1 a 10 (mezzi punti consentiti)',
     'adjective' => 'Descrivi ciò che hai appena visto con un aggettivo',
