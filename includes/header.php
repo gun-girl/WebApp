@@ -13,8 +13,9 @@ $calendar_year = (int)date('Y');
 <meta name="description" content="A collaborative movie voting and watchlist application">
 <title><?= e(t('site_title')) ?></title>
 <link rel="manifest" href="<?= ADDRESS ?>/manifest.json">
-<link rel="icon" type="image/png" href="<?= ADDRESS ?>/assets/img/logo.png">
-<link rel="apple-touch-icon" href="<?= ADDRESS ?>/assets/img/logo.png">
+<link rel="icon" type="image/jpeg" href="<?= ADDRESS ?>/favicon.jpg">
+<link rel="shortcut icon" href="<?= ADDRESS ?>/favicon.jpg">
+<link rel="apple-touch-icon" href="<?= ADDRESS ?>/favicon.jpg">
 <?php $cssPath = __DIR__ . '/../assets/css/style.css'; $cssVer = @filemtime($cssPath) ?: time(); ?>
 <link rel="stylesheet" href="<?= ADDRESS ?>/assets/css/style.css?v=<?= $cssVer ?>">
 <?php $starfieldPath = __DIR__ . '/../assets/js/starfield.js'; $starfieldVer = @filemtime($starfieldPath) ?: time(); ?>
