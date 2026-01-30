@@ -560,9 +560,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $catVal = $old('category', $existing_vote['category'] ?? ($derivedCategory ?: ''));
             
-            // Render all categories dynamically
+            // Render all categories dynamically with translation
             foreach ($allCategories as $cat): ?>
-              <option value="<?= htmlspecialchars($cat) ?>" <?= $catVal === $cat ? 'selected' : '' ?>><?= htmlspecialchars($cat) ?></option>
+              <option value="<?= htmlspecialchars($cat) ?>" <?= $catVal === $cat ? 'selected' : '' ?>><?= htmlspecialchars(translate_category($cat)) ?></option>
             <?php endforeach;
           ?>
         </select>
