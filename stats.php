@@ -321,16 +321,40 @@ if ($sheet === 'lists') {
   }
 
   // Most viewed: ordered by view count (filter by vote date, not movie release date)
-  $viewsSql = "SELECT m.id, m.title, m.year, m.poster_url, vd.season_number, COUNT(v.id) AS views
-               FROM movies m
-               JOIN votes v ON v.movie_id = m.id
-               LEFT JOIN vote_details vd ON vd.vote_id = v.id
-               WHERE v.created_at >= '" . $mysqli->real_escape_string($windowStart . ' 00:00:00') . "' 
-                 AND v.created_at <= '" . $mysqli->real_escape_string($windowEnd . ' 23:59:59') . "'" . $statusCondVd . "
-               GROUP BY m.id, vd.season_number
-               ORDER BY views DESC, m.title ASC
-               LIMIT 25";
-  $viewsRows = $mysqli->query($viewsSql)->fetch_all(MYSQLI_ASSOC);
+  // Organize by category, similar to bestByCategory
+  $mostViewedByCategory = [];
+  foreach ($allCategories as $cat) {
+    // Build category variants (English + Italian)
+    $categoryVariants = [$cat];
+    if (is_array($enStrings) && is_array($itStrings)) {
+      foreach ($categoryKeys as $key) {
+        $enVal = $enStrings[$key] ?? null;
+        $itVal = $itStrings[$key] ?? null;
+        if (($enVal === $cat || $itVal === $cat) && $enVal && $itVal) {
+          $categoryVariants = array_unique([$enVal, $itVal]);
+          break;
+        }
+      }
+    }
+    
+    $catList = "'" . implode("','", array_map(function($c) { return addslashes($c); }, $categoryVariants)) . "'";
+    $viewsSql = "SELECT m.id, m.title, m.year, m.poster_url, vd.season_number, COUNT(v.id) AS views
+                 FROM movies m
+                 JOIN votes v ON v.movie_id = m.id
+                 LEFT JOIN vote_details vd ON vd.vote_id = v.id
+                 WHERE v.created_at >= '" . $mysqli->real_escape_string($windowStart . ' 00:00:00') . "' 
+                   AND v.created_at <= '" . $mysqli->real_escape_string($windowEnd . ' 23:59:59') . "'
+                   AND COALESCE(vd.category,'') IN ($catList)" . $statusCondVd . "
+                 GROUP BY m.id, vd.season_number
+                 ORDER BY views DESC, m.title ASC
+                 LIMIT 25";
+    $res = $mysqli->query($viewsSql);
+    if (!$res) {
+      $mostViewedByCategory[$cat] = [];
+    } else {
+      $mostViewedByCategory[$cat] = $res->fetch_all(MYSQLI_ASSOC);
+    }
+  }
 
   // Jurors: Get all jurors with their stats
   $judgesSql = "SELECT u.id AS user_id, u.username AS judge, COUNT(v.id) AS votes_count, ROUND(AVG($ratingExprGlobal),2) AS avg_rating
@@ -458,34 +482,44 @@ if ($sheet === 'lists') {
           <span class="chevron">▾</span>
         </button>
         <div id="stat-views" class="stat-content">
-          <?php if ($viewsRows): ?>
-            <ol class="ranked-list">
-              <?php foreach ($viewsRows as $idx => $row): ?>
-                <li>
-                  <div class="stat-line stat-line-with-poster">
-                    <span class="rank">#<?= $idx + 1 ?></span>
-                    <?php if ($row['poster_url'] && $row['poster_url'] !== 'N/A'): ?>
-                      <img src="<?= htmlspecialchars($row['poster_url']) ?>" alt="<?= e($row['title']) ?>" class="stat-poster" loading="lazy">
-                    <?php else: ?>
-                      <div class="stat-poster stat-poster-empty">📽️</div>
-                    <?php endif; ?>
-                    <div class="stat-main">
-                      <div class="stat-title">
-                        <?= e($row['title']) ?>
-                        <?php if (!empty($row['season_number'])): ?>
-                          <span style="color:#f6c90e;font-weight:600;"> - <?= t('season') ?> <?= (int)$row['season_number'] ?></span>
+          <?php foreach ($mostViewedByCategory as $cat => $rows): $secId = 'stat-views-' . md5($cat); ?>
+          <div class="stat-nested-card">
+            <button class="stat-nested-toggle" data-target="<?= $secId ?>" aria-expanded="false">
+              <span><?= e(translate_category($cat)) ?></span>
+              <span class="chevron">▾</span>
+            </button>
+            <div id="<?= $secId ?>" class="stat-nested-content">
+              <?php if ($rows): ?>
+                <ol class="ranked-list">
+                  <?php foreach ($rows as $idx => $row): ?>
+                    <li>
+                      <a href="?sheet=lists&year=<?= $viewYearInt ?>&view_movie=<?= $row['id'] ?>" class="stat-line stat-line-with-poster movie-link" data-movie-id="<?= $row['id'] ?>">
+                        <span class="rank">#<?= $idx + 1 ?></span>
+                        <?php if ($row['poster_url'] && $row['poster_url'] !== 'N/A'): ?>
+                          <img src="<?= htmlspecialchars($row['poster_url']) ?>" alt="<?= e($row['title']) ?>" class="stat-poster" loading="lazy">
+                        <?php else: ?>
+                          <div class="stat-poster stat-poster-empty">📽️</div>
                         <?php endif; ?>
-                        <span class="muted">(<?= e($row['year']) ?>)</span>
-                      </div>
-                      <div class="stat-meta"><?= t('views') ?>: <strong><?= (int)$row['views'] ?></strong></div>
-                    </div>
-                  </div>
-                </li>
-              <?php endforeach; ?>
-            </ol>
-          <?php else: ?>
-            <p class="stat-empty"><?= e(t('no_data_yet')) ?></p>
-          <?php endif; ?>
+                        <div class="stat-main">
+                          <div class="stat-title">
+                            <?= e($row['title']) ?>
+                            <?php if (!empty($row['season_number'])): ?>
+                              <span style="color:#f6c90e;font-weight:600;"> - <?= t('season') ?> <?= (int)$row['season_number'] ?></span>
+                            <?php endif; ?>
+                            <span class="muted">(<?= e($row['year']) ?>)</span>
+                          </div>
+                          <div class="stat-meta"><?= t('views') ?>: <strong><?= (int)$row['views'] ?></strong></div>
+                        </div>
+                      </a>
+                    </li>
+                  <?php endforeach; ?>
+                </ol>
+              <?php else: ?>
+                <p class="stat-empty"><?= e(t('no_data_yet')) ?></p>
+              <?php endif; ?>
+            </div>
+          </div>
+          <?php endforeach; ?>
         </div>
       </div>
 
