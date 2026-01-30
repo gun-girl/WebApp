@@ -492,8 +492,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php $poster = $movie['poster_url']; if(!$poster || $poster==='N/A'){ $poster=ADDRESS.'/assets/img/no-poster.svg'; } ?>
     <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" onerror="this.onerror=null;this.src=ADDRESS+'/assets/img/no-poster.svg';">
     <div class="movie-info">
-      <h2><?= htmlspecialchars($movie['title']) ?></h2>
-      <p class="year"><?= ($movie['type'] === 'series' && !empty($movie['start_year'])) ? htmlspecialchars($movie['start_year']) . ((!empty($movie['end_year']) && $movie['end_year'] != $movie['start_year']) ? ' - ' . htmlspecialchars($movie['end_year']) : '') : htmlspecialchars($movie['year']) ?></p>
+      <h2><?= htmlspecialchars($movie['title']) ?><?= $url_season > 0 ? ' - ' . t('season') . ' ' . $url_season : '' ?></h2>
+      <p style="margin:0.25rem 0; color:#bbb; font-size:0.95rem;"><?= t('type') ?>: <?= htmlspecialchars(t($movie['type'] ?? '')) ?></p>
+      <p class="year" style="margin:0.25rem 0;"><?= t('year') ?>: <?php 
+        if ($url_season && $seasonReleaseDate) {
+          echo htmlspecialchars(date('Y', strtotime($seasonReleaseDate)));
+        } elseif ($movie['type'] === 'series' && !empty($movie['start_year'])) {
+          echo htmlspecialchars($movie['start_year']) . ((!empty($movie['end_year']) && $movie['end_year'] != $movie['start_year']) ? ' - ' . htmlspecialchars($movie['end_year']) : '');
+        } else {
+          echo htmlspecialchars($movie['year']);
+        }
+      ?></p>
+      <?php 
+        $displayReleaseDate = $seasonReleaseDate ?? ($movie['released'] ?? '');
+        if (!empty($displayReleaseDate) && $displayReleaseDate !== '0000-00-00'): 
+      ?>
+        <p style="margin:0.25rem 0; color:#bbb; font-size:0.95rem;"><?= t('released') ?>: <?= htmlspecialchars($displayReleaseDate) ?></p>
+      <?php endif; ?>
     </div>
   </div>
 
