@@ -193,4 +193,13 @@ return [
     , 'platform' => 'Piattaforma'
     , 'unique_titles' => 'Titoli Unici'
     , 'avg_rating_total' => 'Media Totale'
+    , 'type' => 'Tipo'
+    , 'released' => 'Uscita'
+    , 'invalid_movie_id' => 'ID film non valido'
+    , 'movie_not_found' => 'Film non trovato'
+    , 'not_released_yet' => 'Questo titolo non è ancora uscito.'
+    , 'admin_competition_status_title' => 'Admin: Stato Competizione'
+    , 'admin_competition_status_desc' => 'La modifica aggiornerà lo stato di competizione per tutti i voti di questo titolo.'
+    , 'updated_for_votes' => 'Aggiornato per %d voto(i).'
+    , 'update_failed' => 'Aggiornamento fallito'
 ];

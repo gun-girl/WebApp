@@ -446,7 +446,7 @@ if ($sheet === 'lists') {
                 <ol class="ranked-list">
                   <?php foreach ($rows as $idx => $row): ?>
                     <li>
-                      <a href="?sheet=lists&year=<?= $viewYearInt ?>&view_movie=<?= $row['id'] ?>" class="stat-line stat-line-with-poster movie-link" data-movie-id="<?= $row['id'] ?>">
+                      <a href="?sheet=lists&year=<?= $viewYearInt ?>&view_movie=<?= $row['id'] ?><?= !empty($row['season_number']) ? '&season=' . (int)$row['season_number'] : '' ?>" class="stat-line stat-line-with-poster movie-link" data-movie-id="<?= $row['id'] ?>">
                         <span class="rank">#<?= $idx + 1 ?></span>
                         <?php if ($row['poster_url'] && $row['poster_url'] !== 'N/A'): ?>
                           <img src="<?= htmlspecialchars($row['poster_url']) ?>" alt="<?= e($row['title']) ?>" class="stat-poster" loading="lazy">
@@ -493,7 +493,7 @@ if ($sheet === 'lists') {
                 <ol class="ranked-list">
                   <?php foreach ($rows as $idx => $row): ?>
                     <li>
-                      <a href="?sheet=lists&year=<?= $viewYearInt ?>&view_movie=<?= $row['id'] ?>" class="stat-line stat-line-with-poster movie-link" data-movie-id="<?= $row['id'] ?>">
+                      <a href="?sheet=lists&year=<?= $viewYearInt ?>&view_movie=<?= $row['id'] ?><?= !empty($row['season_number']) ? '&season=' . (int)$row['season_number'] : '' ?>" class="stat-line stat-line-with-poster movie-link" data-movie-id="<?= $row['id'] ?>">
                         <span class="rank">#<?= $idx + 1 ?></span>
                         <?php if ($row['poster_url'] && $row['poster_url'] !== 'N/A'): ?>
                           <img src="<?= htmlspecialchars($row['poster_url']) ?>" alt="<?= e($row['title']) ?>" class="stat-poster" loading="lazy">

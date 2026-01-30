@@ -336,10 +336,10 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
                 $poster = ADDRESS . '/assets/img/no-poster.svg';
               }
             ?>
-            <a class="movie-link" href="movie.php?id=<?= $movie['id'] ?>" style="text-decoration:none;color:inherit;display:block;">
+            <a class="movie-link" href="movie.php?id=<?= $movie['id'] ?><?= isset($movie['season_number']) ? '&season=' . (int)$movie['season_number'] : '' ?>" style="text-decoration:none;color:inherit;display:block;">
               <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" loading="lazy" onerror="this.onerror=null;this.src='<?= ADDRESS ?>/assets/img/no-poster.svg';">
               <?php if (isset($movie['season_number'])): ?>
-                <div class="season-badge">Season <?= $movie['season_number'] ?></div>
+                <div class="season-badge"><?= t('season') ?> <?= $movie['season_number'] ?></div>
               <?php endif; ?>
               <div class="movie-info">
                 <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
@@ -354,7 +354,7 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
                 ?></div>
               </div>
             </a>
-            <a class="vote-btn" href="vote.php?movie_id=<?= $movie['id'] ?><?= isset($movie['season_number']) ? '&season='.$movie['season_number'] : '' ?>"><?= t('vote') ?> ⭐</a>
+            <a class="vote-btn" href="vote.php?movie_id=<?= $movie['id'] ?><?= isset($movie['season_number']) ? '&season=' . (int)$movie['season_number'] : '' ?>"><?= t('vote') ?> ⭐</a>
           </div>
         <?php endforeach; ?>
       </section>
@@ -368,14 +368,14 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
             <div class="movie-card">
               <?php $badgeKey = competition_badge_key($movie); $in = ($badgeKey === 'badge_in_competition'); ?>
               <div class="comp-badge <?= $in ? 'in' : 'out' ?>"><?= e(t($badgeKey)) ?></div>
-              <a class="movie-link" href="movie.php?id=<?= $movie['id'] ?>" style="text-decoration:none;color:inherit;display:block;">
+              <a class="movie-link" href="movie.php?id=<?= $movie['id'] ?><?= isset($movie['season_number']) ? '&season=' . (int)$movie['season_number'] : '' ?>" style="text-decoration:none;color:inherit;display:block;">
                 <img src="<?= ADDRESS ?>/assets/img/no-poster.svg" alt="<?= htmlspecialchars($movie['title']) ?>">
                 <div class="movie-info">
                   <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
                   <div class="movie-year"><?= ($movie['type'] === 'series' && !empty($movie['start_year'])) ? htmlspecialchars($movie['start_year']) . ((!empty($movie['end_year']) && $movie['end_year'] != $movie['start_year']) ? ' - ' . htmlspecialchars($movie['end_year']) : '') : htmlspecialchars($movie['year']) ?></div>
                 </div>
               </a>
-              <a class="vote-btn" href="vote.php?movie_id=<?= $movie['id'] ?>"><?= t('vote') ?> ⭐</a>
+              <a class="vote-btn" href="vote.php?movie_id=<?= $movie['id'] ?><?= isset($movie['season_number']) ? '&season=' . (int)$movie['season_number'] : '' ?>"><?= t('vote') ?> ⭐</a>
             </div>
           <?php endforeach; ?>
         </section>
@@ -404,14 +404,14 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
         foreach ($inWithPoster as $movie): ?>
           <div class="movie-card">
             <?php $poster = $movie['poster_url']; ?>
-            <a class="movie-link" href="movie.php?id=<?= $movie['id'] ?>" style="text-decoration:none;color:inherit;display:block;">
+            <a class="movie-link" href="movie.php?id=<?= $movie['id'] ?><?= isset($movie['season_number']) ? '&season=' . (int)$movie['season_number'] : '' ?>" style="text-decoration:none;color:inherit;display:block;">
               <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" loading="lazy" onerror="this.onerror=null;this.src='<?= ADDRESS ?>/assets/img/no-poster.svg';">
               <div class="movie-info">
                 <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
                 <div class="movie-year"><?= ($movie['type'] === 'series' && !empty($movie['start_year'])) ? htmlspecialchars($movie['start_year']) . ((!empty($movie['end_year']) && $movie['end_year'] != $movie['start_year']) ? ' - ' . htmlspecialchars($movie['end_year']) : '') : htmlspecialchars($movie['year']) ?></div>
               </div>
             </a>
-            <a class="vote-btn" href="vote.php?movie_id=<?= $movie['id'] ?>"><?= t('vote') ?> ⭐</a>
+            <a class="vote-btn" href="vote.php?movie_id=<?= $movie['id'] ?><?= isset($movie['season_number']) ? '&season=' . (int)$movie['season_number'] : '' ?>"><?= t('vote') ?> ⭐</a>
           </div>
         <?php endforeach; ?>
         </div>
@@ -425,14 +425,14 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
       <div id="inWithoutPosterMovies" class="movie-row" style="display:none;gap:1.5rem;padding:2rem;max-width:1200px;margin:auto;grid-template-columns:repeat(auto-fill,240px);justify-content:center;">
         <?php foreach ($inWithoutPoster as $movie): ?>
           <div class="movie-card">
-            <a class="movie-link" href="movie.php?id=<?= $movie['id'] ?>" style="text-decoration:none;color:inherit;display:block;">
+            <a class="movie-link" href="movie.php?id=<?= $movie['id'] ?><?= isset($movie['season_number']) ? '&season=' . (int)$movie['season_number'] : '' ?>" style="text-decoration:none;color:inherit;display:block;">
               <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 300'%3E%3Cdefs%3E%3ClinearGradient id='grad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23f6c90e;stop-opacity:1' /%3E%3Cstop offset='50%25' style='stop-color:%23ffa500;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%23ff6b6b;stop-opacity:1' /%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='200' height='300' fill='url(%23grad)'/%3E%3Ctext x='100' y='150' font-size='80' text-anchor='middle' dominant-baseline='middle' fill='rgba(0,0,0,0.1)'%3E🎬%3C/text%3E%3C/svg%3E" alt="<?= htmlspecialchars($movie['title']) ?>" style="width:100%;height:240px;object-fit:cover;">
               <div class="movie-info">
                 <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
                 <div class="movie-year"><?= ($movie['type'] === 'series' && !empty($movie['start_year'])) ? htmlspecialchars($movie['start_year']) . ((!empty($movie['end_year']) && $movie['end_year'] != $movie['start_year']) ? ' - ' . htmlspecialchars($movie['end_year']) : '') : htmlspecialchars($movie['year']) ?></div>
               </div>
             </a>
-            <a class="vote-btn" href="vote.php?movie_id=<?= $movie['id'] ?>"><?= t('vote') ?> ⭐</a>
+            <a class="vote-btn" href="vote.php?movie_id=<?= $movie['id'] ?><?= isset($movie['season_number']) ? '&season=' . (int)$movie['season_number'] : '' ?>"><?= t('vote') ?> ⭐</a>
           </div>
         <?php endforeach; ?>
       </div>
@@ -451,14 +451,14 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
         foreach ($topWithPoster as $movie): ?>
           <div class="movie-card">
             <?php $poster = $movie['poster_url']; ?>
-            <a class="movie-link" href="movie.php?id=<?= $movie['id'] ?>" style="text-decoration:none;color:inherit;display:block;">
+            <a class="movie-link" href="movie.php?id=<?= $movie['id'] ?><?= isset($movie['season_number']) ? '&season=' . (int)$movie['season_number'] : '' ?>" style="text-decoration:none;color:inherit;display:block;">
               <img src="<?= htmlspecialchars($poster) ?>" alt="<?= htmlspecialchars($movie['title']) ?>" loading="lazy" onerror="this.onerror=null;this.src='<?= ADDRESS ?>/assets/img/no-poster.svg';">
               <div class="movie-info">
                 <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
                 <div class="movie-year"><?= ($movie['type'] === 'series' && !empty($movie['start_year'])) ? htmlspecialchars($movie['start_year']) . ((!empty($movie['end_year']) && $movie['end_year'] != $movie['start_year']) ? ' - ' . htmlspecialchars($movie['end_year']) : '') : htmlspecialchars($movie['year']) ?></div>
               </div>
             </a>
-            <a class="vote-btn" href="vote.php?movie_id=<?= $movie['id'] ?>"><?= t('vote') ?> ⭐</a>
+            <a class="vote-btn" href="vote.php?movie_id=<?= $movie['id'] ?><?= isset($movie['season_number']) ? '&season=' . (int)$movie['season_number'] : '' ?>"><?= t('vote') ?> ⭐</a>
           </div>
         <?php endforeach; ?>
         </div>
@@ -472,14 +472,14 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
       <div id="topWithoutPosterMovies" class="movie-row" style="display:none;gap:1.5rem;padding:2rem;max-width:1200px;margin:auto;grid-template-columns:repeat(auto-fill,240px);justify-content:center;">
         <?php foreach ($topWithoutPoster as $movie): ?>
           <div class="movie-card">
-            <a class="movie-link" href="movie.php?id=<?= $movie['id'] ?>" style="text-decoration:none;color:inherit;display:block;">
+            <a class="movie-link" href="movie.php?id=<?= $movie['id'] ?><?= isset($movie['season_number']) ? '&season=' . (int)$movie['season_number'] : '' ?>" style="text-decoration:none;color:inherit;display:block;">
               <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 300'%3E%3Cdefs%3E%3ClinearGradient id='grad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23f6c90e;stop-opacity:1' /%3E%3Cstop offset='50%25' style='stop-color:%23ffa500;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%23ff6b6b;stop-opacity:1' /%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='200' height='300' fill='url(%23grad)'/%3E%3Ctext x='100' y='150' font-size='80' text-anchor='middle' dominant-baseline='middle' fill='rgba(0,0,0,0.1)'%3E🎬%3C/text%3E%3C/svg%3E" alt="<?= htmlspecialchars($movie['title']) ?>" style="width:100%;height:240px;object-fit:cover;">
               <div class="movie-info">
                 <div class="movie-title"><?= htmlspecialchars($movie['title']) ?></div>
                 <div class="movie-year"><?= ($movie['type'] === 'series' && !empty($movie['start_year'])) ? htmlspecialchars($movie['start_year']) . ((!empty($movie['end_year']) && $movie['end_year'] != $movie['start_year']) ? ' - ' . htmlspecialchars($movie['end_year']) : '') : htmlspecialchars($movie['year']) ?></div>
               </div>
             </a>
-            <a class="vote-btn" href="vote.php?movie_id=<?= $movie['id'] ?>"><?= t('vote') ?> ⭐</a>
+            <a class="vote-btn" href="vote.php?movie_id=<?= $movie['id'] ?><?= isset($movie['season_number']) ? '&season=' . (int)$movie['season_number'] : '' ?>"><?= t('vote') ?> ⭐</a>
           </div>
         <?php endforeach; ?>
       </div>

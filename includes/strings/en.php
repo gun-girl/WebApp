@@ -195,4 +195,13 @@ return [
     , 'platform' => 'Platform'
     , 'unique_titles' => 'Unique Titles'
     , 'avg_rating_total' => 'Average Total'
+    , 'type' => 'Type'
+    , 'released' => 'Released'
+    , 'invalid_movie_id' => 'Invalid movie id'
+    , 'movie_not_found' => 'Movie not found'
+    , 'not_released_yet' => 'This title has not been released yet.'
+    , 'admin_competition_status_title' => 'Admin: Competition Status'
+    , 'admin_competition_status_desc' => 'Changing this will update the competition status for all votes of this title.'
+    , 'updated_for_votes' => 'Updated for %d vote(s).'
+    , 'update_failed' => 'Update failed'
 ];
