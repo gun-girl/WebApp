@@ -1,4 +1,4 @@
-:root{--gap:1rem;--bg:#111;--fg:#f5f5f5;--card:#1b1b1b;--accent:#ffc107;--accent-hover:#e0a800}
+:root{--gap:1rem;--bg:#111;--fg:#f5f5f5;--card:#1b1b1b;--accent:#ffc107;--accent-hover:#e0a800;--policy-title-size:1.1rem}
 *{box-sizing:border-box}
 body{margin:0;background:black;color:var(--fg);font-family:'Futura LT BT','Futura','Trebuchet MS',system-ui,sans-serif}
 header{max-width:none;width:100%;margin:0;padding:1rem 6rem 1rem 2rem;box-sizing:border-box}
@@ -752,4 +752,290 @@ main{padding-bottom:140px}
 	.mobile-tabbar .tab-link.active{color:#f6c90e}
 	.mobile-tabbar .tab-link.active .icon svg{stroke:#f6c90e;filter:drop-shadow(0 2px 8px rgba(246,201,14,.4))}
 	.mobile-tabbar .tab-link:focus-visible{outline:2px solid #f6c90e;outline-offset:6px;border-radius:1rem}
+}
+
+/* Policy Box Styles */
+.policy-box {
+	max-width: 800px;
+	margin: 2rem auto 2rem;
+	background: linear-gradient(145deg, #1a1a1a, #0d0d0d);
+	border: 2px solid rgba(246, 201, 14, 0.2);
+	border-radius: 1rem;
+	padding: 2rem;
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 
+	            0 0 60px rgba(246, 201, 14, 0.08);
+	position: relative;
+	overflow: hidden;
+	transition: all 0.3s ease;
+}
+
+/* Collapsed state - shorter box */
+.policy-box.collapsed {
+	max-height: 120px;
+	overflow: hidden;
+}
+
+.policy-box.collapsed .policy-box-content {
+	opacity: 0.7;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.policy-box.collapsed .policy-box-actions {
+	display: none;
+}
+
+/* Expanded state - full height */
+.policy-box.expanded {
+	max-height: none;
+}
+
+.policy-box.expanded .policy-box-content {
+	opacity: 1;
+	display: block;
+	-webkit-line-clamp: unset;
+}
+
+.policy-box.expanded .policy-box-actions {
+	display: flex;
+}
+
+.policy-box::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 4px;
+	background: linear-gradient(90deg, 
+		transparent, 
+		rgba(246, 201, 14, 0.5), 
+		transparent);
+}
+
+.policy-box-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1.5rem;
+	margin-bottom: 1.5rem;
+	padding-bottom: 1rem;
+	border-bottom: 1px solid rgba(246, 201, 14, 0.15);
+	user-select: none;
+}
+
+.policy-box.collapsed .policy-box-header {
+	margin-bottom: 0;
+	border-bottom: none;
+}
+
+
+
+.policy-box.expanded .policy-box-toggle-icon {
+	transform: rotate(180deg);
+}
+
+.policy-box-logo {
+	width: 60px;
+	height: 60px;
+	object-fit: contain;
+	filter: drop-shadow(0 4px 12px rgba(246, 201, 14, 0.3));
+}
+
+.policy-box-title {
+	font-size: var(--policy-title-size);
+	font-weight: 700;
+	color: #f6c90e;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	margin: 0;
+	text-shadow: 0 2px 8px rgba(246, 201, 14, 0.3);
+}
+
+.policy-box-content {
+	color: #ddd;
+	font-size: 1rem;
+	line-height: 1.6;
+	margin-bottom: 1rem;
+}
+
+.policy-box-content p {
+	margin: 0.75rem 0;
+}
+
+.policy-box-actions {
+	display: flex;
+	justify-content: flex-end;
+	padding-top: 1rem;
+	border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.policy-edit-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	background: rgba(246, 201, 14, 0.1);
+	border: 1px solid rgba(246, 201, 14, 0.3);
+	color: #f6c90e;
+	padding: 0.6rem 1.2rem;
+	border-radius: 0.5rem;
+	font-size: 0.9rem;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.3s ease;
+}
+
+.policy-edit-btn:hover {
+	background: rgba(246, 201, 14, 0.2);
+	border-color: #f6c90e;
+	box-shadow: 0 4px 12px rgba(246, 201, 14, 0.2);
+	transform: translateY(-2px);
+}
+
+.policy-edit-btn svg {
+	width: 16px;
+	height: 16px;
+}
+
+/* Edit modal styles */
+.policy-edit-modal {
+	display: none;
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.8);
+	z-index: 2000;
+	align-items: center;
+	justify-content: center;
+	backdrop-filter: blur(4px);
+}
+
+.policy-edit-modal.active {
+	display: flex;
+}
+
+.policy-edit-modal-content {
+	background: linear-gradient(145deg, #1a1a1a, #0d0d0d);
+	border: 2px solid rgba(246, 201, 14, 0.3);
+	border-radius: 1rem;
+	padding: 2rem;
+	max-width: 600px;
+	width: 90%;
+	max-height: 80vh;
+	overflow-y: auto;
+	box-shadow: 0 24px 60px rgba(0, 0, 0, 0.9);
+}
+
+.policy-edit-modal h3 {
+	color: #f6c90e;
+	margin-bottom: 1.5rem;
+	font-size: 1.5rem;
+}
+
+.policy-edit-form {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+.policy-edit-form label {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	color: #ddd;
+	font-weight: 600;
+}
+
+.policy-edit-form input,
+.policy-edit-form textarea {
+	background: #0a0a0a;
+	border: 2px solid #222;
+	border-radius: 0.5rem;
+	padding: 0.75rem;
+	color: #fff;
+	font-size: 1rem;
+	font-family: inherit;
+	transition: all 0.3s ease;
+}
+
+.policy-edit-form textarea {
+	min-height: 200px;
+	resize: vertical;
+}
+
+.policy-edit-form input:focus,
+.policy-edit-form textarea:focus {
+	outline: none;
+	border-color: #f6c90e;
+	box-shadow: 0 0 0 3px rgba(246, 201, 14, 0.1);
+}
+
+.policy-edit-form-actions {
+	display: flex;
+	gap: 1rem;
+	margin-top: 1rem;
+}
+
+.policy-edit-form-actions button {
+	flex: 1;
+	padding: 0.75rem 1.5rem;
+	border: none;
+	border-radius: 0.5rem;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.3s ease;
+}
+
+.policy-save-btn {
+	background: linear-gradient(135deg, #f6c90e, #ffde50);
+	color: #000;
+}
+
+.policy-save-btn:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 8px 24px rgba(246, 201, 14, 0.4);
+}
+
+.policy-cancel-btn {
+	background: transparent;
+	border: 2px solid #333 !important;
+	color: #fff;
+}
+
+.policy-cancel-btn:hover {
+	border-color: #f6c90e !important;
+	color: #f6c90e;
+	background: rgba(246, 201, 14, 0.05);
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+	.policy-box {
+		margin: 1rem;
+		padding: 1.5rem;
+	}
+	
+	.policy-box-header {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 1rem;
+	}
+	
+	.policy-box-logo {
+		width: 50px;
+		height: 50px;
+	}
+	
+	:root {
+		--policy-title-size: 1rem;
+	}
+	
+	.policy-edit-modal-content {
+		width: 95%;
+		padding: 1.5rem;
+	}
 }

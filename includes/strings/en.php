@@ -104,6 +104,7 @@ return [
     'computed_rating' => 'Average',
     'actions' => 'Actions',
     'edit' => 'Edit',
+    'save' => 'Save',
     'celebrating_cinema' => 'Celebrating Cinema Together',
     'official_voting_form' => 'Official Voting Form',
     'competition_status' => 'Competition Status',

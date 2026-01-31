@@ -224,6 +224,45 @@ if ($searchRequested) {
 <?php // Add body class to signal active search state (for hiding duplicate header search on wide screens)
 $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
 <?php include __DIR__ . '/includes/header.php'; ?>
+
+  <?php if (!$searchRequested): ?>
+    <?php
+      // Read policy box settings (no hardcoded defaults)
+      $policyTitle = get_setting('policy_box_title_' . current_lang(), '');
+      $policyContent = get_setting('policy_box_content', '');
+      if ($policyContent === '') {
+        // Backward compatibility: fall back to language-specific content if shared value is missing
+        $policyContent = get_setting('policy_box_content_' . current_lang(), '');
+      }
+      $policyVisible = get_setting('policy_box_visible', '1') === '1';
+      // Hide if nothing to show
+      if ($policyTitle === '' && $policyContent === '') { $policyVisible = false; }
+    ?>
+    <?php if ($policyVisible): ?>
+      <!-- Policy Information Box -->
+      <section class="policy-box collapsed" id="policyBox">
+        <div class="policy-box-header" id="policyBoxHeader" style="cursor: pointer;">
+          <h2 class="policy-box-title" id="policyTitle"><?= htmlspecialchars($policyTitle) ?></h2>
+          <span class="policy-box-toggle-icon" aria-label="Toggle"></span>
+        </div>
+        <div class="policy-box-content" id="policyContent">
+          <?= nl2br(htmlspecialchars($policyContent)) ?>
+        </div>
+        <?php if (is_admin()): ?>
+          <div class="policy-box-actions">
+            <button class="policy-edit-btn" id="editPolicyBtn" onclick="event.stopPropagation();">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+              <?= e(t('edit')) ?>
+            </button>
+          </div>
+        <?php endif; ?>
+      </section>
+    <?php endif; ?>
+  <?php endif; ?>
+
   <!-- Search screen -->
 
   <?php if ($searchRequested): ?>
@@ -553,6 +592,132 @@ $body_extra_class = $searchRequested ? 'has-search' : ''; ?>
         });
       }
     })();
+
+    // Policy Box Toggle (Collapse/Expand)
+    (function() {
+      const policyBox = document.getElementById('policyBox');
+      const policyBoxHeader = document.getElementById('policyBoxHeader');
+      
+      if (!policyBox || !policyBoxHeader) return;
+      
+      policyBoxHeader.addEventListener('click', function(e) {
+        // Don't toggle if clicking the edit button
+        if (e.target.closest('.policy-edit-btn')) {
+          return;
+        }
+        
+        policyBox.classList.toggle('collapsed');
+        policyBox.classList.toggle('expanded');
+      });
+    })();
   </script>
+
+  <?php if (is_admin()): ?>
+  <!-- Policy Box Edit Modal -->
+  <div class="policy-edit-modal" id="policyEditModal">
+    <div class="policy-edit-modal-content">
+      <h3><?= e(t('edit')) ?> Policy</h3>
+      <form class="policy-edit-form" id="policyEditForm">
+        <label>
+          <span><?= e(t('title')) ?></span>
+          <input type="text" id="policyTitleInput" placeholder="Enter title" value="">
+        </label>
+        <label>
+          <span>Content</span>
+          <textarea id="policyContentInput" placeholder="Enter policy content"></textarea>
+        </label>
+        <div class="policy-edit-form-actions">
+          <button type="submit" class="policy-save-btn"><?= e(t('save')) ?></button>
+          <button type="button" class="policy-cancel-btn" id="policyCancelBtn"><?= e(t('cancel')) ?></button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Policy Box Edit Functionality
+    (function() {
+      const editBtn = document.getElementById('editPolicyBtn');
+      const modal = document.getElementById('policyEditModal');
+      const form = document.getElementById('policyEditForm');
+      const cancelBtn = document.getElementById('policyCancelBtn');
+      const titleInput = document.getElementById('policyTitleInput');
+      const contentInput = document.getElementById('policyContentInput');
+      const titleDisplay = document.getElementById('policyTitle');
+      const contentDisplay = document.getElementById('policyContent');
+
+      if (!editBtn || !modal || !form) return;
+
+      // Open modal
+      editBtn.addEventListener('click', function() {
+        titleInput.value = titleDisplay.textContent.trim();
+        contentInput.value = contentDisplay.textContent.trim();
+        modal.classList.add('active');
+      });
+
+      // Close modal
+      function closeModal() {
+        modal.classList.remove('active');
+      }
+
+      cancelBtn.addEventListener('click', closeModal);
+      
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+          closeModal();
+        }
+      });
+
+      // Handle form submission
+      form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const title = titleInput.value.trim();
+        const content = contentInput.value.trim();
+        
+        if (!content) {
+          alert('Content cannot be empty');
+          return;
+        }
+
+        try {
+          const response = await fetch('<?= ADDRESS ?>/api/update_policy_box.php', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              action: 'update_content',
+              title: title,
+              content: content,
+              lang: '<?= current_lang() ?>'
+            })
+          });
+
+          const result = await response.json();
+
+          if (result.success) {
+            // Update the display
+            titleDisplay.textContent = title;
+            contentDisplay.innerHTML = content.replace(/\n/g, '<br>');
+            closeModal();
+            
+            // Show success message
+            const successMsg = document.createElement('div');
+            successMsg.style.cssText = 'position:fixed;top:20px;right:20px;background:#28a745;color:#fff;padding:1rem 1.5rem;border-radius:0.5rem;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:3000;';
+            successMsg.textContent = 'Policy updated successfully!';
+            document.body.appendChild(successMsg);
+            setTimeout(() => successMsg.remove(), 3000);
+          } else {
+            alert('Error: ' + (result.error || 'Failed to update policy'));
+          }
+        } catch (error) {
+          console.error('Error updating policy:', error);
+          alert('Failed to update policy. Please try again.');
+        }
+      });
+    })();
+  </script>
+  <?php endif; ?>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>

@@ -104,6 +104,7 @@ return [
     'computed_rating' => 'Media',
     'actions' => 'Azioni',
     'edit' => 'Modifica',
+    'save' => 'Salva',
     'celebrating_cinema' => 'Celebrando il Cinema Insieme',
     'official_voting_form' => 'Modulo di Voto Ufficiale',
     'competition_status' => 'Stato della competizione',
