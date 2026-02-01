@@ -1,8 +1,23 @@
 <?php require_once __DIR__ . '/helper.php'; require_once __DIR__ . '/auth.php'; require_once __DIR__ . '/lang.php';
 // Active competition id for header highlighting and actions
 $header_active_comp_id = function_exists('get_active_competition_id') ? get_active_competition_id() : null;
-// Calendar year used for fallback links
-$calendar_year = (int)date('Y');
+// Year used for fallback links (prefer selected year, then active competition start year, then current year)
+$calendar_year = isset($_GET['year']) && is_numeric($_GET['year']) ? (int)$_GET['year'] : null;
+if (!$calendar_year && $header_active_comp_id && isset($mysqli)) {
+  $stmt = $mysqli->prepare("SELECT `end`, start FROM competitions WHERE id = ? LIMIT 1");
+  if ($stmt) {
+    $stmt->bind_param('i', $header_active_comp_id);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $refDate = !empty($row['end']) ? $row['end'] : ($row['start'] ?? null);
+    if (!empty($refDate)) {
+      $calendar_year = (int)date('Y', strtotime($refDate));
+    }
+  }
+}
+if (!$calendar_year) {
+  $calendar_year = (int)date('Y');
+}
 ?>
 <!doctype html>
 <html lang="<?= current_lang() ?>">
@@ -119,6 +134,7 @@ $calendar_year = (int)date('Y');
                   continue;
                 }
                 $startYear = (int)date('Y', strtotime($start));
+                $endYear = (int)date('Y', strtotime($end));
                 $nm = trim($r['name'] ?? '');
                 if ($nm === '') { $nm = t('competition_placeholder') . ' ' . $startYear; }
                 $competitions[] = [
@@ -126,7 +142,7 @@ $calendar_year = (int)date('Y');
                   'name' => $nm,
                   'start' => $start,
                   'end' => $end,
-                  'year' => $startYear,
+                  'year' => $endYear,
                 ];
               }
             }

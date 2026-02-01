@@ -38,7 +38,7 @@ try {
         $activeCompName = $rowC['name'] ?? '';
         $active_window_start = $rowC['start'];
         $active_window_end = $rowC['end'];
-        $activeYearNumber = (int)date('Y', strtotime($active_window_start));
+        $activeYearNumber = (int)date('Y', strtotime($active_window_end ?: $active_window_start));
       }
     }
   }
@@ -48,7 +48,7 @@ try {
       $activeCompName = $rowF['name'] ?? '';
       $active_window_start = $rowF['start'];
       $active_window_end = $rowF['end'];
-      $activeYearNumber = (int)date('Y', strtotime($rowF['start']));
+      $activeYearNumber = (int)date('Y', strtotime($rowF['end'] ?: $rowF['start']));
     }
   }
 } catch (Throwable $e) {
@@ -61,9 +61,9 @@ $selectedYearNumber = isset($_GET['year']) ? (int)$_GET['year'] : $activeYearNum
 $viewYearInt = $selectedYearNumber;
 if ($selectedYearNumber && isset($mysqli)) {
   try {
-    $stmtY = $mysqli->prepare("SELECT id, name, start, `end` FROM competitions WHERE YEAR(start) = ? ORDER BY start DESC LIMIT 1");
+    $stmtY = $mysqli->prepare("SELECT id, name, start, `end` FROM competitions WHERE YEAR(start) = ? OR YEAR(`end`) = ? ORDER BY start DESC LIMIT 1");
     if ($stmtY) {
-      $stmtY->bind_param('i', $selectedYearNumber);
+      $stmtY->bind_param('ii', $selectedYearNumber, $selectedYearNumber);
       $stmtY->execute();
       $rowY = $stmtY->get_result()->fetch_assoc();
       if ($rowY) {
@@ -81,8 +81,55 @@ $selected_year = $viewYearInt;
 $selected_status = isset($_GET['status']) ? $_GET['status'] : 'all';
 // Date scope for filtering: 'release' (movie release date) or 'votes' (vote created_at)
 $selected_scope = isset($_GET['scope']) && in_array($_GET['scope'], ['release','votes'], true) ? $_GET['scope'] : 'release';
-// Build list of available years - default to the active competition's start year (legacy)
-$years = [$viewYearInt];
+// Build list of available competition years dynamically from competitions table
+$availableYears = [];
+try {
+  $compRows = $mysqli->query("SELECT id, name, start, `end` FROM competitions ORDER BY start DESC");
+  if ($compRows) {
+    foreach ($compRows->fetch_all(MYSQLI_ASSOC) as $compRow) {
+      $yearEnd = (int)date('Y', strtotime($compRow['end']));
+      $yearStart = (int)date('Y', strtotime($compRow['start']));
+      $compName = $compRow['name'] ?? '';
+      // Use end year as the primary identifier
+      if (!isset($availableYears[$yearEnd])) {
+        $availableYears[$yearEnd] = [
+          'year' => $yearEnd,
+          'name' => $compName,
+          'start' => $compRow['start'],
+          'end' => $compRow['end']
+        ];
+      }
+      // Also register start year if different
+      if ($yearStart !== $yearEnd && !isset($availableYears[$yearStart])) {
+        $availableYears[$yearStart] = [
+          'year' => $yearStart,
+          'name' => $compName,
+          'start' => $compRow['start'],
+          'end' => $compRow['end']
+        ];
+      }
+    }
+  }
+  krsort($availableYears); // Sort descending by year
+} catch (Throwable $e) {
+  // Fallback: just include current year
+  $availableYears[$viewYearInt] = [
+    'year' => $viewYearInt,
+    'name' => $competitionLabel,
+    'start' => $active_window_start,
+    'end' => $active_window_end
+  ];
+}
+// Ensure selected year is in the list
+if (!isset($availableYears[$viewYearInt])) {
+  $availableYears[$viewYearInt] = [
+    'year' => $viewYearInt,
+    'name' => $competitionLabel,
+    'start' => $active_window_start,
+    'end' => $active_window_end
+  ];
+  krsort($availableYears);
+}
 // Tab labels in the order matching the workbook
 $tabs = [
   'votes' => str_replace('{year}', $competitionLabel, t('sheet_votes')),
@@ -98,26 +145,38 @@ $tabs = [
 
 // Global fixed bottom tabs styling for all sheets (keeps bottom tabs visible while scrolling)
 ?>
-<!-- Competition status selector (centered) -->
+<!-- Year and Status selectors (centered) -->
 <div class="year-selector-wrap">
-  <form id="statusForm" method="get" action="<?= ADDRESS ?>/stats.php" class="year-selector-form">
-    <label for="statusSelect" class="year-selector-label"><?= e(t('select_competition_status')) ?>:</label>
+  <form id="filtersForm" method="get" action="<?= ADDRESS ?>/stats.php" class="year-selector-form">
+    <label for="yearSelect" class="year-selector-label"><?= e(t('select_year')) ?>:</label>
+    <select id="yearSelect" name="year" class="year-selector-select">
+      <?php foreach ($availableYears as $y): ?>
+        <option value="<?= $y['year'] ?>" <?= $viewYearInt === $y['year'] ? 'selected' : '' ?>>
+          <?= e($y['name'] ?: ('Competition ' . $y['year'])) ?>
+        </option>
+      <?php endforeach; ?>
+    </select>
+    
+    <label for="statusSelect" class="year-selector-label" style="margin-left: 1rem;"><?= e(t('select_competition_status')) ?>:</label>
     <select id="statusSelect" name="status" class="year-selector-select">
       <option value="all" <?= $selected_status === 'all' ? 'selected' : '' ?>><?= e(t('all_status')) ?></option>
       <option value="in" <?= $selected_status === 'in' ? 'selected' : '' ?>><?= e(t('filter_in_competition')) ?></option>
       <option value="out" <?= $selected_status === 'out' ? 'selected' : '' ?>><?= e(t('filter_out_of_competition')) ?></option>
     </select>
-    <?php // Preserve other GET params (sheet, lang, etc.) when switching status ?>
-    <?php foreach ($_GET as $k=>$v): if ($k === 'status' || $k === 'scope') continue; if (is_array($v)) continue; ?>
+    <?php // Preserve other GET params (sheet, lang, etc.) when switching filters ?>
+    <?php foreach ($_GET as $k=>$v): if (in_array($k, ['status', 'year', 'scope'])) continue; if (is_array($v)) continue; ?>
       <input type="hidden" name="<?= htmlspecialchars($k) ?>" value="<?= htmlspecialchars($v) ?>">
     <?php endforeach; ?>
   </form>
 </div>
 <script>
-  // Auto-submit the form when status selection changes
+  // Auto-submit the form when year or status selection changes
   (function(){
+    var yearSel = document.getElementById('yearSelect');
     var statusSel = document.getElementById('statusSelect');
-    if (statusSel) statusSel.addEventListener('change', function(){ document.getElementById('statusForm').submit(); });
+    var form = document.getElementById('filtersForm');
+    if (yearSel && form) yearSel.addEventListener('change', function(){ form.submit(); });
+    if (statusSel && form) statusSel.addEventListener('change', function(){ form.submit(); });
   })();
 </script>
 <?php
