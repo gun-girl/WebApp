@@ -131,7 +131,7 @@ include __DIR__.'/includes/header.php';
       
       <div class="profile-lang-section">
         <h3>🌐 <?= t('language') ?></h3>
-        <div class="lang-buttons">
+        <div class="lang-switch-container">
           <?php
             $current = current_lang();
             $q = $_GET;
@@ -140,8 +140,11 @@ include __DIR__.'/includes/header.php';
             $url_en = $_SERVER['PHP_SELF'] . '?lang=en' . ($qs ? '&'.$qs : '');
             $url_it = $_SERVER['PHP_SELF'] . '?lang=it' . ($qs ? '&'.$qs : '');
           ?>
-          <a href="<?= e($url_en) ?>" class="lang-btn <?= $current === 'en' ? 'active' : '' ?>">English</a>
-          <a href="<?= e($url_it) ?>" class="lang-btn <?= $current === 'it' ? 'active' : '' ?>">Italiano</a>
+          <div class="lang-switch">
+            <a href="<?= e($url_en) ?>" class="lang-option <?= $current === 'en' ? 'active' : '' ?>">EN</a>
+            <a href="<?= e($url_it) ?>" class="lang-option <?= $current === 'it' ? 'active' : '' ?>">IT</a>
+            <div class="lang-slider <?= $current === 'it' ? 'right' : '' ?>"></div>
+          </div>
         </div>
       </div>
     </div>
