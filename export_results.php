@@ -62,15 +62,21 @@ $window_end = $active_window_end;
 
 if ($selectedYearNumber && isset($mysqli)) {
     try {
+        $resolvedCompetition = false;
         $stmtY = $mysqli->prepare("SELECT id, name, start, `end` FROM competitions WHERE YEAR(start) = ? OR YEAR(`end`) = ? ORDER BY start DESC LIMIT 1");
         if ($stmtY) {
             $stmtY->bind_param('ii', $selectedYearNumber, $selectedYearNumber);
             $stmtY->execute();
             $rowY = $stmtY->get_result()->fetch_assoc();
             if ($rowY) {
+                $resolvedCompetition = true;
                 $window_start = $rowY['start'];
                 $window_end = $rowY['end'];
             }
+        }
+        if (!$resolvedCompetition) {
+            $window_start = sprintf('%04d-01-01', $selectedYearNumber);
+            $window_end = sprintf('%04d-12-31', $selectedYearNumber);
         }
     } catch (Throwable $e) { /* ignore */ }
 }
@@ -105,6 +111,14 @@ if (!$bypass_admin && !is_admin()) {
 
 // Get competition status filter from URL parameter
 $selected_status = isset($_GET['status']) ? $_GET['status'] : 'all';
+
+// Detect optional competition_year column for vote filtering
+$hasCompetitionYear = false;
+try {
+    $colsYears = $mysqli->query("SHOW COLUMNS FROM votes")->fetch_all(MYSQLI_ASSOC);
+    $fieldsYears = array_column($colsYears, 'Field');
+    $hasCompetitionYear = in_array('competition_year', $fieldsYears, true);
+} catch (Throwable $e) { /* ignore */ }
 
 // Query database for competition statuses dynamically and classify
 $inCompetitionStatuses = [];
@@ -162,11 +176,19 @@ if (empty($allCategories)) {
   $allCategories = ['Film', 'Serie', 'Miniserie', 'Documentario', 'Animazione'];
 }
 
-// Build movie release date filter using competition window
-// This ensures export uses the SAME DATE RANGE as stats.php (m.released)
-$whereMovieDate = "1=1"; // Default: no filter
+// Build vote-date filter using the selected window with competition_year fallback
+// Export should align with years that have voting data
+$whereVoteDate = "1=1"; // Default: no filter
 if ($window_start && $window_end) {
-    $whereMovieDate = "m.released >= '" . $mysqli->real_escape_string($window_start) . "' AND m.released <= '" . $mysqli->real_escape_string($window_end) . "'";
+    $startTs = $mysqli->real_escape_string($window_start . ' 00:00:00');
+    $endTs = $mysqli->real_escape_string($window_end . ' 23:59:59');
+    if ($hasCompetitionYear) {
+        $y = (int)$exportYear;
+        $whereVoteDate = "((v.competition_year IS NOT NULL AND v.competition_year <> 0 AND v.competition_year = $y)"
+            . " OR (v.competition_year IS NULL OR v.competition_year = 0) AND v.created_at >= '" . $startTs . "' AND v.created_at <= '" . $endTs . "')";
+    } else {
+        $whereVoteDate = "v.created_at >= '" . $startTs . "' AND v.created_at <= '" . $endTs . "'";
+    }
 }
 
 // Inspect vote_details to find extra columns to include in exports
@@ -213,20 +235,20 @@ $headers = [
 ];
 foreach ($extraVd as $ex) { $headers[] = $ex; }
 
-// Load detailed votes for Votazioni sheet (filter by competition window via movie release date)
-$sqlVotes = "SELECT v.*, m.title AS title, u.username AS username, vd.* FROM votes v LEFT JOIN vote_details vd ON vd.vote_id = v.id LEFT JOIN movies m ON m.id=v.movie_id LEFT JOIN users u ON u.id=v.user_id WHERE " . $whereMovieDate . $statusFilter . " ORDER BY m.title, u.username";
+// Load detailed votes for Votazioni sheet (filter by vote date)
+$sqlVotes = "SELECT v.*, m.title AS title, u.username AS username, vd.* FROM votes v LEFT JOIN vote_details vd ON vd.vote_id = v.id LEFT JOIN movies m ON m.id=v.movie_id LEFT JOIN users u ON u.id=v.user_id WHERE " . $whereVoteDate . $statusFilter . " ORDER BY m.title, u.username";
 $votes = $mysqli->query($sqlVotes)->fetch_all(MYSQLI_ASSOC);
 
 // DEBUG: Log query and result count for troubleshooting
 if (PHP_SAPI === 'cli' || (isset($_GET['debug']) && is_admin())) {
     error_log("Export SQL: " . $sqlVotes);
     error_log("Votes found: " . count($votes));
-    error_log("Movie date filter: " . $whereMovieDate);
+    error_log("Vote date filter: " . $whereVoteDate);
     error_log("Status filter: " . $statusFilter);
 }
 
 // Build aggregated results (Risultati)
-$sqlResults = "SELECT m.title AS title, COALESCE(vd.category,'') AS category, COALESCE(NULLIF(TRIM(vd.where_watched),''),'') AS where_watched, COALESCE(vd.competition_status,'') AS competition_status, COUNT(v.id) AS vote_count, ROUND(AVG(vd.writing),2) AS avg_writing, ROUND(AVG(vd.direction),2) AS avg_direction, ROUND(AVG(vd.acting_or_doc_theme),2) AS avg_acting, ROUND(AVG(vd.emotional_involvement),2) AS avg_emotional, ROUND(AVG(vd.novelty),2) AS avg_novelty, ROUND(AVG(vd.casting_research_art),2) AS avg_casting, ROUND(AVG(vd.sound),2) AS avg_sound, GROUP_CONCAT(DISTINCT TRIM(vd.adjective) SEPARATOR ', ') AS adjectives FROM votes v LEFT JOIN vote_details vd ON vd.vote_id = v.id LEFT JOIN movies m ON m.id=v.movie_id WHERE " . $whereMovieDate . $statusFilter . " GROUP BY m.title, vd.category, vd.where_watched, vd.competition_status ORDER BY m.title";
+$sqlResults = "SELECT m.title AS title, COALESCE(vd.category,'') AS category, COALESCE(NULLIF(TRIM(vd.where_watched),''),'') AS where_watched, COALESCE(vd.competition_status,'') AS competition_status, COUNT(v.id) AS vote_count, ROUND(AVG(vd.writing),2) AS avg_writing, ROUND(AVG(vd.direction),2) AS avg_direction, ROUND(AVG(vd.acting_or_doc_theme),2) AS avg_acting, ROUND(AVG(vd.emotional_involvement),2) AS avg_emotional, ROUND(AVG(vd.novelty),2) AS avg_novelty, ROUND(AVG(vd.casting_research_art),2) AS avg_casting, ROUND(AVG(vd.sound),2) AS avg_sound, GROUP_CONCAT(DISTINCT TRIM(vd.adjective) SEPARATOR ', ') AS adjectives FROM votes v LEFT JOIN vote_details vd ON vd.vote_id = v.id LEFT JOIN movies m ON m.id=v.movie_id WHERE " . $whereVoteDate . $statusFilter . " GROUP BY m.title, vd.category, vd.where_watched, vd.competition_status ORDER BY m.title";
 $results = $mysqli->query($sqlResults)->fetch_all(MYSQLI_ASSOC);
 // Re-add the remaining sheets to match UI tabs: Views, Judges, Judges - Competition Only, Title List, Adjective List, Finalists, RAW
 
@@ -325,7 +347,7 @@ echo '<Table>';
 echo '<Row>';
 emit_cell(t('platform'),'String','Header'); emit_cell(t('category'),'String','Header'); emit_cell(t('unique_titles'),'String','Header'); emit_cell(t('views'),'String','Header'); emit_cell(t('avg_rating_total'),'String','Header');
 echo '</Row>';
-$sqlViews = "SELECT COALESCE(NULLIF(TRIM(vd.where_watched),''),'Altro') AS platform, COALESCE(NULLIF(TRIM(vd.category),''),'Altro') AS category, COUNT(DISTINCT v.movie_id) AS uniq_titles, COUNT(v.id) AS views, ROUND(AVG($ratingExpr),2) AS avg_rating FROM votes v LEFT JOIN vote_details vd ON vd.vote_id = v.id JOIN movies m ON m.id = v.movie_id WHERE " . $whereMovieDate . $statusFilter . " GROUP BY platform, category ORDER BY platform, category";
+$sqlViews = "SELECT COALESCE(NULLIF(TRIM(vd.where_watched),''),'Altro') AS platform, COALESCE(NULLIF(TRIM(vd.category),''),'Altro') AS category, COUNT(DISTINCT v.movie_id) AS uniq_titles, COUNT(v.id) AS views, ROUND(AVG($ratingExpr),2) AS avg_rating FROM votes v LEFT JOIN vote_details vd ON vd.vote_id = v.id JOIN movies m ON m.id = v.movie_id WHERE " . $whereVoteDate . $statusFilter . " GROUP BY platform, category ORDER BY platform, category";
 $views = $mysqli->query($sqlViews)->fetch_all(MYSQLI_ASSOC);
 foreach ($views as $r) {
     echo '<Row>';
@@ -351,7 +373,7 @@ foreach ($allCategories as $cat) {
   $catSums[] = "SUM(COALESCE(vd.category,'')='$catEsc') AS cat_" . md5($cat);
 }
 $catSumsStr = implode(', ', $catSums);
-$sqlJudges = "SELECT u.username AS judge, COUNT(v.id) AS votes, $catSumsStr, ROUND(AVG($ratingExpr),2) AS avg_rating FROM votes v JOIN users u ON u.id = v.user_id LEFT JOIN vote_details vd ON vd.vote_id = v.id JOIN movies m ON m.id = v.movie_id WHERE " . $whereMovieDate . $statusFilter . " GROUP BY u.username ORDER BY votes DESC";
+$sqlJudges = "SELECT u.username AS judge, COUNT(v.id) AS votes, $catSumsStr, ROUND(AVG($ratingExpr),2) AS avg_rating FROM votes v JOIN users u ON u.id = v.user_id LEFT JOIN vote_details vd ON vd.vote_id = v.id JOIN movies m ON m.id = v.movie_id WHERE " . $whereVoteDate . $statusFilter . " GROUP BY u.username ORDER BY votes DESC";
 $judges = $mysqli->query($sqlJudges)->fetch_all(MYSQLI_ASSOC);
 foreach ($judges as $j) {
     echo '<Row>';
@@ -375,7 +397,7 @@ foreach ($allCategories as $cat) { $judgeCompHeaders[] = translate_category($cat
 foreach ($judgeCompHeaders as $hc) { emit_cell($hc,'String','Header'); }
 echo '</Row>';
 $statusListComp = "'" . implode("','", array_map(function($s) use ($mysqli) { return $mysqli->real_escape_string($s); }, $inCompetitionStatuses)) . "'";
-$sqlJudComp = "SELECT u.username AS judge, COUNT(v.id) AS votes, $catSumsStr FROM votes v JOIN users u ON u.id = v.user_id LEFT JOIN vote_details vd ON vd.vote_id = v.id JOIN movies m ON m.id = v.movie_id WHERE COALESCE(vd.competition_status,'') IN ($statusListComp) AND " . $whereMovieDate . " GROUP BY u.username ORDER BY votes DESC";
+$sqlJudComp = "SELECT u.username AS judge, COUNT(v.id) AS votes, $catSumsStr FROM votes v JOIN users u ON u.id = v.user_id LEFT JOIN vote_details vd ON vd.vote_id = v.id JOIN movies m ON m.id = v.movie_id WHERE COALESCE(vd.competition_status,'') IN ($statusListComp) AND " . $whereVoteDate . " GROUP BY u.username ORDER BY votes DESC";
 $judcomp = $mysqli->query($sqlJudComp)->fetch_all(MYSQLI_ASSOC);
 foreach ($judcomp as $jc) { 
     echo '<Row>'; 
@@ -395,7 +417,7 @@ echo '<Table>';
 echo '<Row>';
 emit_cell(t('title'),'String','Header');
 echo '</Row>';
-$rowsTitles = $mysqli->query("SELECT DISTINCT m.title FROM votes v JOIN movies m ON m.id=v.movie_id LEFT JOIN vote_details vd ON vd.vote_id=v.id WHERE " . $whereMovieDate . $statusFilter . " ORDER BY m.title ASC")->fetch_all(MYSQLI_ASSOC);
+$rowsTitles = $mysqli->query("SELECT DISTINCT m.title FROM votes v JOIN movies m ON m.id=v.movie_id LEFT JOIN vote_details vd ON vd.vote_id=v.id WHERE " . $whereVoteDate . $statusFilter . " ORDER BY m.title ASC")->fetch_all(MYSQLI_ASSOC);
 foreach ($rowsTitles as $rt) { echo '<Row>'; emit_cell($rt['title']); echo '</Row>'; }
 echo '</Table>'; echo '</Worksheet>';
 
@@ -408,7 +430,7 @@ emit_cell(t('adjective'),'String','Header');
 emit_cell(t('titles'),'String','Header');
 emit_cell(t('adjectives'),'String','Header');
 echo '</Row>';
-$rowsAdj = $mysqli->query("SELECT m.title, GROUP_CONCAT(DISTINCT TRIM(vd.adjective) ORDER BY TRIM(vd.adjective) SEPARATOR ', ') AS adjectives FROM votes v JOIN movies m ON m.id=v.movie_id LEFT JOIN vote_details vd ON vd.vote_id=v.id WHERE TRIM(COALESCE(vd.adjective,''))<>'' AND " . $whereMovieDate . $statusFilter . " GROUP BY m.title ORDER BY m.title")->fetch_all(MYSQLI_ASSOC);
+$rowsAdj = $mysqli->query("SELECT m.title, GROUP_CONCAT(DISTINCT TRIM(vd.adjective) ORDER BY TRIM(vd.adjective) SEPARATOR ', ') AS adjectives FROM votes v JOIN movies m ON m.id=v.movie_id LEFT JOIN vote_details vd ON vd.vote_id=v.id WHERE TRIM(COALESCE(vd.adjective,''))<>'' AND " . $whereVoteDate . $statusFilter . " GROUP BY m.title ORDER BY m.title")->fetch_all(MYSQLI_ASSOC);
 foreach ($rowsAdj as $a) { echo '<Row>'; emit_cell($a['title']); emit_cell(''); emit_cell($a['title']); emit_cell($a['adjectives']); echo '</Row>'; }
 echo '</Table>'; echo '</Worksheet>';
 
@@ -419,7 +441,7 @@ echo '<Row>';
 emit_cell(t('title'),'String','Header');
 emit_cell(t('category'),'String','Header');
 echo '</Row>';
-$rowsFinal = $mysqli->query("SELECT DISTINCT m.title, COALESCE(vd.category,'') AS category FROM votes v JOIN movies m ON m.id=v.movie_id LEFT JOIN vote_details vd ON vd.vote_id=v.id WHERE " . $whereMovieDate . $statusFilter . " ORDER BY m.title")->fetch_all(MYSQLI_ASSOC);
+$rowsFinal = $mysqli->query("SELECT DISTINCT m.title, COALESCE(vd.category,'') AS category FROM votes v JOIN movies m ON m.id=v.movie_id LEFT JOIN vote_details vd ON vd.vote_id=v.id WHERE " . $whereVoteDate . $statusFilter . " ORDER BY m.title")->fetch_all(MYSQLI_ASSOC);
 foreach ($rowsFinal as $f) { echo '<Row>'; emit_cell($f['title']); emit_cell(translate_category($f['category'])); echo '</Row>'; }
 echo '</Table>'; echo '</Worksheet>';
 

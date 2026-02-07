@@ -61,16 +61,23 @@ $selectedYearNumber = isset($_GET['year']) ? (int)$_GET['year'] : $activeYearNum
 $viewYearInt = $selectedYearNumber;
 if ($selectedYearNumber && isset($mysqli)) {
   try {
+    $resolvedCompetition = false;
     $stmtY = $mysqli->prepare("SELECT id, name, start, `end` FROM competitions WHERE YEAR(start) = ? OR YEAR(`end`) = ? ORDER BY start DESC LIMIT 1");
     if ($stmtY) {
       $stmtY->bind_param('ii', $selectedYearNumber, $selectedYearNumber);
       $stmtY->execute();
       $rowY = $stmtY->get_result()->fetch_assoc();
       if ($rowY) {
+        $resolvedCompetition = true;
         $activeCompName = $rowY['name'] ?? $activeCompName;
         $active_window_start = $rowY['start'] ?? $active_window_start;
         $active_window_end = $rowY['end'] ?? $active_window_end;
       }
+    }
+    if (!$resolvedCompetition) {
+      $activeCompName = (string)$viewYearInt;
+      $active_window_start = sprintf('%04d-01-01', $viewYearInt);
+      $active_window_end = sprintf('%04d-12-31', $viewYearInt);
     }
   } catch (Throwable $e) { /* ignore */ }
 }
@@ -81,54 +88,45 @@ $selected_year = $viewYearInt;
 $selected_status = isset($_GET['status']) ? $_GET['status'] : 'all';
 // Date scope for filtering: 'release' (movie release date) or 'votes' (vote created_at)
 $selected_scope = isset($_GET['scope']) && in_array($_GET['scope'], ['release','votes'], true) ? $_GET['scope'] : 'release';
-// Build list of available competition years dynamically from competitions table
+// Detect optional competition_year column for year filtering
+$hasCompetitionYearForYears = false;
+try {
+  $colsYears = $mysqli->query("SHOW COLUMNS FROM votes")->fetch_all(MYSQLI_ASSOC);
+  $fieldsYears = array_column($colsYears, 'Field');
+  $hasCompetitionYearForYears = in_array('competition_year', $fieldsYears, true);
+} catch (Throwable $e) { /* ignore */ }
+// Build list of available years from votes (only years with voting data) + current year
 $availableYears = [];
 try {
-  $compRows = $mysqli->query("SELECT id, name, start, `end` FROM competitions ORDER BY start DESC");
-  if ($compRows) {
-    foreach ($compRows->fetch_all(MYSQLI_ASSOC) as $compRow) {
-      $yearEnd = (int)date('Y', strtotime($compRow['end']));
-      $yearStart = (int)date('Y', strtotime($compRow['start']));
-      $compName = $compRow['name'] ?? '';
-      // Use end year as the primary identifier
-      if (!isset($availableYears[$yearEnd])) {
-        $availableYears[$yearEnd] = [
-          'year' => $yearEnd,
-          'name' => $compName,
-          'start' => $compRow['start'],
-          'end' => $compRow['end']
-        ];
-      }
-      // Also register start year if different
-      if ($yearStart !== $yearEnd && !isset($availableYears[$yearStart])) {
-        $availableYears[$yearStart] = [
-          'year' => $yearStart,
-          'name' => $compName,
-          'start' => $compRow['start'],
-          'end' => $compRow['end']
+  $yearSql = $hasCompetitionYearForYears
+    ? "SELECT DISTINCT COALESCE(NULLIF(competition_year,0), YEAR(created_at)) AS y FROM votes WHERE created_at IS NOT NULL OR competition_year IS NOT NULL ORDER BY y DESC"
+    : "SELECT DISTINCT YEAR(created_at) AS y FROM votes WHERE created_at IS NOT NULL ORDER BY y DESC";
+  $yearRows = $mysqli->query($yearSql);
+  if ($yearRows) {
+    foreach ($yearRows->fetch_all(MYSQLI_ASSOC) as $row) {
+      $y = (int)($row['y'] ?? 0);
+      if ($y > 0) {
+        $availableYears[$y] = [
+          'year' => $y,
+          'name' => (string)$y
         ];
       }
     }
   }
-  krsort($availableYears); // Sort descending by year
-} catch (Throwable $e) {
-  // Fallback: just include current year
-  $availableYears[$viewYearInt] = [
-    'year' => $viewYearInt,
-    'name' => $competitionLabel,
-    'start' => $active_window_start,
-    'end' => $active_window_end
-  ];
-}
-// Ensure selected year is in the list
-if (!isset($availableYears[$viewYearInt])) {
-  $availableYears[$viewYearInt] = [
-    'year' => $viewYearInt,
-    'name' => $competitionLabel,
-    'start' => $active_window_start,
-    'end' => $active_window_end
-  ];
+  if ($activeYearNumber > 0 && !isset($availableYears[$activeYearNumber])) {
+    $availableYears[$activeYearNumber] = [
+      'year' => $activeYearNumber,
+      'name' => (string)$activeYearNumber
+    ];
+  }
   krsort($availableYears);
+} catch (Throwable $e) {
+  if ($activeYearNumber > 0) {
+    $availableYears[$activeYearNumber] = [
+      'year' => $activeYearNumber,
+      'name' => (string)$activeYearNumber
+    ];
+  }
 }
 // Tab labels in the order matching the workbook
 $tabs = [
@@ -150,9 +148,9 @@ $tabs = [
   <form id="filtersForm" method="get" action="<?= ADDRESS ?>/stats.php" class="year-selector-form">
     <label for="yearSelect" class="year-selector-label"><?= e(t('select_year')) ?>:</label>
     <select id="yearSelect" name="year" class="year-selector-select">
-      <?php foreach ($availableYears as $y): ?>
-        <option value="<?= $y['year'] ?>" <?= $viewYearInt === $y['year'] ? 'selected' : '' ?>>
-          <?= e($y['name'] ?: ('Competition ' . $y['year'])) ?>
+      <?php $seenYears = []; foreach ($availableYears as $y): $yearVal = (int)($y['year'] ?? 0); if (!$yearVal || isset($seenYears[$yearVal])) continue; $seenYears[$yearVal] = true; ?>
+        <option value="<?= $yearVal ?>" <?= $viewYearInt === $yearVal ? 'selected' : '' ?>>
+          <?= e($y['name'] ?: ('Competition ' . $yearVal)) ?>
         </option>
       <?php endforeach; ?>
     </select>
@@ -247,11 +245,16 @@ if ($windowStart && $windowEnd) {
   $subWindowV2 = $subWindowV3 = $subWindowV4 = $subWindowV5 = $andWindowClause;
 }
 
-// Alternative vote-date window fragments for use where appropriate (use vote created_at)
+// Alternative vote-date window fragments for use where appropriate (use vote created_at or competition_year)
 $whereVoteWindowClause = '';
 $andVoteWindowClause = '';
 $subVoteWindowV2 = $subVoteWindowV3 = $subVoteWindowV4 = $subVoteWindowV5 = '';
-if ($windowStart && $windowEnd) {
+if ($hasCompetitionYearForYears) {
+  $yearVal = (int)$viewYearInt;
+  $whereVoteWindowClause = "WHERE v.competition_year = " . $yearVal;
+  $andVoteWindowClause = " AND v.competition_year = " . $yearVal;
+  $subVoteWindowV2 = $subVoteWindowV3 = $subVoteWindowV4 = $subVoteWindowV5 = $andVoteWindowClause;
+} elseif ($windowStart && $windowEnd) {
   $startTs = $mysqli->real_escape_string($windowStart . ' 00:00:00');
   $endTs = $mysqli->real_escape_string($windowEnd . ' 23:59:59');
   $whereVoteWindowClause = "WHERE v.created_at >= '" . $startTs . "' AND v.created_at <= '" . $endTs . "'";
