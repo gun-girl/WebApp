@@ -122,6 +122,7 @@ if (!$isReleased) {
 
 $currentUser = current_user();
 $canAdmin = $currentUser && (($currentUser['role'] ?? 'user') === 'admin');
+$showAdminPanel = false;
 
 // Load translations to get status labels dynamically
 $statusInCompetition = t('in_competition');
@@ -207,7 +208,7 @@ include __DIR__ . '/includes/header.php';
     </div>
   </div>
 
-  <?php if ($canAdmin): ?>
+  <?php if ($canAdmin && $showAdminPanel): ?>
     <div class="admin-panel">
       <h3><?= t('admin_competition_status_title') ?></h3>
       <p style="margin-top:0; color:#ccc;"><?= t('admin_competition_status_desc') ?></p>
