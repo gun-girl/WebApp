@@ -618,6 +618,10 @@ main{padding-bottom:140px}
 .profile-box form .btn.secondary:hover{border-color:#f6c90e;color:#f6c90e;background:rgba(246,201,14,.05)}
 .profile-box .form-actions{display:flex;gap:1rem;margin-top:.5rem}
 .profile-box .form-actions button,.profile-box .form-actions .btn{flex:1;margin:0}
+.profile-spacing{display:flex;gap:1rem;align-items:stretch;justify-content:space-between;margin:1.2rem 0 0}
+.profile-spacing .btn{flex:1;text-align:center;min-width:0}
+.profile-spacing .btn.btn-logout{background:#dc3545;color:#fff}
+.profile-spacing .btn.btn-logout:hover{background:#c82333}
 
 /* Profile page: tighter mobile layout & full-width buttons/cards */
 @media (max-width: 640px){
