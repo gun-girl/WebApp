@@ -4,6 +4,7 @@ require_once __DIR__.'/includes/lang.php';
 
 $errors=[];
 $notices=[];
+$resetLinkSent = false;
 
 // Determine which view to show
 $tokenEmail = null;
@@ -73,6 +74,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
           @mail($email, $subject, $body, 'From: no-reply@divanodoro.it');
         }
         $notices[] = 'A reset link has been sent to your email.';
+        $resetLinkSent = true;
       }
       $mode = 'request_reset';
 
@@ -109,8 +111,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
           $del->bind_param('s', $email);
           $del->execute();
 
-          $notices[] = 'Your password has been reset successfully. You can now log in.';
-          $mode = 'login';
+          $mode = 'reset_success';
         }
       }
 
@@ -163,9 +164,11 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
       <?php foreach($errors as $er): ?>
         <p class="error"><?= htmlspecialchars($er) ?></p>
       <?php endforeach; ?>
-      <?php foreach($notices as $msg): ?>
-        <p class="success"><?= htmlspecialchars($msg) ?></p>
-      <?php endforeach; ?>
+      <?php if (!($mode === 'request_reset' && $resetLinkSent)): ?>
+        <?php foreach($notices as $msg): ?>
+          <p class="success"><?= htmlspecialchars($msg) ?></p>
+        <?php endforeach; ?>
+      <?php endif; ?>
 
       <?php if ($mode === 'login'): ?>
         <form method="post">
@@ -184,17 +187,25 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
           <a href="<?= ADDRESS ?>/register.php" class="btn secondary"><?= t('create_account') ?></a>
         </form>
       <?php elseif ($mode === 'request_reset'): ?>
-        <form method="post">
-          <?= csrf_field() ?>
-          <input type="hidden" name="action" value="request_reset">
-          <label><?= t('email') ?>
-            <input type="email" name="email" placeholder="<?= t('email_placeholder') ?>" required autocomplete="email">
-          </label>
-          <button type="submit">Send reset link</button>
-          <div style="margin-top: 1rem; text-align: center;">
-            <a href="<?= ADDRESS ?>/login.php" style="font-size: 0.9rem; color: #666;">Back to login</a>
+        <?php if ($resetLinkSent): ?>
+          <div style="text-align: center;">
+            <p class="success" style="margin: 2rem 0; font-size: 1.1rem;">A reset link has been sent to your email.</p>
+            <p style="margin: 1.5rem 0; color: #666;">Check your inbox and follow the link to set a new password.</p>
+            <a href="<?= ADDRESS ?>/login.php" class="btn" style="display: inline-block; margin-top: 1.5rem; padding: 0.7rem 2rem;">Back to login</a>
           </div>
-        </form>
+        <?php else: ?>
+          <form method="post">
+            <?= csrf_field() ?>
+            <input type="hidden" name="action" value="request_reset">
+            <label><?= t('email') ?>
+              <input type="email" name="email" placeholder="<?= t('email_placeholder') ?>" required autocomplete="email">
+            </label>
+            <button type="submit">Send reset link</button>
+            <div style="margin-top: 1rem; text-align: center;">
+              <a href="<?= ADDRESS ?>/login.php" style="font-size: 0.9rem; color: #666;">Back to login</a>
+            </div>
+          </form>
+        <?php endif; ?>
       <?php elseif ($mode === 'reset_password'): ?>
         <form method="post">
           <?= csrf_field() ?>
@@ -212,6 +223,12 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
             <a href="<?= ADDRESS ?>/login.php" style="font-size: 0.9rem; color: #666;">Back to login</a>
           </div>
         </form>
+      <?php elseif ($mode === 'reset_success'): ?>
+        <div style="text-align: center;">
+          <p class="success" style="margin: 2rem 0; font-size: 1.1rem;">✓ Your password has been reset successfully!</p>
+          <p style="margin: 1.5rem 0; color: #666;">You can now log in with your new password.</p>
+          <a href="<?= ADDRESS ?>/login.php" class="btn" style="display: inline-block; margin-top: 1.5rem; padding: 0.7rem 2rem;">Go to Login</a>
+        </div>
       <?php endif; ?>
     </div>
   </div>
