@@ -618,8 +618,8 @@ main{padding-bottom:140px}
 .profile-box form .btn.secondary:hover{border-color:#f6c90e;color:#f6c90e;background:rgba(246,201,14,.05)}
 .profile-box .form-actions{display:flex;gap:1rem;margin-top:.5rem}
 .profile-box .form-actions button,.profile-box .form-actions .btn{flex:1;margin:0}
-.profile-spacing{display:flex;gap:1rem;align-items:stretch;justify-content:space-between;margin:1.2rem 0 0}
-.profile-spacing .btn{flex:1;text-align:center;min-width:0}
+.profile-spacing{display:flex;gap:.6rem;align-items:center;justify-content:center;flex-wrap:nowrap;margin:1.2rem 0 0}
+.profile-spacing .btn{flex:0 1 170px;max-width:170px;text-align:center;display:flex;align-items:center;justify-content:center;min-height:36px;padding:.45rem .75rem;margin-right:0;line-height:1.15;border-radius:.45rem;font-size:.86rem;font-weight:700}
 .profile-spacing .btn.btn-logout{background:#dc3545;color:#fff}
 .profile-spacing .btn.btn-logout:hover{background:#c82333}
 
@@ -630,8 +630,8 @@ main{padding-bottom:140px}
 	.profile-box h2{font-size:1.4rem;margin-bottom:1rem}
 	.profile-info{gap:1rem}
 	.info-card{padding:1.05rem;border-radius:.45rem}
-	.profile-spacing{flex-direction:column;align-items:stretch}
-	.profile-spacing .btn{width:100%;text-align:center}
+	.profile-spacing{flex-direction:row;align-items:center;justify-content:center;gap:.45rem;flex-wrap:nowrap}
+	.profile-spacing .btn{flex:1 1 calc(50% - .225rem);max-width:148px;width:auto;text-align:center;margin-right:0;min-height:34px;padding:.42rem .65rem;font-size:.8rem}
 	.lang-buttons{flex-direction:column}
 	.lang-btn{width:100%}
 	.profile-box .form-actions{flex-direction:column}
@@ -721,7 +721,7 @@ main{padding-bottom:140px}
 .watchlist-form-inline { display: inline; }
 
 /* Profile page spacing */
-.profile-spacing { margin-top: 1.5rem; display: flex; gap: 1rem; flex-wrap: wrap; }
+.profile-spacing { margin-top: 1.5rem; display: flex; gap: .6rem; flex-wrap: nowrap; justify-content: center; }
 .admin-card { border-left: 4px solid #ffd700 !important; }
 .btn-logout { background: #dc3545; }
 .btn-logout:hover { background: #c82333; }
