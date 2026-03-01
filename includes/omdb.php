@@ -1,6 +1,24 @@
 <?php
 require_once __DIR__.'/../config.php';
 
+// Global performance tuning constants using define() for file-level scope
+if (!defined('OMDB_SEARCH_TIMEOUT')) {
+  define('OMDB_SEARCH_TIMEOUT', 2);        // Fast timeout: 2s per API call
+  define('OMDB_DETAIL_TIMEOUT', 7);        // Timeout for detail/season API calls
+  define('OMDB_SEARCH_TYPES', ['movie', 'series']); // Types to search
+  define('OMDB_SEARCH_MAX_PAGES', 3);      // Max pages per search type (10 results per page typical)
+  define('OMDB_SEARCH_PAGINATION_THRESHOLD', 30); // Target results before stopping pagination
+  define('OMDB_FUZZY_MAX_TOKENS', 1);      // Skip slow API fuzzy, use DB instead
+  define('OMDB_FUZZY_DB_LIMIT', 1500);     // More movies for better coverage
+  define('OMDB_FUZZY_MIN_CANDIDATES', 5);  // Minimum candidates before stopping fuzzy search
+  define('OMDB_FUZZY_THRESHOLD', 0.70);    // More lenient for better matches
+  define('OMDB_FUZZY_MIN_WORD_OVERLAP_RATIO', 0.65); // Min word overlap for multi-word fuzzy matches (2/3 words = 0.67)
+  define('OMDB_SEARCH_RESULT_LIMIT', 50);  // More results returned
+  define('OMDB_FUZZY_RESULT_LIMIT', 20);   // More fuzzy results
+  define('OMDB_NO_RESULTS_CACHE_HOURS', 12); // Hours to cache "no results" (reduced from 3 days)
+  define('OMDB_DB_CACHE_DAYS', 7);         // Days to keep cached database results
+}
+
 class OmdbApiClient {
   private $apiKey;
   private $mysqli;
@@ -166,7 +184,7 @@ class OmdbApiClient {
     
     $normalized = $this->normalizeKey($query);
 
-    // STEP 1: Check database cache (valid for 7 days, not just 24 hours)
+    // STEP 1: Check database cache (valid for configurable days)
     $check = $this->mysqli->prepare("
       SELECT m.* FROM movies m
       WHERE (
@@ -174,13 +192,14 @@ class OmdbApiClient {
         OR LOWER(REPLACE(REPLACE(REPLACE(REPLACE(m.title,'.',''),':',''),'&',' '),'-',' ')) LIKE CONCAT('%',?,'%')
       )
       AND m.type IN ('movie', 'series')
-      AND m.last_fetched_at > DATE_SUB(NOW(), INTERVAL 7 DAY)
+      AND m.last_fetched_at > DATE_SUB(NOW(), INTERVAL " . OMDB_DB_CACHE_DAYS . " DAY)
       ORDER BY 
         CASE WHEN m.title = ? THEN 0 ELSE 1 END,
         m.year DESC
-      LIMIT 30
+      LIMIT ?
     ");
-    $check->bind_param('sss', $query, $normalized, $query);
+    $limit = OMDB_SEARCH_RESULT_LIMIT;
+    $check->bind_param('sssi', $query, $normalized, $query, $limit);
     $check->execute();
     $cachedResults = $check->get_result()->fetch_all(MYSQLI_ASSOC);
     
@@ -191,18 +210,20 @@ class OmdbApiClient {
       return $cachedResults;
     }
     
-    // Check if we have a "no results" cache from the last 3 days
+    // Check if we have a "no results" cache from the last N hours
+    // BUT: Don't return empty yet - we'll still try fuzzy search as a fallback
     $noResultsCheck = $this->mysqli->prepare("
       SELECT 1 FROM query_cache 
-      WHERE query = ? AND date > DATE_SUB(NOW(), INTERVAL 3 DAY)
+      WHERE query = ? AND date > DATE_SUB(NOW(), INTERVAL " . OMDB_NO_RESULTS_CACHE_HOURS . " HOUR)
       LIMIT 1
     ");
     $noResultsCheck->bind_param('s', $query);
     $noResultsCheck->execute();
-    if ($noResultsCheck->get_result()->num_rows > 0) {
-      error_log("[OmdbApiClient] Found 'no results' cache for '$query', returning empty");
-      self::$memoryCache[$cacheKey] = [];
-      return [];
+    $hasNoResultsCache = $noResultsCheck->get_result()->num_rows > 0;
+    
+    if ($hasNoResultsCache) {
+      error_log("[OmdbApiClient] Found 'no results' cache for '$query', will try fuzzy search as fallback");
+      // Don't return empty yet - let fuzzy search try to find something
     }
     
     error_log("[OmdbApiClient] No valid cache for '$query'. Calling API...");
@@ -213,62 +234,91 @@ class OmdbApiClient {
       return [];
     }
 
-    // STEP 3: Fetch from OMDb API
-    $searchTypes = ['movie','series','episode'];
+    // STEP 3: Fetch from OMDb API with smart pagination (skip if we recently cached "no results")
     $found_any = false;
+    $totalCollected = 0; // Track total results across all types to stop early if we have enough
     
-    foreach ($searchTypes as $t) {
-      $url = "https://www.omdbapi.com/?apikey={$this->apiKey}&type={$t}&s=".urlencode($query);
-      error_log("[OmdbApiClient] API URL: $url");
-      
-      // Use cURL instead of file_get_contents (works on most hosting)
-      $ch = curl_init();
-      curl_setopt($ch, CURLOPT_URL, $url);
-      curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-      curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-      curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-      $response = curl_exec($ch);
-      $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-      $curlError = curl_error($ch);
-      curl_close($ch);
-      
-      error_log("[OmdbApiClient] HTTP Code: $httpCode, cURL Error: $curlError");
-      error_log("[OmdbApiClient] Response: " . substr($response, 0, 500));
-      
-      if ($response === false || $httpCode !== 200) {
-        error_log("[OmdbApiClient] Failed to connect to API for type=$t (HTTP $httpCode, Error: $curlError)");
-        continue;
+    if (!$hasNoResultsCache) {
+      foreach (OMDB_SEARCH_TYPES as $t) {
+        error_log("[OmdbApiClient] Starting pagination search for type=$t");
+        $typeResultsCount = 0;
+        
+        // Pagination loop: fetch multiple pages but stop early if we have enough results
+        for ($page = 1; $page <= OMDB_SEARCH_MAX_PAGES; $page++) {
+          // Stop pagination if we already have sufficient results overall
+          if ($totalCollected >= OMDB_SEARCH_PAGINATION_THRESHOLD) {
+            error_log("[OmdbApiClient] Stopping pagination for type=$t (already have $totalCollected results)");
+            break;
+          }
+          
+          $url = "https://www.omdbapi.com/?apikey={$this->apiKey}&type={$t}&s=".urlencode($query)."&page={$page}";
+          error_log("[OmdbApiClient] API URL (page $page): $url");
+          
+          // Use cURL instead of file_get_contents (works on most hosting)
+          $ch = curl_init();
+          curl_setopt($ch, CURLOPT_URL, $url);
+          curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+          curl_setopt($ch, CURLOPT_TIMEOUT, OMDB_SEARCH_TIMEOUT);
+          curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+          $response = curl_exec($ch);
+          $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+          $curlError = curl_error($ch);
+          curl_close($ch);
+          
+          error_log("[OmdbApiClient] HTTP Code: $httpCode, cURL Error: $curlError");
+          error_log("[OmdbApiClient] Response: " . substr($response, 0, 500));
+          
+          if ($response === false || $httpCode !== 200) {
+            error_log("[OmdbApiClient] Failed to connect to API for type=$t, page=$page (HTTP $httpCode, Error: $curlError)");
+            break; // Stop pagination for this type if API fails
+          }
+          
+          $json = json_decode($response, true);
+          
+          if (empty($json['Search'])) {
+            error_log("[OmdbApiClient] No results on page $page for type=$t. Full response: " . $response);
+            break; // Stop pagination for this type if no results on this page
+          }
+          
+          $found_any = true;
+          $pageCount = count($json['Search']);
+          $typeResultsCount += $pageCount;
+          $totalCollected += $pageCount;
+          error_log("[OmdbApiClient] Found $pageCount results on page $page for type=$t (total this type: $typeResultsCount, cumulative: $totalCollected)");
+          
+          // Process and save results
+          foreach ($json['Search'] as $m) {
+            $this->upsertSearchItem($m, $t);
+          }
+          
+          // OMDb returns fewer results on last page, so we can detect end of results
+          if ($pageCount < 10) {
+            error_log("[OmdbApiClient] Fewer than 10 results on page $page for type=$t, stopping pagination for this type");
+            break;
+          }
+        }
+        
+        // Continue to next type instead of bailing out
+        // This ensures we get ALL types of results (movies AND series)
+        // for a complete search experience
       }
-      
-      $json = json_decode($response, true);
-      
-      if (empty($json['Search'])) {
-        error_log("[OmdbApiClient] No results for type=$t. Full response: " . $response);
-        continue;
-      }
-      
-      $found_any = true;
-      error_log("[OmdbApiClient] Found " . count($json['Search']) . " results for type=$t");
-      
-      // Process and save results
-      foreach ($json['Search'] as $m) {
-        $this->upsertSearchItem($m, $t);
-      }
-    }
 
-    // STEP 4: Cache all results (including "no results")
-    if ($found_any) {
-      // Mark this query as successfully cached (so we don't re-query the API)
-      $upsert = $this->mysqli->prepare("INSERT INTO query_cache (query,date) VALUES (?, NOW()) ON DUPLICATE KEY UPDATE date = NOW()");
-      $upsert->bind_param('s', $query);
-      $upsert->execute();
-      error_log("[OmdbApiClient] Cached successful search for '$query'");
+      // STEP 4: Cache results only if API was successful
+      if ($found_any) {
+        // Mark this query as successfully cached (so we don't re-query the API)
+        $upsert = $this->mysqli->prepare("INSERT INTO query_cache (query,date) VALUES (?, NOW()) ON DUPLICATE KEY UPDATE date = NOW()");
+        $upsert->bind_param('s', $query);
+        $upsert->execute();
+        error_log("[OmdbApiClient] Cached successful search for '$query'");
+      } else {
+        // Cache "no results" but only for configurable hours (not days)
+        $upsert = $this->mysqli->prepare("INSERT INTO query_cache (query,date) VALUES (?, NOW()) ON DUPLICATE KEY UPDATE date = NOW()");
+        $upsert->bind_param('s', $query);
+        $upsert->execute();
+        error_log("[OmdbApiClient] Cached 'no results' for '$query' - won't retry for " . OMDB_NO_RESULTS_CACHE_HOURS . " hours");
+      }
     } else {
-      // Also cache "no results" so we don't keep hitting API for non-existent movies
-      $upsert = $this->mysqli->prepare("INSERT INTO query_cache (query,date) VALUES (?, NOW()) ON DUPLICATE KEY UPDATE date = NOW()");
-      $upsert->bind_param('s', $query);
-      $upsert->execute();
-      error_log("[OmdbApiClient] Cached 'no results' for '$query' - won't retry for 3 days");
+      error_log("[OmdbApiClient] Skipping API call - recent 'no results' cache exists");
     }
 
     // STEP 5: Return results from database after API insert
@@ -282,9 +332,10 @@ class OmdbApiClient {
       ORDER BY 
         CASE WHEN title = ? THEN 0 ELSE 1 END,
         year DESC
-      LIMIT 30
+      LIMIT ?
     ");
-    $check->bind_param('sss', $query, $normalized, $query);
+    $limit = OMDB_SEARCH_RESULT_LIMIT;
+    $check->bind_param('sssi', $query, $normalized, $query, $limit);
     $check->execute();
     $results = $check->get_result()->fetch_all(MYSQLI_ASSOC);
     
@@ -298,27 +349,21 @@ class OmdbApiClient {
     
     // Only use fuzzy matching when we have NO results at all
     if ($allowFuzzy) {
-      error_log("[OmdbApiClient] No exact matches found, trying API fuzzy search...");
-      $fuzzy = $this->fuzzyFallback($query, $normalized);
+      // Skip expensive API fuzzy search - go straight to database fuzzy for speed
+      error_log("[OmdbApiClient] No exact results, trying database fuzzy search...");
+      $fuzzy = $this->fuzzyFallbackDatabase($query, $normalized);
       if (!empty($fuzzy)) {
-        error_log("[OmdbApiClient] API fuzzy fallback found " . count($fuzzy) . " matches");
+        error_log("[OmdbApiClient] Database fuzzy search found " . count($fuzzy) . " matches, returning those instead of empty");
         // Cache fuzzy results in memory
         self::$memoryCache[$cacheKey] = $fuzzy;
         return $fuzzy;
       }
       
-      error_log("[OmdbApiClient] API fuzzy failed, trying database fuzzy search...");
-      $fuzzy = $this->fuzzyFallbackDatabase($query, $normalized);
-      if (!empty($fuzzy)) {
-        error_log("[OmdbApiClient] Database fuzzy search found " . count($fuzzy) . " matches");
-        // Cache fuzzy results in memory
-        self::$memoryCache[$cacheKey] = $fuzzy;
-        return $fuzzy;
-      }
+      error_log("[OmdbApiClient] Fuzzy search also found nothing");
     }
     
     // No results found anywhere, cache empty result
-    error_log("[OmdbApiClient] No results found for '$query'");
+    error_log("[OmdbApiClient] No results found for '$query' after all searches");
     self::$memoryCache[$cacheKey] = [];
     return [];
   }
@@ -329,16 +374,16 @@ class OmdbApiClient {
     $tokens = array_filter(explode(' ', $normalizedQuery), fn($w) => strlen($w) >= 3);
     if (empty($tokens)) return [];
     usort($tokens, fn($a,$b) => strlen($b) <=> strlen($a));
-    $tokens = array_slice(array_unique($tokens), 0, 2);
+    $tokens = array_slice(array_unique($tokens), 0, OMDB_FUZZY_MAX_TOKENS);
 
     $candidates = [];
     foreach ($tokens as $tok) {
-      foreach (['movie','series','episode'] as $t) {
+      foreach (OMDB_SEARCH_TYPES as $t) {
         $url = "https://www.omdbapi.com/?apikey={$this->apiKey}&type={$t}&s=".urlencode($tok);
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_TIMEOUT, OMDB_SEARCH_TIMEOUT);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -359,7 +404,8 @@ class OmdbApiClient {
           }
         }
       }
-      if (count($candidates) >= 5) break;
+      // Early bailout if we have enough candidates
+      if (count($candidates) >= OMDB_FUZZY_MIN_CANDIDATES) break;
     }
 
     if (empty($candidates)) return [];
@@ -380,9 +426,10 @@ class OmdbApiClient {
       ORDER BY 
         CASE WHEN title = ? THEN 0 ELSE 1 END,
         year DESC
-      LIMIT 30
+      LIMIT ?
     ");
-    $stmt->bind_param('sss', $query, $normalizedQuery, $query);
+    $limit = OMDB_SEARCH_RESULT_LIMIT;
+    $stmt->bind_param('sssi', $query, $normalizedQuery, $query, $limit);
     $stmt->execute();
     return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
   }
@@ -391,11 +438,54 @@ class OmdbApiClient {
   private function fuzzyFallbackDatabase(string $query, string $normalizedQuery): array {
     error_log("[OmdbApiClient] Attempting database fuzzy fallback for: '$query'");
     
-    // Fetch all movies from database (limited to reasonable number)
+    $queryWords = array_filter(explode(' ', $normalizedQuery), fn($w) => strlen($w) >= 3);
+    $queryWordCount = count($queryWords);
+    error_log("[OmdbApiClient] Query has $queryWordCount words >= 3 chars: " . implode(', ', $queryWords));
+    
+    // OPTIMIZATION: First try simple LIKE queries with individual keywords (much faster than Levenshtein)
+    if (!empty($queryWords)) {
+      $likeConditions = [];
+      $params = [];
+      foreach ($queryWords as $word) {
+        $likeConditions[] = "LOWER(title) LIKE ?";
+        $params[] = "%{$word}%";
+      }
+      
+      if (!empty($likeConditions)) {
+        $sql = "SELECT * FROM movies 
+                WHERE type IN ('movie', 'series')
+                AND (" . implode(' OR ', $likeConditions) . ")
+                ORDER BY 
+                  CASE WHEN LOWER(title) LIKE ? THEN 0 ELSE 1 END,
+                  year DESC
+                LIMIT ?";
+        
+        $stmt = $this->mysqli->prepare($sql);
+        if ($stmt) {
+          $params[] = "%{$normalizedQuery}%"; // For ORDER BY
+          $limit = OMDB_FUZZY_RESULT_LIMIT;
+          $params[] = $limit;
+          
+          $types = str_repeat('s', count($params) - 1) . 'i';
+          $stmt->bind_param($types, ...$params);
+          $stmt->execute();
+          $quickResults = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+          
+          if (!empty($quickResults)) {
+            error_log("[OmdbApiClient] Found " . count($quickResults) . " quick fuzzy matches using LIKE");
+            return $quickResults;
+          }
+        }
+      }
+    }
+    
+    // FALLBACK: If LIKE didn't work, use slower Levenshtein on limited dataset
+    $limitValue = OMDB_FUZZY_DB_LIMIT;
     $stmt = $this->mysqli->prepare("
       SELECT * FROM movies 
       WHERE type IN ('movie', 'series')
-      LIMIT 1000
+      ORDER BY last_fetched_at DESC
+      LIMIT " . intval($limitValue) . "
     ");
     $stmt->execute();
     $allMovies = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -405,8 +495,10 @@ class OmdbApiClient {
       return [];
     }
     
-    // Score all movies using Levenshtein distance
+    // Score all movies using Levenshtein distance with word overlap requirements
     $scored = [];
+    $minWordOverlapRatio = OMDB_FUZZY_MIN_WORD_OVERLAP_RATIO;
+    
     foreach ($allMovies as $movie) {
       $title = $movie['title'] ?? '';
       $titleNorm = $this->normalizeKey($title);
@@ -415,8 +507,7 @@ class OmdbApiClient {
       $len1 = max(strlen($normalizedQuery), strlen($titleNorm));
       $dist1 = $len1 > 0 ? levenshtein($normalizedQuery, $titleNorm) / $len1 : 1;
       
-      // Also check each individual word in the normalized query
-      $queryWords = array_filter(explode(' ', $normalizedQuery), fn($w) => strlen($w) >= 3);
+      // Check each individual word in the normalized query
       $wordMatches = 0;
       foreach ($queryWords as $word) {
         if (strpos($titleNorm, $word) !== false) {
@@ -424,14 +515,25 @@ class OmdbApiClient {
         }
       }
       
-      // Weight score: prefer word matches, then short Levenshtein distance
-      $score = $dist1 - ($wordMatches * 0.15);
+      // For multi-word queries, enforce minimum word overlap
+      // Example: 3-word query needs at least 2 matches (ratio 0.67 > 0.65 threshold passes)
+      if ($queryWordCount >= 2) {
+        $wordOverlapRatio = $queryWordCount > 0 ? $wordMatches / $queryWordCount : 0;
+        if ($wordOverlapRatio < $minWordOverlapRatio) {
+          error_log("[OmdbApiClient] Skipping '$title' - insufficient word overlap ($wordMatches/$queryWordCount = " . round($wordOverlapRatio * 100, 1) . "%)");
+          continue; // Skip this movie if word overlap is too low
+        }
+      }
       
-      if ($score <= 0.65) { // Slightly more lenient than API fuzzy
+      // Weight score: prefer word matches, then short Levenshtein distance
+      $score = $dist1 - ($wordMatches * 0.30);
+      
+      if ($score <= OMDB_FUZZY_THRESHOLD) {
         $scored[] = [
           'movie' => $movie,
           'score' => $score,
-          'wordMatches' => $wordMatches
+          'wordMatches' => $wordMatches,
+          'wordOverlapRatio' => $queryWordCount > 0 ? $wordMatches / $queryWordCount : 0
         ];
       }
     }
@@ -449,9 +551,10 @@ class OmdbApiClient {
       return $a['score'] <=> $b['score']; // Then better Levenshtein distance
     });
     
-    // Return top 10 matches
-    $results = array_slice(array_column($scored, 'movie'), 0, 10);
-    error_log("[OmdbApiClient] Found " . count($results) . " fuzzy matches in database");
+    // Return configurable number of matches
+    $resultLimit = OMDB_FUZZY_RESULT_LIMIT;
+    $results = array_slice(array_column($scored, 'movie'), 0, $resultLimit);
+    error_log("[OmdbApiClient] Found " . count($results) . " Levenshtein fuzzy matches in database with word overlap enforcement");
     
     return $results;
   }
@@ -509,7 +612,7 @@ class OmdbApiClient {
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+    curl_setopt($ch, CURLOPT_TIMEOUT, OMDB_DETAIL_TIMEOUT);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -592,7 +695,7 @@ class OmdbApiClient {
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+    curl_setopt($ch, CURLOPT_TIMEOUT, OMDB_DETAIL_TIMEOUT);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -698,7 +801,7 @@ function fetch_recent_releases(int $year = null): array {
       $ch = curl_init();
       curl_setopt($ch, CURLOPT_URL, $url);
       curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-      curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+      curl_setopt($ch, CURLOPT_TIMEOUT, OMDB_DETAIL_TIMEOUT);
       curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
       $response = curl_exec($ch);
       curl_close($ch);
