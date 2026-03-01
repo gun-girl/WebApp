@@ -494,9 +494,58 @@ if ($sheet === 'lists') {
   <div class="stats-dashboard">
     <div class="nav-buttons" style="margin-bottom: 1rem;">
       <?php if (function_exists('is_admin') && is_admin()): ?>
+        <!-- Download Excel button -->
         <a href="export_results.php?year=<?= $viewYearInt ?>&status=<?= urlencode($selected_status) ?>" class="btn">⬇ <?= t('download_excel') ?></a>
       <?php endif; ?>
     </div>
+    
+    <!-- Competition button next to filters -->
+    <?php if (function_exists('is_admin') && is_admin()): ?>
+    <div class="competition-button-row">
+      <button type="button" id="statsCompetitionBtn" class="btn-add-competition">+ <?= e(t('start_competition_flow')) ?></button>
+    </div>
+    <?php endif; ?>
+    
+    <!-- New Competition Modal for stats page -->
+    <?php if (function_exists('is_admin') && is_admin()): ?>
+    <div class="competition-modal" id="statsCompetitionModal">
+      <div class="competition-modal-overlay" onclick="closeStatsCompetitionModal()"></div>
+      <div class="competition-modal-content">
+        <div class="competition-modal-header">
+          <h2><?= e(t('start_competition_flow')) ?></h2>
+          <button type="button" class="competition-modal-close" onclick="closeStatsCompetitionModal()">✕</button>
+        </div>
+        <form method="post" action="<?= ADDRESS ?>/admin_competitions.php" class="competition-modal-form">
+          <?= csrf_field() ?>
+          <input type="hidden" name="action" value="create">
+          
+          <div class="competition-form-group">
+            <label class="competition-form-label" for="statsCompNameInput"><?= e(t('competition_name_label')) ?></label>
+            <input type="text" name="name" id="statsCompNameInput" placeholder="<?= e(t('competition_placeholder')) ?>" autocomplete="off">
+          </div>
+          
+          <div class="competition-form-group">
+            <label class="competition-form-label" for="statsCompStartInput"><?= e(t('competition_start_label')) ?></label>
+            <input type="date" name="start_date" id="statsCompStartInput" required>
+          </div>
+          
+          <div class="competition-form-group">
+            <label class="competition-form-label" for="statsCompEndInput"><?= e(t('competition_end_label')) ?></label>
+            <input type="date" name="end_date" id="statsCompEndInput" required>
+          </div>
+          
+          <div class="competition-form-actions">
+            <button type="button" class="btn btn-secondary" onclick="closeStatsCompetitionModal()">
+              <?= e(t('cancel') ?? 'Cancel') ?>
+            </button>
+            <button type="submit" id="statsCompCreateBtn" class="btn" disabled>
+              🎉 <?= e(t('create_competition_action')) ?>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <?php endif; ?>
     <div class="stats-accordion">
       <div class="stat-card">
         <button class="stat-toggle" data-target="stat-best" aria-expanded="true">
@@ -810,6 +859,73 @@ if ($sheet === 'lists') {
           if (target) target.classList.toggle('open', !isOpen);
         });
       });
+
+      // Competition form validation (used by footer button and modal)
+      var compStartInput = document.getElementById('statsCompStartInput');
+      var compEndInput = document.getElementById('statsCompEndInput');
+      var compNameInput = document.getElementById('statsCompNameInput');
+      var compCreateBtn = document.getElementById('statsCompCreateBtn');
+      var compBtn = document.getElementById('statsCompetitionBtn');
+      var compModal = document.getElementById('statsCompetitionModal');
+
+      if (compBtn && compModal) {
+        // Open modal when button clicked
+        compBtn.addEventListener('click', function() {
+          compModal.classList.add('open');
+          if (compStartInput) compStartInput.focus();
+        });
+      }
+
+      function updateCreateButtonState() {
+        if (!compStartInput || !compEndInput || !compCreateBtn) return;
+        
+        // Set min end date
+        if (compStartInput.value) {
+          compEndInput.min = compStartInput.value;
+        }
+
+        // Enable/disable create button based on date validation
+        var hasStartDate = compStartInput.value && compStartInput.value.length > 0;
+        var hasEndDate = compEndInput.value && compEndInput.value.length > 0;
+        var datesValid = hasStartDate && hasEndDate && compStartInput.value <= compEndInput.value;
+        
+        compCreateBtn.disabled = !datesValid;
+
+        // Auto-populate name based on start year
+        if (compNameInput && compNameInput.value.trim() === '' && hasStartDate) {
+          var yearGuess = compStartInput.value.split('-')[0];
+          compNameInput.placeholder = 'Competition ' + yearGuess;
+        }
+      }
+
+      // Add event listeners for validation
+      if (compStartInput) {
+        compStartInput.addEventListener('change', function() {
+          updateCreateButtonState();
+          if (this.value && !compEndInput.value) {
+            compEndInput.focus();
+          }
+        });
+        compStartInput.addEventListener('input', updateCreateButtonState);
+      }
+
+      if (compEndInput) {
+        compEndInput.addEventListener('change', updateCreateButtonState);
+        compEndInput.addEventListener('input', updateCreateButtonState);
+      }
+
+      if (compNameInput) {
+        compNameInput.addEventListener('input', updateCreateButtonState);
+      }
+
+      // Initial validation check
+      updateCreateButtonState();
+
+      // Close modal function
+      window.closeStatsCompetitionModal = function() {
+        var compModal = document.getElementById('statsCompetitionModal');
+        if (compModal) compModal.classList.remove('open');
+      };
     })();
   </script>
 
